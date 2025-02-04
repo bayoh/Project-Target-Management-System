@@ -84,7 +84,9 @@ export const userApi = {
       password,
       email_confirm: true, // Automatically confirm the email
       user_metadata: {
-        full_name: userData.full_name
+        full_name: userData.full_name,
+        role: userData.role,
+        status: userData.status
       }
     });
 
@@ -443,8 +445,7 @@ export const reportApi = {
                 name,
                 cluster:clusters(name)
               )
-            ),
-            lead:profiles!actions_lead_id_fkey(email)
+            )
           `)
           .eq('id', actionId)
           .single(),
