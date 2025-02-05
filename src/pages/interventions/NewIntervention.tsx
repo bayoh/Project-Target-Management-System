@@ -308,7 +308,7 @@ export function NewIntervention() {
                     <option value="">Select a lead</option>
                     {users.map((user) => (
                       <option key={user.id} value={user.id}>
-                        {user.email}
+                        {user.full_name}
                       </option>
                     ))}
                   </select>

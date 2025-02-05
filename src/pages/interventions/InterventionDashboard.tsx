@@ -86,7 +86,7 @@ export function InterventionDashboard() {
               name
             )
           ),
-          lead:users_view!interventions_lead_id_fkey(email)
+          lead:users_view!interventions_lead_id_fkey(email, id, full_name)
         `)
         .order('created_at', { ascending: false });
 
@@ -290,7 +290,7 @@ export function InterventionDashboard() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   <div className="truncate max-w-[150px]">
-                    {intervention.lead?.email || 'Unassigned'}
+                    {intervention.lead?.full_name || 'Unassigned'}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -423,7 +423,7 @@ export function InterventionDashboard() {
             <div className="space-y-2">
               <div className="flex items-center text-sm text-gray-500">
                 <Users className="h-4 w-4 mr-2" />
-                {intervention.lead?.email || 'Unassigned'}
+                {intervention.lead?.full_name || 'Unassigned'}
               </div>
               <div className="flex items-center text-sm text-gray-500">
                 <Calendar className="h-4 w-4 mr-2" />

@@ -126,7 +126,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
         .from('action_comments')
         .select(`
           *,
-          user:users_view!action_comments_created_by_fkey(email)
+          user:users_view!action_comments_created_by_fkey(email, full_name)
         `)
         .eq('action_id', action.id)
         .order('created_at', { ascending: false });
@@ -566,7 +566,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                 <h4 className="text-sm font-medium text-gray-700">Lead</h4>
                 <div className="mt-1 flex items-center text-sm text-gray-900">
                   <Users className="h-4 w-4 mr-1 text-gray-400" />
-                  {action.lead_id ? users.find(u => u.id === action.lead_id)?.email : 'Unassigned'}
+                  {action.lead_id ? users.find(u => u.id === action.lead_id)?.full_name : 'Unassigned'}
                 </div>
               </div>
 
@@ -576,7 +576,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                   {action.supporting_staff && action.supporting_staff.length > 0 ? (
                     <ul className="list-disc list-inside">
                       {action.supporting_staff.map(id => (
-                        <li key={id}>{users.find(u => u.id === id)?.email}</li>
+                        <li key={id}>{users.find(u => u.id === id)?.full_name}</li>
                       ))}
                     </ul>
                   ) : (
@@ -932,7 +932,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                 <div key={comment.id} className="bg-gray-50 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-900">
-                      {comment.user.email}
+                      {comment.user.full_name}
                     </span>
                     <span className="text-sm text-gray-500">
                       {format(new Date(comment.created_at), 'PPp')}

@@ -53,7 +53,7 @@ export function InterventionDetails() {
           .select(`
             *,
             pathway:pathways(name),
-            lead:users_view!interventions_lead_id_fkey(email),
+            lead:users_view!interventions_lead_id_fkey(email, full_name),
             actions(*)
           `)
           .eq('id', id)
@@ -312,7 +312,7 @@ export function InterventionDetails() {
             <div>
               <h3 className="text-sm font-medium text-gray-500">Lead</h3>
               <p className="mt-1 text-sm text-gray-900">
-                {intervention.lead?.email || 'Unassigned'}
+                {intervention.lead?.full_name || 'Unassigned'}
               </p>
             </div>
           </div>
@@ -357,7 +357,7 @@ export function InterventionDetails() {
                   <div>
                     <p className="text-sm font-medium text-gray-900">{doc.name}</p>
                     <p className="text-xs text-gray-500">
-                      Uploaded by {doc.user.email} on {format(new Date(doc.created_at), 'PPp')}
+                      Uploaded by {doc.user.full_name} on {format(new Date(doc.created_at), 'PPp')}
                     </p>
                   </div>
                 </div>

@@ -111,7 +111,7 @@ export function ActionList({ actions, interventionId, onActionUpdate, users }: A
               <option value="">All Users</option>
               {users.map((user) => (
                 <option key={user.id} value={user.id}>
-                  {user.email}
+                  {user.full_name}
                 </option>
               ))}
             </select>
@@ -214,7 +214,7 @@ export function ActionList({ actions, interventionId, onActionUpdate, users }: A
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {action.lead_id ? users.find(u => u.id === action.lead_id)?.email : 'Unassigned'}
+                  {action.lead_id ? users.find(u => u.id === action.lead_id)?.full_name : 'Unassigned'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {action.end_date ? new Date(action.end_date).toLocaleDateString() : '-'}
