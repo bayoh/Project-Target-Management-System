@@ -520,7 +520,7 @@ export const reportApi = {
           .map(a => a.description),
         issues: activeIssues,
         jobsTarget: totalJobs.target > 0 
-          ? `Target: ${totalJobs.target} jobs (Current: ${totalJobs.current})` 
+          ? `Target: ${totalJobs.target} jobs (Current: ${totalJobs.current})\nWomen: ${totalJobs.women_target} (Current: ${totalJobs.women_current})\nYouth: ${totalJobs.youth_target} (Current: ${totalJobs.youth_current})` 
           : 'No job targets set',
         projectCost: actionData.data.budget 
           ? new Intl.NumberFormat('en-US', {

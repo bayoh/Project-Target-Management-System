@@ -82,7 +82,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   const navItems: NavItem[] = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/userdashboard'},
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard'},
+    { icon: LayoutDashboard, label: 'My Tasks', path: '/userdashboard'},
     { icon: Folders, label: 'Clusters', path: '/clusters' },
     { 
       icon: Target, 
