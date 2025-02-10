@@ -191,12 +191,12 @@ export function UserDashboard() {
               </div>
             </div>
 
-            {/* Related Actions */}
-            {'relatedActions' in item && item.relatedActions && item.relatedActions.length > 0 && (
+          
+            {item.relatedActions && item.relatedActions.length > 0 && (
               <div className="mt-2 ml-8 space-y-2 relative before:absolute before:left-0 before:top-0 before:bottom-0 before:w-0.5 before:bg-gray-200">
-                {item.relatedActions.map((action) => (
+                {item.relatedActions.map((action: any) => (
                   <div
-                    key={`action-${action.id}`}
+                    key={`action-${action?.id}`}
                     className="bg-white rounded-lg shadow-sm p-4 space-y-3 relative before:absolute before:left-[-1rem] before:top-1/2 before:w-4 before:h-0.5 before:bg-gray-200"
                   >
                     <div className="flex items-start justify-between">

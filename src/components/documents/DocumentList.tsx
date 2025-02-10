@@ -56,7 +56,7 @@ export function DocumentList({ documents, onDelete }: DocumentListProps) {
               <Eye className="h-5 w-5" />
             </button>
             <a
-              href={doc.url}
+              href={`https://yoltenqbpcdwshfehuwm.supabase.co/storage/v1/object/public/intervention-documents/${doc.url}`}
               download={doc.name}
               className="text-gray-600 hover:text-gray-800"
               title="Download"

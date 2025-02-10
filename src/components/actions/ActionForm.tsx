@@ -53,7 +53,7 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
   const loadUsers = async () => {
     try {
       const { data, error } = await supabase
-        .from('users_view')
+        .from('profiles')
         .select('*')
         .order('email');
 

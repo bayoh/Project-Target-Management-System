@@ -86,10 +86,11 @@ export function InterventionDashboard() {
               name
             )
           ),
-          lead:users_view!interventions_lead_id_fkey(email, id, full_name)
+          lead:profiles!interventions_lead_id_fkey1(email, id, full_name)
         `)
         .order('created_at', { ascending: false });
-
+        console.log(error)
+        // lead:users_view!interventions_lead_id_fkey(email, id, full_name)
       if (error) throw error;
       setInterventions(data || []);
     } catch (err) {
@@ -133,7 +134,7 @@ export function InterventionDashboard() {
   const loadUsers = async () => {
     try {
       const { data, error } = await supabase
-        .from('users_view')
+        .from('profiles')
         .select('*')
         .order('email');
 

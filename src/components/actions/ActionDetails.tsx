@@ -126,7 +126,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
         .from('action_comments')
         .select(`
           *,
-          user:users_view!action_comments_created_by_fkey(email, full_name)
+          user:profiles!action_comments_created_by_fkey1(email, full_name)
         `)
         .eq('action_id', action.id)
         .order('created_at', { ascending: false });

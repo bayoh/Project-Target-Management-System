@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import type { Intervention, User } from '../../types/project';
 import { ChevronLeft, Plus, MessageSquare, Upload, X, FileText, Download, Pencil } from 'lucide-react';
 import { ActionList } from '../../components/actions/ActionList';
+import { DocumentList, DocumentViewer} from '../../components/documents';
 import { format } from 'date-fns';
 
 interface Comment {
@@ -53,20 +54,20 @@ export function InterventionDetails() {
           .select(`
             *,
             pathway:pathways(name),
-            lead:users_view!interventions_lead_id_fkey(email, full_name),
+            lead:profiles!interventions_lead_id_fkey1(email, full_name),
             actions(*)
           `)
           .eq('id', id)
           .single(),
         supabase
-          .from('users_view')
+          .from('profiles')
           .select('*')
           .order('email'),
         supabase
           .from('intervention_comments')
           .select(`
             *,
-            user:users_view!intervention_comments_created_by_fkey(*)
+            user:profiles!intervention_comments_created_by_fkey1(*)
           `)
           .eq('intervention_id', id)
           .order('created_at', { ascending: false }),
@@ -74,7 +75,7 @@ export function InterventionDetails() {
           .from('intervention_documents')
           .select(`
             *,
-            user:users_view!intervention_documents_created_by_fkey(*)
+            user:profiles!intervention_documents_created_by_fkey1(*)
           `)
           .eq('intervention_id', id)
           .order('created_at', { ascending: false })
@@ -347,7 +348,8 @@ export function InterventionDetails() {
           </div>
 
           <div className="space-y-4">
-            {documents.map((doc) => (
+            <DocumentList documents={documents} />
+            {/* {documents.map((doc) => (
               <div
                 key={doc.id}
                 className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
@@ -361,6 +363,7 @@ export function InterventionDetails() {
                     </p>
                   </div>
                 </div>
+                
                 <button
                   onClick={() => handleDownload(doc)}
                   className="text-blue-600 hover:text-blue-800"
@@ -374,7 +377,7 @@ export function InterventionDetails() {
               <p className="text-center text-sm text-gray-500 py-4">
                 No documents uploaded yet
               </p>
-            )}
+            )} */}
           </div>
         </div>
 

@@ -13,12 +13,13 @@ export function DocumentViewer({ url, name, type, onClose }: DocumentViewerProps
 
   const isImage = type.startsWith('image/');
   const isPDF = type === 'application/pdf';
+  const urlPath = `https://yoltenqbpcdwshfehuwm.supabase.co/storage/v1/object/public/intervention-documents/${url}`
 
   const renderContent = () => {
     if (isImage) {
       return (
         <img
-          src={url}
+          src={urlPath}
           alt={name}
           className="max-w-full h-auto"
           onLoad={() => setIsLoading(false)}
@@ -29,7 +30,7 @@ export function DocumentViewer({ url, name, type, onClose }: DocumentViewerProps
 
     if (isPDF) {
       // Use Google Docs viewer for PDFs to avoid CORS issues
-      const googleDocsUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+      const googleDocsUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(urlPath)}&embedded=true`;
       return (
         <iframe
           src={googleDocsUrl}
@@ -67,7 +68,7 @@ export function DocumentViewer({ url, name, type, onClose }: DocumentViewerProps
             </div>
             <div className="flex items-center space-x-2">
               <a
-                href={url}
+                href={urlPath}
                 download={name}
                 className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
               >
@@ -75,7 +76,7 @@ export function DocumentViewer({ url, name, type, onClose }: DocumentViewerProps
                 Download
               </a>
               <a
-                href={url}
+                href={urlPath}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
