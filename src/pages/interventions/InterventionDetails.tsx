@@ -7,6 +7,7 @@ import { ChevronLeft, Plus, MessageSquare, Upload, X, FileText, Download, Pencil
 import { ActionList } from '../../components/actions/ActionList';
 import { DocumentList, DocumentViewer} from '../../components/documents';
 import { format } from 'date-fns';
+import { projectApi } from '../../lib/api';
 
 interface Comment {
   id: string;
@@ -49,6 +50,7 @@ export function InterventionDetails() {
   const loadData = async () => {
     try {
       const [interventionData, usersData, commentsData, documentsData] = await Promise.all([
+        // projectApi.getInterventionById(id),
         supabase
           .from('interventions')
           .select(`
@@ -85,6 +87,10 @@ export function InterventionDetails() {
       if (usersData.error) throw usersData.error;
       if (commentsData.error) throw commentsData.error;
       if (documentsData.error) throw documentsData.error;
+
+      // const data = await projectApi.getInterventionById(id);
+
+      console.log(usersData)
 
       setIntervention(interventionData.data);
       setUsers(usersData.data);

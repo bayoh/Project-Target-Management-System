@@ -290,7 +290,7 @@ export function Dashboard() {
           </div>
         </div>
 
-        <ProjectStats/>
+        {/* <ProjectStats/> */}
 
         {/* Clusters and Pathways */}
         <div className="space-y-6">
@@ -361,6 +361,7 @@ export function Dashboard() {
           )}
         </div>
       </div>
+      <ProjectStats/>
     </DashboardLayout>
   );
 }

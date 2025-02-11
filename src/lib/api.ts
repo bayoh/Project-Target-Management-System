@@ -248,6 +248,62 @@ export const projectApi = {
   },
 
   // Interventions
+  async getInterventions() {
+    const { data, error } = await supabase
+     .from('interventions')
+     .select(`
+              *,
+              pathway:pathways(
+                id,
+                name,
+                cluster:clusters(
+                  id,
+                  name
+                )
+              ),
+              lead:profiles!interventions_lead_id_fkey1(email, id, full_name)
+            `)
+     .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+
+  // Get intervention by ID with all related data
+  async getInterventionById(id: string) {
+    const { data, error } = await supabase
+      .from('interventions')
+      .select(`
+        *,
+        pathway:pathways(
+          id,
+          name,
+          cluster:clusters(
+            id,
+            name
+          )
+        ),
+        lead:profiles!interventions_lead_id_fkey1(id, email, full_name),
+        actions(*): 
+          actions(*, 
+            lead:profiles!actions_lead_id_fkey1(id, email, full_name),
+            supporting_staff:profiles(id, email, full_name),
+            achievements:action_achievements(*),
+            issues:action_issues(*),
+            targets:action_targets(*)
+          ),
+        documents:intervention_documents(*),
+        comments:intervention_comments(
+          *,
+          user:profiles!intervention_comments_created_by_fkey1(*)
+        )
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
   async createIntervention(intervention: Omit<Intervention, 'id' | 'created_at' | 'updated_at' | 'created_by'>) {
     const { data, error } = await supabase
       .from('interventions')

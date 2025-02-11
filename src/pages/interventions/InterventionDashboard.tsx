@@ -73,34 +73,48 @@ export function InterventionDashboard() {
   }, [filters.clusterId]);
 
   const loadInterventions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('interventions')
-        .select(`
-          *,
-          pathway:pathways(
-            id,
-            name,
-            cluster:clusters(
-              id,
-              name
-            )
-          ),
-          lead:profiles!interventions_lead_id_fkey1(email, id, full_name)
-        `)
-        .order('created_at', { ascending: false });
-        console.log(error)
-        // lead:users_view!interventions_lead_id_fkey(email, id, full_name)
-      if (error) throw error;
+    try{
+      const data = await projectApi.getInterventions();
       setInterventions(data || []);
     } catch (err) {
       console.error('Failed to load interventions:', err);
       setError('Failed to load interventions');
       toast.error('Failed to load interventions');
     } finally {
-      setLoading(false);
+      setLoading(false);  
     }
-  };
+  }
+
+  // const loadInterventions = async () => {
+  //   try {
+  //     const { data, error } = await supabase
+  //       .from('interventions')
+  //       .select(`
+  //         *,
+  //         pathway:pathways(
+  //           id,
+  //           name,
+  //           cluster:clusters(
+  //             id,
+  //             name
+  //           )
+  //         ),
+  //         lead:profiles!interventions_lead_id_fkey1(email, id, full_name)
+  //       `)
+  //       .order('created_at', { ascending: false });
+  //       console.log(error)
+  //       // lead:profiles!interventions_lead_id_fkey1(email, id, full_name)
+  //       // lead:users_view!interventions_lead_id_fkey(email, id, full_name)
+  //     if (error) throw error;
+  //     setInterventions(data || []);
+  //   } catch (err) {
+  //     console.error('Failed to load interventions:', err);
+  //     setError('Failed to load interventions');
+  //     toast.error('Failed to load interventions');
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   const loadClusters = async () => {
     try {

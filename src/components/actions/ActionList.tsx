@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Edit2, Plus, Filter, ArrowUpDown, Users, Calendar, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Action, User } from '../../types/project';
 import { ActionForm } from './ActionForm';
+import { supabase } from '../../lib/supabase';
+import { canCreateAction, canEditAction } from '../../lib/permissions';
 
 interface ActionListProps {
   actions: Action[];
@@ -14,6 +16,20 @@ interface ActionListProps {
 export function ActionList({ actions, interventionId, onActionUpdate, users }: ActionListProps) {
   const navigate = useNavigate();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [canCreate, setCanCreate] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
+
+  console.log(users)
+
+  useEffect(() => {
+    const checkPermissions = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log(canCreateAction(user))
+      setCanCreate(canCreateAction(user));
+      setCanEdit(canEditAction(user));
+    };
+    checkPermissions();
+  }, []);
   const [editingAction, setEditingAction] = useState<Action | null>(null);
   const [sortField, setSortField] = useState<'name' | 'end_date' | 'status'>('end_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -68,13 +84,15 @@ export function ActionList({ actions, interventionId, onActionUpdate, users }: A
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-medium text-gray-900">Actions</h2>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Action
-        </button>
+        {canCreate && (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Action
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -228,13 +246,15 @@ export function ActionList({ actions, interventionId, onActionUpdate, users }: A
                     >
                       <Eye className="h-4 w-4" />
                     </button>
-                    <button
-                      onClick={() => setEditingAction(action)}
-                      className="text-blue-600 hover:text-blue-900"
-                      title="Edit action"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
+                    {canEdit && (
+                      <button
+                        onClick={() => setEditingAction(action)}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Edit action"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
