@@ -22,6 +22,7 @@ import { NeedForm } from './forms/NeedForm';
 import { TargetForm } from './forms/TargetForm';
 import { format } from 'date-fns';
 import { useNavigate, useLocation} from 'react-router-dom'
+import { AchievementViewModal } from './AchievementViewModal';
 
 interface Partner {
   id: string;
@@ -101,6 +102,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
     const tab = location.hash.slice(1);
     return ['details', 'achievements', 'issues', 'needs', 'targets', 'comments'].includes(tab) ? tab as any : 'details';
   });
+  const [viewingAchievement, setViewingAchievement] = useState<Achievement | null>(null);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [needs, setNeeds] = useState<Need[]>([]);
@@ -110,6 +112,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [showAchievementForm, setShowAchievementForm] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
   const [formType, setFormType] = useState<'achievement' | 'issue' | 'need' | 'target' | null>(null);
@@ -357,6 +360,10 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
     }
   };
 
+  const handleAchievementView = (achievement: Achievement) => {
+    setViewingAchievement(achievement);
+  };
+
   const renderForm = () => {
     if (!showForm || !formType) return null;
 
@@ -461,6 +468,17 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
 
   return (
     <div className="space-y-6">
+      {/* Achievement View Modal */}
+      <AchievementViewModal
+        isOpen={!!viewingAchievement}
+        onClose={() => setViewingAchievement(null)}
+        achievement={viewingAchievement || {
+          description: '',
+          date_achieved: '',
+          evidence_url: '',
+          evidence_file: []
+        }}
+      />
       {/* Progress Overview */}
       {/* <div className="bg-white shadow-sm rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">
@@ -610,49 +628,38 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
               </button>
             </div>
 
-            <div className="space-y-4">
-              {achievements.map((achievement) => (
-                <div
-                  key={achievement.id}
-                  className="bg-gray-50 rounded-lg p-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-900">
-                        {achievement.description}
-                      </h4>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Achieved on {new Date(achievement.date_achieved).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-2">
+            {achievements.length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No achievements</h3>
+                <p className="mt-1 text-sm text-gray-500">Get started by adding a new achievement.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {achievements.map((achievement) => (
+                  <div
+                    key={achievement.id}
+                    className="bg-gray-50 shadow-sm rounded-lg p-4 border border-gray-100 hover:border-gray-300 transition-colors"
+                  >
+                    <div className="flex justify-between">
+                      <div className="flex-1 cursor-pointer" onClick={() => setViewingAchievement(achievement)}>
+                        <h4 className="text-sm font-medium text-gray-900">{achievement.description}</h4>
+                        <p className="mt-1 text-sm text-gray-500">
+                          Achieved on {new Date(achievement.date_achieved).toLocaleDateString()}
+                        </p>
+                      </div>
                       <button
+                        type="button"
                         onClick={() => handleEdit(achievement, 'achievement')}
-                        className="text-blue-600 hover:text-blue-800"
+                        className="ml-4 text-sm text-blue-600 hover:text-blue-500"
                       >
-                        <Edit2 className="h-4 w-4" />
+                        Edit
                       </button>
-                      {achievement.evidence_url && (
-                        <a
-                          href={achievement.evidence_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          <FileText className="h-4 w-4" />
-                        </a>
-                      )}
                     </div>
                   </div>
-                </div>
-              ))}
-
-              {achievements.length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  No achievements recorded yet
-                </p>
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

@@ -7,7 +7,7 @@ interface IssueFormProps {
   issue?: {
     description: string;
     status: 'open' | 'in_progress' | 'resolved';
-    severity: 'low' | 'medium' | 'high' | 'critical';
+    severity: 'low' | 'medium' | 'high' ;
     date_identified: string;
     date_resolved?: string;
     is_blocker: boolean;
@@ -106,7 +106,6 @@ export function IssueForm({ onSubmit, onCancel, issue }: IssueFormProps) {
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
-            <option value="critical">Critical</option>
           </select>
         </div>
 
@@ -148,7 +147,7 @@ export function IssueForm({ onSubmit, onCancel, issue }: IssueFormProps) {
             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
           <label htmlFor="is_blocker" className="ml-2 block text-sm text-gray-700">
-            This issue is blocking progress
+            This issue is preventing progress
           </label>
         </div>
       </div>
