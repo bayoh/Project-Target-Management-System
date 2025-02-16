@@ -10,6 +10,7 @@ import {
   Menu,
   X,
   User,
+  UserCheck2Icon,
   ChevronLeft,
   ChevronRight,
   Upload,
@@ -36,10 +37,10 @@ interface NavItem {
   label: string;
   path: string;
   subItems?: NavItem[];
+  roles?: string[];
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  // Initialize state from localStorage or default to true
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     const saved = localStorage.getItem('sidebarOpen');
     return saved !== null ? JSON.parse(saved) : true;
@@ -47,6 +48,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -55,10 +57,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     localStorage.setItem('sidebarOpen', JSON.stringify(isSidebarOpen));
   }, [isSidebarOpen]);
 
-  // Load system settings
+  // Load user role and system settings
   useEffect(() => {
-    const loadSettings = async () => {
+    const loadUserAndSettings = async () => {
       try {
+        const { data: { user } } = await supabase.auth.getUser();
+        console.log(user)
+        if (user?.user_metadata?.role) {
+          setUserRole(user.user_metadata.role);
+        }
+
         const { data, error } = await supabase
           .from('system_settings')
           .select('*')
@@ -67,13 +75,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         if (error) throw error;
         setSettings(data);
       } catch (err) {
-        console.error('Error loading system settings:', err);
+        console.error('Error loading settings:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    loadSettings();
+    loadUserAndSettings();
   }, []);
 
   const handleLogout = async () => {
@@ -82,23 +90,45 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   const navItems: NavItem[] = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard'},
-    { icon: LayoutDashboard, label: 'My Tasks', path: '/userdashboard'},
-    { icon: Folders, label: 'Clusters', path: '/clusters' },
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership']},
+    { icon: LayoutDashboard, label: 'My Tasks', path: '/userdashboard', roles: ['supporting_staff','super_admin','supporting_staff', 'lead',]},
+    { icon: Folders, label: 'Clusters', path: '/clusters', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership'] },
     { 
       icon: Target, 
       label: 'Interventions', 
-      path: '/interventions'
+      path: '/interventions',
+      roles: ['leadership', 'super_admin', 'supporting_staff', 'lead']
     },
-    { icon: BarChart2, label: 'Reports', path: '/reports' },
-    { icon: Settings, label: 'Settings', path: '/settings' , subItems: [
-      { icon: User, label: 'User Management', path: '/settings/users' },
-      { icon: UserCog, label: 'Role Management', path: '/settings/roles' },
-      { icon: ShieldAlert, label: 'Security Settings', path: '/settings/security' },
-      { icon: Settings2Icon, label: 'Systems Settings', path: '/settings/system' },
-      { icon: Upload, label: 'Data Import', path: '/settings/import' },
-    ]},
+    { icon: BarChart2, label: 'Reports', path: '/reports', roles: ['lead', 'super_admin', 'leadership'] },
+    { 
+      icon: Settings, 
+      label: 'Settings', 
+      path: '/settings',
+      roles: ['super_admin'],
+      subItems: [
+        { icon: User, label: 'User Management', path: '/settings/users', roles: ['super_admin'] },
+        { icon: UserCog, label: 'Role Management', path: '/settings/roles', roles: ['super_admin'] },
+        { icon: UserCheck2Icon, label: 'Assignment Management', path: '/settings/assignment', roles: ['super_admin'] },
+        { icon: ShieldAlert, label: 'Security Settings', path: '/settings/security', roles: ['super_admin'] },
+        { icon: Settings2Icon, label: 'Systems Settings', path: '/settings/system', roles: ['super_admin'] },
+        { icon: Upload, label: 'Data Import', path: '/settings/import', roles: ['super_admin'] },
+      ]
+    },
   ];
+
+  // Filter navigation items based on user role
+  const filteredNavItems = navItems.filter(item => {
+    if (!userRole || !item.roles) return false;
+    if (item.roles.includes(userRole)) {
+      if (item.subItems) {
+        item.subItems = item.subItems.filter(subItem => 
+          subItem.roles && subItem.roles.includes(userRole)
+        );
+      }
+      return true;
+    }
+    return false;
+  });
 
   const isActivePath = (path: string) => {
     if (path === '/') {
@@ -187,7 +217,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
 
           <nav className="flex-1 px-2 py-4 space-y-1">
-            {navItems.map((item) => (
+            {filteredNavItems.map((item) => (
               <div key={item.path}>
                 <button
                   onClick={() => item.subItems ? toggleSubmenu(item.path) : navigate(item.path)}

@@ -17,6 +17,7 @@ interface FormData {
   full_name: string;
   email: string;
   phone: string;
+  role: string;
 }
 
 interface PasswordData {
@@ -30,7 +31,8 @@ export function Profile() {
   const [formData, setFormData] = useState<FormData>({
     full_name: '',
     email: '',
-    phone: ''
+    phone: '',
+    role: ''
   });
   const [passwordData, setPasswordData] = useState<PasswordData>({
     currentPassword: '',
@@ -64,8 +66,9 @@ export function Profile() {
       let profile = existingProfile;
       console.log(profile)
 
-      // If no profile exists, create one
+      // If no profile exists, create one with role from user metadata
       if (!profile) {
+        const userRole = user.user_metadata?.role || 'supporting_staff';
         const { data: createdProfile, error: createError } = await supabase
           .from('profiles')
           .insert([{
@@ -73,7 +76,7 @@ export function Profile() {
             full_name: user.email?.split('@')[0] || 'New User',
             avatar_url: null,
             phone: null,
-            role: 'supporting_staff',
+            role: userRole,
             status: 'active'
           }])
           .select()
@@ -81,6 +84,18 @@ export function Profile() {
 
         if (createError) throw createError;
         profile = createdProfile;
+      }
+
+      // Update profile with role from user metadata if it exists
+      const userRole = user.user_metadata?.role;
+      if (userRole && profile.role !== userRole) {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ role: userRole })
+          .eq('id', user.id);
+
+        if (updateError) throw updateError;
+        profile.role = userRole;
       }
 
       setProfile({
@@ -92,7 +107,8 @@ export function Profile() {
       setFormData({
         full_name: profile.full_name || '',
         email: user.email!,
-        phone: profile.phone || ''
+        phone: profile.phone || '',
+        role: profile.role || ''
       });
     } catch (err) {
       console.error('Error loading profile:', err);
@@ -108,12 +124,27 @@ export function Profile() {
 
     setSaving(true);
     try {
-      // Update email if changed
-      if (formData.email !== profile.email) {
-        const { error: emailError } = await supabase.auth.updateUser({
-          email: formData.email
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No authenticated user');
+
+      // Check if user metadata needs updating
+      const currentMetadata = user.user_metadata || {};
+      const needsMetadataUpdate = 
+        currentMetadata.full_name !== formData.full_name ||
+        currentMetadata.phone !== formData.phone ||
+        currentMetadata.role !== formData.role;
+
+      // Update email and metadata if changed
+      if (formData.email !== profile.email || needsMetadataUpdate) {
+        const { error: userError } = await supabase.auth.updateUser({
+          email: formData.email,
+          data: {
+            full_name: formData.full_name,
+            phone: formData.phone,
+            role: formData.role
+          }
         });
-        if (emailError) throw emailError;
+        if (userError) throw userError;
       }
 
       // Update profile data
@@ -122,6 +153,7 @@ export function Profile() {
         .update({
           full_name: formData.full_name,
           phone: formData.phone,
+          role: formData.role,
           updated_at: new Date().toISOString()
         })
         .eq('id', profile.id);

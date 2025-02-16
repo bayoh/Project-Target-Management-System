@@ -21,7 +21,7 @@ export function getUserPermissions(user: User | null): ResourcePermissions {
     };
   }
 
-  switch (user.role) {
+  switch (user?.user_metadata.role) {
     case 'super_admin':
       return {
         interventions: { view: true, create: true, edit: true, delete: true },

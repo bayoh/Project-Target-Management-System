@@ -17,6 +17,7 @@ import { ActionReports } from "./pages/reports/ActionReports";
 import { ReportTemplates } from './pages/reports/ReportTemplates';
 import { Settings } from './pages/settings/Settings';
 import { Profile } from './pages/settings/Profile';
+import { Assignments } from './pages/settings/Assignments';
 import { EditTemplate } from './pages/reports/EditTemplate';
 import { GenerateReport } from './pages/reports/GenerateReport';
 import { Import } from './pages/settings/Import';
@@ -161,6 +162,10 @@ export default function App() {
         <Route
           path="/settings/import"
           element={user ? <Import /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/settings/assignment"
+          element={user ? <Assignments /> : <Navigate to="/login" replace />}
         />
         <Route
           path="/settings/roles"

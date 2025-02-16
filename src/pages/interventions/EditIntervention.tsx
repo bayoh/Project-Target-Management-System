@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { AlertTriangle, ChevronLeft, Upload, X } from 'lucide-react';
 import type { User } from '../../types/auth';
+import { canEditIntervention } from '../../lib/permissions';
 
 interface FormData {
   name: string;
@@ -36,14 +37,24 @@ export function EditIntervention() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadIntervention();
-    loadUsers();
+    const checkPermissionAndLoad = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      // console.log(user)
+      if (!canEditIntervention(user)) {
+        setError('You do not have permission to edit this intervention');
+        setLoading(false);
+        return;
+      }
+      loadIntervention();
+      loadUsers();
+    };
+    checkPermissionAndLoad();
   }, [id]);
 
   const loadUsers = async () => {
     try {
       const { data, error } = await supabase
-        .from('users_view')
+        .from('profiles')
         .select('*')
         .order('email');
 
@@ -165,6 +176,28 @@ export function EditIntervention() {
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error === 'You do not have permission to edit this intervention') {
+    return (
+      <DashboardLayout>
+        <div className="max-w-4xl mx-auto p-6">
+          <div className="rounded-md bg-red-50 p-4">
+            <div className="flex">
+              <AlertTriangle className="h-5 w-5 text-red-400 mr-2" />
+              <div className="text-sm text-red-700">{error}</div>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate(`/interventions/${id}`)}
+            className="mt-4 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+          >
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Back
+          </button>
         </div>
       </DashboardLayout>
     );

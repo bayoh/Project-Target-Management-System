@@ -327,6 +327,41 @@ export const projectApi = {
     return data as Intervention;
   },
 
+async updateInterventionAssignment(interventionIds: string[], leadId: string, supportingStaffIds?: string[]) {
+  const updates: any = {  };
+
+  if (leadId && leadId.trim() !== '') {
+    updates.lead_id = leadId;
+  }
+  
+  if (supportingStaffIds) {
+    updates.supporting_staffs = supportingStaffIds;
+  }
+  console.log(updates)
+  const { error } = await supabase
+    .from('interventions')
+    .update(updates)
+    .in('id', interventionIds);
+    
+  if (error) throw error;
+},
+
+// async updateInterventionAssignment(interventionIds: string[], leadId: string, supportingStaffIds?: string[]) {
+//   const updates: any = { lead_id: leadId };
+  
+//   if (supportingStaffIds) {
+//     updates.supporting_staffs = supportingStaffIds;
+//   }
+//   console.log(updates)
+//   const { error } = await supabase
+//     .from('interventions')
+//     .update(updates)
+//     .in('id', interventionIds);
+    
+//   if (error) throw error;
+// },
+  
+
   async deleteIntervention(id: string) {
     try {
       // First verify the intervention exists and we have access to it
