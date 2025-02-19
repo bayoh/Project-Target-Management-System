@@ -194,7 +194,7 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3x">
+    <form onSubmit={handleSubmit} className="p-4 space-y-10x">
       {error && (
         <div className="rounded-md bg-red-50 p-4">
           <div className="flex">
@@ -258,7 +258,9 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
           />
         </div>
       </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-2">
 
+      
       <div>
         <label htmlFor="status" className="block text-sm font-medium text-gray-700">
           Status
@@ -294,7 +296,8 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
           />
         </div>
       </div>
-
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-2">
       <div>
         <label htmlFor="implementing_partner" className="block text-sm font-medium text-gray-700">
           Implementing Partner
@@ -352,7 +355,9 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
           </button>
         </div>
       </div>
-
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-2">
       <div>
         <label htmlFor="lead" className="block text-sm font-medium text-gray-700">
           Lead
@@ -395,6 +400,7 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
         <p className="mt-1 text-sm text-gray-500">
           Hold Ctrl/Cmd to select multiple staff members
         </p>
+      </div>
       </div>
 
       <div className="flex justify-end space-x-3">
@@ -469,49 +475,54 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
 
       {/* New Project Form Modal */}
       {showNewProjectForm && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Project</h3>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="project_name" className="block text-sm font-medium text-gray-700">
-                  Name *
-                </label>
-                <input
-                  type="text"
-                  id="project_name"
-                  required
-                  value={newProject.name}
-                  onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                />
-              </div>
-              <div>
-                <label htmlFor="project_description" className="block text-sm font-medium text-gray-700">
-                  Description
-                </label>
-                <textarea
-                  id="project_description"
-                  value={newProject.description}
-                  onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                />
-              </div>
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowNewProjectForm(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAddProject}
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-                >
-                  Add Project
-                </button>
+        <div className="fixed inset-0 overflow-y-auto p-4 sm:p-6 md:p-8 z-50">
+          <div className="flex min-h-full items-center justify-center">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+            <div className="relative w-full max-w-md transform rounded-lg bg-white p-4 sm:p-6 shadow-xl transition-all max-h-[90vh] overflow-y-auto">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                {action ? 'Edit Action' : 'Add New Action'}
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="project_name" className="block text-sm font-medium text-gray-700">
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    id="project_name"
+                    required
+                    value={newProject.name}
+                    onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="project_description" className="block text-sm font-medium text-gray-700">
+                    Description
+                  </label>
+                  <textarea
+                    id="project_description"
+                    value={newProject.description}
+                    onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  />
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewProjectForm(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddProject}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                  >
+                    Add Project
+                  </button>
+                </div>
               </div>
             </div>
           </div>

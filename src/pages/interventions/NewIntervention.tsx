@@ -268,12 +268,11 @@ export function NewIntervention() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label htmlFor="start_date" className="block text-sm font-medium text-gray-700">
-                      Start Date *
+                      Start Date
                     </label>
                     <input
                       type="date"
                       id="start_date"
-                      required
                       value={formData.start_date}
                       onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
@@ -282,12 +281,11 @@ export function NewIntervention() {
 
                   <div>
                     <label htmlFor="end_date" className="block text-sm font-medium text-gray-700">
-                      End Date *
+                      End Date
                     </label>
                     <input
                       type="date"
                       id="end_date"
-                      required
                       value={formData.end_date}
                       onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
