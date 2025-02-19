@@ -594,7 +594,7 @@ export function InterventionDashboard() {
                   <option value="">All Leads</option>
                   {users.map((user) => (
                     <option key={user.id} value={user.id}>
-                      {user.email}
+                      {user.full_name}
                     </option>
                   ))}
                 </select>
