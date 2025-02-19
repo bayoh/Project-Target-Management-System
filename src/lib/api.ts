@@ -199,7 +199,7 @@ export const projectApi = {
     try {
       const [projectsResponse, tasksResponse] = await Promise.all([
         supabase
-          .from('interventions')
+          .from('actions')
           .select('status')
           .not('status', 'is', null),
         supabase
@@ -345,6 +345,52 @@ async updateInterventionAssignment(interventionIds: string[], leadId: string, su
     
   if (error) throw error;
 },
+
+async updateActionAssignment(actionIds: string[], leadId: string, supportingStaffIds?: string[]) {
+  const updates: any = {  };
+  if (leadId && leadId.trim() !== '') {
+    updates.lead_id = leadId;
+  }
+
+  if (supportingStaffIds) {
+    updates.supporting_staffs = supportingStaffIds;
+  }
+  console.log(updates)
+  const { error } = await supabase
+   .from('actions')
+   .update(updates)
+   .in('id', actionIds);  
+
+  if (error) throw error;
+},
+
+async getActions(){
+  const { data, error } = await supabase
+   .from('actions')
+   .select(`
+          *,
+          lead:profiles!actions_lead_id_fkey1(id, email, full_name),
+          supporting_staff:profiles(id, email, full_name),
+          achievements:action_achievements(*),
+          issues:action_issues(*), 
+          targets:action_targets(*),
+          link:interventions!actions_intervention_id_fkey1(
+            *,
+            pathway:pathways(
+              id,
+              name,
+              cluster:clusters(
+                id,
+                name
+              )
+            )
+          )
+        `)
+  .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data;
+},
+
 
 // async updateInterventionAssignment(interventionIds: string[], leadId: string, supportingStaffIds?: string[]) {
 //   const updates: any = { lead_id: leadId };
