@@ -18,9 +18,9 @@ interface User {
 }
 
 export function AssignmentManagement() {
-  const [interventions, setInterventions] = useState<Intervention[]>([]);
+  const [actions, setActions] = useState<Intervention[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [selectedInterventions, setSelectedInterventions] = useState<string[]>([]);
+  const [selectedInterventions, setSelectedActions] = useState<string[]>([]);
   const [selectedLead, setSelectedLead] = useState<string>('');
   const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -74,15 +74,15 @@ export function AssignmentManagement() {
   }, [selectedCluster]);
 
   useEffect(() => {
-    // TODO: Fetch interventions and users from API
+    // TODO: Fetch actions and users from API
     const fetchData = async () => {
       try {
         // Implement API calls here
         // Example:
-        const data = await projectApi.getInterventions();
+        const data = await projectApi.getActions();
         const users = await userApi.getUsers()
 
-        setInterventions(data)
+        setActions(data)
         setUsers(users)
         console.log(data)
 
@@ -98,14 +98,14 @@ export function AssignmentManagement() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedInterventions(interventions.map(i => i.id));
+      setSelectedActions(actions.map(i => i.id));
     } else {
-      setSelectedInterventions([]);
+      setSelectedActions([]);
     }
   };
 
-  const handleSelectIntervention = (id: string) => {
-    setSelectedInterventions(prev =>
+  const handleSelectAction = (id: string) => {
+    setSelectedActions(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   };
@@ -120,7 +120,7 @@ export function AssignmentManagement() {
       const ass = projectApi.updateInterventionAssignment(selectedInterventions, selectedLead, selectedStaff)
       console.log(ass)
 
-      console.log('Assigning lead:', selectedLead, 'to interventions:', selectedInterventions);
+      console.log('Assigning lead:', selectedLead, 'to actions:', selectedInterventions);
     } catch (error) {
       console.error('Error assigning lead:', error);
     }
@@ -143,7 +143,7 @@ export function AssignmentManagement() {
       // TODO: Implement API call for bulk staff assignment
       const ass = projectApi.updateInterventionAssignment(selectedInterventions, selectedStaff)
 
-      console.log('Assigning staff:', selectedStaff, 'to interventions:', selectedInterventions);
+      console.log('Assigning staff:', selectedStaff, 'to actions:', selectedInterventions);
     } catch (error) {
       console.error('Error assigning staff:', error);
     }
@@ -186,7 +186,7 @@ export function AssignmentManagement() {
           <div className="relative">
             <input
               type="text"
-              placeholder="Search interventions..."
+              placeholder="Search actions..."
               className="pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -244,7 +244,7 @@ export function AssignmentManagement() {
               <th className="px-6 py-3 text-left">
                 <input
                   type="checkbox"
-                  checked={selectedInterventions.length === interventions.length}
+                  checked={selectedInterventions.length === actions.length}
                   onChange={(e) => handleSelectAll(e.target.checked)}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
@@ -261,7 +261,7 @@ export function AssignmentManagement() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {interventions
+            {actions
               .filter(intervention => {
                 const matchesSearch = intervention.name.toLowerCase().includes(searchTerm.toLowerCase());
                 const matchesCluster = !selectedCluster || intervention?.pathway.cluster.id === selectedCluster;
@@ -274,7 +274,7 @@ export function AssignmentManagement() {
                     <input
                       type="checkbox"
                       checked={selectedInterventions.includes(intervention.id)}
-                      onChange={() => handleSelectIntervention(intervention.id)}
+                      onChange={() => handleSelectAction(intervention.id)}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                   </td>

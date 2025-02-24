@@ -107,9 +107,12 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [needs, setNeeds] = useState<Need[]>([]);
   const [targets, setTargets] = useState<Target[]>([]);
+  const [allUsers, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [implementing_parnters, setImplementingPartners] = useState<Partner[]>([]);
+  const [associated_projects, setAssociatedProjects] = useState<Project[]>([]);
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [showAchievementForm, setShowAchievementForm] = useState(false);
@@ -119,6 +122,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
   const [editingItem, setEditingItem] = useState<any>(null);
 
   useEffect(() => {
+    console.log(action)
     loadData();
     loadComments();
   }, [action.id]);
@@ -174,7 +178,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
 
   const loadData = async () => {
     try {
-      const [achievementsData, issuesData, needsData, targetsData] = await Promise.all([
+      const [achievementsData, issuesData, needsData, targetsData, userData, implementing_parnters, associated_partners] = await Promise.all([
         supabase
           .from('action_achievements')
           .select('*')
@@ -194,18 +198,34 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
           .from('action_targets')
           .select('*')
           .eq('action_id', action.id)
-          .order('created_at', { ascending: false })
+          .order('created_at', { ascending: false }),
+         supabase
+         .from('profiles')
+         .select('*'),
+         supabase
+         .from('implementing_partners')
+         .select('*'),
+         supabase
+         .from('associated_projects')
+         .select('*')
       ]);
 
       if (achievementsData.error) throw achievementsData.error;
       if (issuesData.error) throw issuesData.error;
       if (needsData.error) throw needsData.error;
       if (targetsData.error) throw targetsData.error;
+      if(userData.error) throw userData.error;
+      if(implementing_parnters.error) throw implementing_parnters.error;
+      if(associated_partners.error) throw associated_partners.error;
 
       setAchievements(achievementsData.data);
       setIssues(issuesData.data);
       setNeeds(needsData.data);
       setTargets(targetsData.data);
+      setUsers(userData.data);
+      setImplementingPartners(implementing_parnters.data);
+      setAssociatedProjects(associated_partners.data);
+      console.log(implementing_parnters)
     } catch (err) {
       console.error('Error loading data:', err);
     }
@@ -563,19 +583,28 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
               <div>
                 <h4 className="text-sm font-medium text-gray-700">Implementing Partner</h4>
                 <div className="mt-1 text-sm text-gray-900">
-                  {action.implementing_partner?.name || 'Not assigned'}
-                  {action.implementing_partner?.description && (
-                    <p className="mt-1 text-xs text-gray-500">{action.implementing_partner.description}</p>
+                   {action.implementing_partners && action.implementing_partners.length > 0 ? (
+                    <ul className="list-disc list-inside">
+                      {action.implementing_partners.map(id => (
+                        <li key={id}>{implementing_parnters.find(u => u.id === id)?.name}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <span className="text-gray-500">No partners</span>
                   )}
                 </div>
               </div>
-
               <div>
                 <h4 className="text-sm font-medium text-gray-700">Associated Project</h4>
                 <div className="mt-1 text-sm text-gray-900">
-                  {action.associated_project?.name || 'Not assigned'}
-                  {action.associated_project?.description && (
-                    <p className="mt-1 text-xs text-gray-500">{action.associated_project.description}</p>
+                {action.associated_projects && action.associated_projects.length > 0 ? (
+                    <ul className="list-disc list-inside">
+                      {action.associated_projects.map(id => (
+                        <li key={id}>{associated_projects.find(u => u.id === id)?.name}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <span className="text-gray-500">No linked projects</span>
                   )}
                 </div>
               </div>
@@ -584,7 +613,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                 <h4 className="text-sm font-medium text-gray-700">Lead</h4>
                 <div className="mt-1 flex items-center text-sm text-gray-900">
                   <Users className="h-4 w-4 mr-1 text-gray-400" />
-                  {action.lead_id ? users.find(u => u.id === action.lead_id)?.full_name : 'Unassigned'}
+                  {action.lead_id ? allUsers.find(u => u.id === action.lead_id)?.full_name : 'Unassigned'}
                 </div>
               </div>
 
@@ -594,7 +623,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                   {action.supporting_staff && action.supporting_staff.length > 0 ? (
                     <ul className="list-disc list-inside">
                       {action.supporting_staff.map(id => (
-                        <li key={id}>{users.find(u => u.id === id)?.full_name}</li>
+                        <li key={id}>{allUsers.find(u => u.id === id)?.full_name}</li>
                       ))}
                     </ul>
                   ) : (

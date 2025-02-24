@@ -89,8 +89,8 @@ export function InterventionDetails() {
       if (documentsData.error) throw documentsData.error;
 
       // const data = await projectApi.getInterventionById(id);
+      console.log(interventionData.data);
 
-      console.log(usersData)
 
       setIntervention(interventionData.data);
       setUsers(usersData.data);
@@ -307,11 +307,11 @@ export function InterventionDetails() {
             <div>
               <h3 className="text-sm font-medium text-gray-500">Budget</h3>
               <p className="mt-1 text-sm text-gray-900">
-                {intervention.budget
+                {intervention.actions?.reduce((total, action) => total + (action.budget || 0), 0)
                   ? new Intl.NumberFormat('en-US', {
                       style: 'currency',
                       currency: 'USD'
-                    }).format(intervention.budget)
+                    }).format(intervention.actions.reduce((total, action) => total + (action.budget || 0), 0))
                   : 'Not set'}
               </p>
             </div>

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Edit2, Plus, Filter, ArrowUpDown, Users, Calendar, Eye } from 'lucide-react';
+import { Edit2, Plus, Filter, ArrowUpDown, Users, Calendar, Eye, Trash } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Action, User } from '../../types/project';
 import { ActionForm } from './ActionForm';
 import { supabase } from '../../lib/supabase';
-import { canCreateAction, canEditAction } from '../../lib/permissions';
+import { canCreateAction, canEditAction, canDeleteAction } from '../../lib/permissions';
 
 interface ActionListProps {
   actions: Action[];
@@ -18,19 +18,19 @@ export function ActionList({ actions, interventionId, onActionUpdate, users }: A
   const [showAddForm, setShowAddForm] = useState(false);
   const [canCreate, setCanCreate] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
-
-  console.log(users)
+  const [canDelete, setCanDelete] = useState(false);
 
   useEffect(() => {
     const checkPermissions = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      console.log(canCreateAction(user))
       setCanCreate(canCreateAction(user));
       setCanEdit(canEditAction(user));
+      setCanDelete(canDeleteAction(user));
     };
     checkPermissions();
   }, []);
   const [editingAction, setEditingAction] = useState<Action | null>(null);
+  const [deletingAction, setDeletingAction] = useState<Action | null>(null);
   const [sortField, setSortField] = useState<'name' | 'end_date' | 'status'>('end_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [filters, setFilters] = useState({
@@ -76,6 +76,18 @@ export function ActionList({ actions, interventionId, onActionUpdate, users }: A
     } else {
       setSortField(field);
       setSortDirection('asc');
+    }
+  };
+
+  const deleteAction = async (action: Action) => {
+    if (window.confirm('Are you sure you want to delete this action?')) {
+      try {
+        await supabase.from('actions').delete().eq('id', action.id);
+        setDeletingAction(null);
+        onActionUpdate();
+      } catch (error) {
+        console.error(error);
+      }
     }
   };
 
@@ -253,6 +265,15 @@ export function ActionList({ actions, interventionId, onActionUpdate, users }: A
                         title="Edit action"
                       >
                         <Edit2 className="h-4 w-4" />
+                      </button>
+                    )}
+                     {canDelete && (
+                      <button
+                        onClick={() => deleteAction(action)}
+                        className="text-red-600 hover:text-blue-900"
+                        title="Delete action"
+                      >
+                        <Trash className="h-4 w-4" />
                       </button>
                     )}
                   </div>

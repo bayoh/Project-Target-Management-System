@@ -339,7 +339,9 @@ export function EditIntervention() {
                       type="number"
                       id="budget"
                       step="0.01"
+                      disabled
                       value={formData.budget}
+                      placeholder='     Sum of all actions budget'
                       onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
                       className="p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                     />
