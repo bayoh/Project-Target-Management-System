@@ -31,7 +31,9 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
     supporting_staff: action?.supporting_staff || [],
     budget: action?.budget?.toString() || '',
     implementing_partner_id: action?.implementing_partner_id || '',
-    associated_project_id: action?.associated_project_id || ''
+    implementing_partners: action?.implementing_partners || '',
+    associated_project_id: action?.associated_project_id || '',
+    associated_projects: action?.associated_projects || ''
   });
 
   const [users, setUsers] = useState<User[]>([]);
@@ -112,7 +114,9 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
         supporting_staff: formData.supporting_staff,
         budget: formData.budget ? parseFloat(formData.budget) : null,
         implementing_partner_id: formData.implementing_partner_id || null,
+        implementing_partners: formData.implementing_partners || null,
         associated_project_id: formData.associated_project_id || null,
+        associated_projects: formData.associated_projects || null,
         created_by: user.id
       };
 
@@ -184,7 +188,7 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
       if (error) throw error;
       
       setProjects([...projects, data]);
-      setFormData({ ...formData, associated_project_id: data.id });
+      setFormData({ ...formData, associated_projects: data.id });
       setShowNewProjectForm(false);
       setNewProject({ name: '', description: '' });
     } catch (err: any) {
@@ -304,12 +308,13 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
         </label>
         <div className="mt-1 flex items-center space-x-2">
           <select
-            id="implementing_partner"
-            value={formData.implementing_partner_id}
-            onChange={(e) => setFormData({ ...formData, implementing_partner_id: e.target.value })}
+            id="implementing_partners"
+            multiple
+            value={formData.implementing_partners}
+            onChange={(e) => setFormData({ ...formData, implementing_partners: Array.from(e.target.selectedOptions).map((option) => option.value) })}
             className="block p-2 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
           >
-            <option value="">Select a partner</option>
+            <option value="">Select partners</option>
             {partners.map((partner) => (
               <option key={partner.id} value={partner.id}>
                 {partner.name}
@@ -333,12 +338,13 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
         </label>
         <div className="mt-1 flex items-center space-x-2">
           <select
-            id="associated_project"
-            value={formData.associated_project_id}
-            onChange={(e) => setFormData({ ...formData, associated_project_id: e.target.value })}
+            id="associated_projects"
+            multiple
+            value={formData.associated_projects}
+            onChange={(e) => setFormData({ ...formData, associated_projects: Array.from(e.target.selectedOptions, option => option.value) })}
             className="block p-2 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
           >
-            <option value="">Select a project</option>
+            <option value="">Select projects</option>
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
                 {project.name}
