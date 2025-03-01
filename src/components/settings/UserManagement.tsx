@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Plus, Search, Filter, Edit2, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Filter, Edit2, Trash2, AlertTriangle, DatabaseBackup } from 'lucide-react';
 import { UserForm } from './UserForm';
 import { ConfirmationDialog } from '../ui/ConfirmationDialog';
 import { userApi } from '../../lib/api'
@@ -50,7 +50,16 @@ export function UserManagement() {
           full_name: userData.full_name,
           role: userData.role,
           status: userData.status
+        }).then(async (data) => {
+         console.log(data)
+         await supabase.auth.admin.updateUserById(editingUser.id, {
+          email: userData.email,
+          user_metadata: {
+            role: userData.role,
+            status: userData.status
+          }
         });
+      });
       } else {
         // Create new user using userApi
         await userApi.createUser(

@@ -117,7 +117,7 @@ export function AssignmentManagement() {
       // TODO: Implement API call for bulk lead assignment
 
       // Example:
-      const ass = projectApi.updateInterventionAssignment(selectedInterventions, selectedLead, selectedStaff)
+      const ass = await projectApi.updateActionAssignment(selectedInterventions, selectedLead, selectedStaff)
       console.log(ass)
 
       console.log('Assigning lead:', selectedLead, 'to actions:', selectedInterventions);
@@ -250,7 +250,7 @@ export function AssignmentManagement() {
                 />
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate">
-                Intervention
+                Actions
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Lead
@@ -264,8 +264,8 @@ export function AssignmentManagement() {
             {actions
               .filter(intervention => {
                 const matchesSearch = intervention.name.toLowerCase().includes(searchTerm.toLowerCase());
-                const matchesCluster = !selectedCluster || intervention?.pathway.cluster.id === selectedCluster;
-                const matchesPathway = !selectedPathway || intervention?.pathway_id === selectedPathway;
+                const matchesCluster = !selectedCluster || intervention?.intervention.pathway.cluster.id === selectedCluster;
+                const matchesPathway = !selectedPathway || intervention?.intervention.pathway.id === selectedPathway;
                 return matchesSearch && matchesCluster && matchesPathway;
               })
               .map((intervention) => (
@@ -285,8 +285,8 @@ export function AssignmentManagement() {
                     {users.find(u => u.id === intervention.lead_id)?.full_name || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {Array.isArray(intervention?.supporting_staffs) 
-                      ? intervention.supporting_staffs
+                    {Array.isArray(intervention?.supporting_staff) 
+                      ? intervention.supporting_staff
                           .map(id => users?.find(u => u.id === id)?.full_name)
                           .filter(Boolean)
                           .join(', ') 

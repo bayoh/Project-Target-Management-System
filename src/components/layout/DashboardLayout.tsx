@@ -91,7 +91,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const navItems: NavItem[] = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership']},
-    { icon: LayoutDashboard, label: 'My Tasks', path: '/userdashboard', roles: ['supporting_staff','super_admin','supporting_staff', 'lead',]},
+    { icon: UserCheck2Icon, label: 'My Tasks', path: '/userdashboard', roles: ['supporting_staff','super_admin','supporting_staff', 'lead',]},
     { icon: Folders, label: 'Clusters', path: '/clusters', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership'] },
     { 
       icon: Target, 

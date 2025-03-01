@@ -327,24 +327,24 @@ export const projectApi = {
     return data as Intervention;
   },
 
-async updateInterventionAssignment(interventionIds: string[], leadId: string, supportingStaffIds?: string[]) {
-  const updates: any = {  };
+// async updateActionAssignment(interventionIds: string[], leadId: string, supportingStaffIds?: string[]) {
+//   const updates: any = {  };
 
-  if (leadId && leadId.trim() !== '') {
-    updates.lead_id = leadId;
-  }
+//   if (leadId && leadId.trim() !== '') {
+//     updates.lead_id = leadId;
+//   }
   
-  if (supportingStaffIds) {
-    updates.supporting_staffs = supportingStaffIds;
-  }
-  console.log(updates)
-  const { error } = await supabase
-    .from('interventions')
-    .update(updates)
-    .in('id', interventionIds);
+//   if (supportingStaffIds) {
+//     updates.supporting_staffs = supportingStaffIds;
+//   }
+//   console.log(updates)
+//   const { error } = await supabase
+//     .from('actions')
+//     .update(updates)
+//     .in('id', interventionIds);
     
-  if (error) throw error;
-},
+//   if (error) throw error;
+// },
 
 async updateActionAssignment(actionIds: string[], leadId: string, supportingStaffIds?: string[]) {
   const updates: any = {  };
@@ -353,7 +353,7 @@ async updateActionAssignment(actionIds: string[], leadId: string, supportingStaf
   }
 
   if (supportingStaffIds) {
-    updates.supporting_staffs = supportingStaffIds;
+    updates.supporting_staff = supportingStaffIds;
   }
   console.log(updates)
   const { error } = await supabase
@@ -370,12 +370,12 @@ async getActions(){
    .select(`
           *,
           lead:profiles!actions_lead_id_fkey1(id, email, full_name),
-          supporting_staff:profiles(id, email, full_name),
           achievements:action_achievements(*),
           issues:action_issues(*), 
           targets:action_targets(*),
-          link:interventions!actions_intervention_id_fkey1(
-            *,
+          intervention:interventions(
+            id,
+            name,
             pathway:pathways(
               id,
               name,
