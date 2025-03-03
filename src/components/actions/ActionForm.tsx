@@ -23,6 +23,7 @@ interface ActionFormProps {
 export function ActionForm({ interventionId, action, onSuccess, onCancel }: ActionFormProps) {
   const [formData, setFormData] = useState({
     name: action?.name || '',
+    code: action?.code || '',
     description: action?.description || '',
     status: action?.status || 'not_started',
     start_date: action?.start_date || '',
@@ -106,6 +107,7 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
       const actionData = {
         intervention_id: interventionId,
         name: formData.name,
+        code: formData.code,
         description: formData.description,
         status: formData.status,
         start_date: formData.start_date || null,
@@ -207,7 +209,18 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
           </div>
         </div>
       )}
-
+      <div>
+        <label htmlFor="lead_id" className="block text-sm font-medium text-gray-700">
+          Code
+        </label>
+        <input
+          type="text"
+          id="code"
+          value={formData.code}
+          onChange={(e) => setFormData({...formData, code: e.target.value })}
+          className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+        />
+      </div>
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700">
           Name *

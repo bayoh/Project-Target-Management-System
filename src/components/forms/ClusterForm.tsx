@@ -57,6 +57,20 @@ export function ClusterForm({ cluster, onSubmit }: ClusterFormProps) {
       )}
 
       <div>
+        <label  htmlFor="code" className="block text-sm font-medium text-gray-700">
+          Code
+        </label>
+        <input
+          type="text"
+          id="code"
+          required
+          value={cluster?.code || ''}
+          onChange={(e) => setName(e.target.value)}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+        />
+      </div>
+
+      <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700">
           Name
         </label>

@@ -259,7 +259,9 @@ export function InterventionDetails() {
               Back
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{intervention.name}</h1>
+              
+                <h1 className="col-start-2 col-start-9 text-2xl font-bold text-gray-900">{intervention.name}</h1>
+           
               {intervention.pathway && (
                 <p className="mt-1 text-sm text-gray-500">{intervention.pathway.name}</p>
               )}
@@ -277,6 +279,10 @@ export function InterventionDetails() {
         {/* Overview */}
         <div className="bg-white shadow-sm rounded-lg p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Intervention #</h3>
+              <p className="mt-1 text-sm text-gray-900">{intervention.code}</p>
+            </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500">Status</h3>
               <p className={`mt-1 text-sm font-medium ${
@@ -421,7 +427,7 @@ export function InterventionDetails() {
               <div key={comment.id} className="bg-gray-50 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-gray-900">
-                    {comment.user.email}
+                    {comment.user.full_name}
                   </span>
                   <span className="text-sm text-gray-500">
                     {format(new Date(comment.created_at), 'PPp')}

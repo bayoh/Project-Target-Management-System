@@ -11,6 +11,7 @@ export interface BaseEntity {
 
 export interface Cluster extends BaseEntity {
   name: string;
+  code: number;
   description: string | null;
   pathways?: Pathway[];
 }
@@ -18,6 +19,7 @@ export interface Cluster extends BaseEntity {
 export interface Pathway extends BaseEntity {
   cluster_id: string;
   name: string;
+  code: number;
   description: string | null;
   interventions?: Intervention[];
 }
@@ -25,6 +27,7 @@ export interface Pathway extends BaseEntity {
 export interface Intervention extends BaseEntity {
   pathway_id: string;
   name: string;
+  code: number;
   description: string | null;
   status: ProjectStatus;
   start_date: string | null;
@@ -37,6 +40,7 @@ export interface Intervention extends BaseEntity {
 export interface Action extends BaseEntity {
   intervention_id: string;
   name: string;
+  code: number;
   description: string | null;
   status: ProjectStatus;
   start_date: string | null;

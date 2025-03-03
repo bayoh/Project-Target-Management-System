@@ -9,6 +9,7 @@ import { canEditIntervention } from '../../lib/permissions';
 interface FormData {
   name: string;
   description: string;
+  code: number;
   status: 'not_started' | 'in_progress' | 'at_risk' | 'completed';
   start_date: string;
   end_date: string;
@@ -22,6 +23,7 @@ export function EditIntervention() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState<FormData>({
     name: '',
+    code: 0,
     description: '',
     status: 'not_started',
     start_date: '',
@@ -78,6 +80,7 @@ export function EditIntervention() {
 
       setFormData({
         name: data.name || '',
+        code: data.code || '',
         description: data.description || '',
         status: data.status || 'not_started',
         start_date: data.start_date || '',
@@ -88,7 +91,7 @@ export function EditIntervention() {
       });
     } catch (err: any) {
       console.error('Error loading intervention:', err);
-      setError(err.message);
+      setError(err.details);
     } finally {
       setLoading(false);
     }
@@ -108,6 +111,7 @@ export function EditIntervention() {
         .from('interventions')
         .update({
           name: formData.name,
+          code: formData.code,
           description: formData.description,
           status: formData.status,
           start_date: formData.start_date,
@@ -149,7 +153,7 @@ export function EditIntervention() {
       navigate(`/interventions/${id}`);
     } catch (err: any) {
       console.error('Error updating intervention:', err);
-      setError(err.message);
+      setError(err.details);
     } finally {
       setSaving(false);
     }
@@ -235,6 +239,20 @@ export function EditIntervention() {
               <h3 className="text-lg font-medium text-gray-900">Basic Information</h3>
 
               <div className="grid grid-cols-1 gap-6">
+                <div>
+                  <label htmlFor="code" className="block text-sm font-medium text-gray-700">
+                    Code *
+                  </label>
+                  <input
+                    type="number"
+                    id="code"
+                    required
+                    value={formData.code}
+                    onChange={(e) => setFormData({...formData, code: parseInt(e.target.value) })}
+                    className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  />
+
+                </div>
                 <div>
                   <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                     Name *

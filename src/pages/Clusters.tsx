@@ -61,7 +61,7 @@ export function Clusters() {
             <div className="px-4 py-5 sm:p-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-medium text-gray-900 truncate">
-                  {cluster.name}
+                 {cluster.code} {cluster.name}
                 </h3>
               </div>
               {cluster.description && (
@@ -91,6 +91,9 @@ export function Clusters() {
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
+           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Code
+            </th>
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Name
             </th>
@@ -117,6 +120,9 @@ export function Clusters() {
                 onClick={() => navigate(`/clusters/${cluster.id}`)}
                 className="hover:bg-gray-50 cursor-pointer"
               >
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm font-medium text-gray-900">{cluster.code}</div>
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">{cluster.name}</div>
                   {cluster.description && (

@@ -268,6 +268,9 @@ export function InterventionDashboard() {
         <table className="w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/8">
+                Code
+              </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/3">
                 Name
               </th>
@@ -288,6 +291,11 @@ export function InterventionDashboard() {
           <tbody className="bg-white divide-y divide-gray-200">
             {interventions.map((intervention) => (
               <tr key={intervention.id} className="hover:bg-gray-50">
+                <td>
+                  <div className="text-sm font-medium text-gray-900 text-center max-w-xs">
+                    {intervention.code || '-'}
+                  </div>
+                </td>
                 <td className="px-6 py-4">
                   <div className="text-sm font-medium text-gray-900 truncate max-w-xs">
                     {intervention.name}

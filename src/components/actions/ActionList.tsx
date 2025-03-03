@@ -31,7 +31,7 @@ export function ActionList({ actions, interventionId, onActionUpdate, users }: A
   }, []);
   const [editingAction, setEditingAction] = useState<Action | null>(null);
   const [deletingAction, setDeletingAction] = useState<Action | null>(null);
-  const [sortField, setSortField] = useState<'name' | 'end_date' | 'status'>('end_date');
+  const [sortField, setSortField] = useState< 'code' |'name' | 'end_date' | 'status'>('end_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [filters, setFilters] = useState({
     status: '',
@@ -187,6 +187,17 @@ export function ActionList({ actions, interventionId, onActionUpdate, users }: A
           <thead className="bg-gray-50">
             <tr>
               <th
+              scope='col'
+              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+              onClick={() => handleSort('code')}
+              >
+                <div className="flex items-center">
+                  Code
+                  <ArrowUpDown className="ml-1 h-4 w-4" />
+                </div>
+
+              </th>
+              <th
                 scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                 onClick={() => handleSort('name')}
@@ -227,6 +238,9 @@ export function ActionList({ actions, interventionId, onActionUpdate, users }: A
           <tbody className="bg-white divide-y divide-gray-200">
             {sortedActions.map((action) => (
               <tr key={action.id}>
+                <td>
+                  <div className="text-sm text-center font-medium text-blue-900">{action.code}</div>
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium truncate max-w-xs text-gray-900">{action.name}</div>
                   {action.description && (

@@ -551,6 +551,10 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
+                <h4 className="text-sm font-medium text-gray-700">Code</h4>
+                <p className="mt-1 text-sm text-gray-900">{action.code || "-"}</p>
+              </div>
+              <div>
                 <h4 className="text-sm font-medium text-gray-700">Status</h4>
                 <span className={`mt-1 inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                   action.status === 'completed' ? 'bg-green-100 text-green-800' :
