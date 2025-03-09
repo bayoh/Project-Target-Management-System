@@ -9,7 +9,7 @@ import { canEditIntervention } from '../../lib/permissions';
 interface FormData {
   name: string;
   description: string;
-  code: number;
+  code: string;
   status: 'not_started' | 'in_progress' | 'at_risk' | 'completed';
   start_date: string;
   end_date: string;
@@ -23,7 +23,7 @@ export function EditIntervention() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState<FormData>({
     name: '',
-    code: 0,
+    code: '',
     description: '',
     status: 'not_started',
     start_date: '',
@@ -244,11 +244,11 @@ export function EditIntervention() {
                     Code *
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     id="code"
                     required
                     value={formData.code}
-                    onChange={(e) => setFormData({...formData, code: parseInt(e.target.value) })}
+                    onChange={(e) => setFormData({...formData, code: e.target.value })}
                     className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                   />
 
