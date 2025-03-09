@@ -350,7 +350,7 @@ export function EditIntervention() {
                     Budget
                   </label>
                   <div className="mt-1 relative rounded-md shadow-sm">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <div className="absolute inset-y-0 pl-2  flex items-center pointer-events-none">
                       <span className="text-gray-500 sm:text-sm">$</span>
                     </div>
                     <input
@@ -361,7 +361,7 @@ export function EditIntervention() {
                       value={formData.budget}
                       placeholder='     Sum of all actions budget'
                       onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
-                      className="p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      className="p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 pl-6 focus:ring-blue-500 sm:text-sm"
                     />
                   </div>
                 </div>

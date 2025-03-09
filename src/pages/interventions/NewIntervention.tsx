@@ -7,7 +7,7 @@ import type { User, Cluster, Pathway } from '../../types/project';
 
 interface FormData {
   name: string;
-  code: number;
+  code: string;
   description: string;
   cluster_id: string;
   pathway_id: string;
@@ -22,7 +22,7 @@ export function NewIntervention() {
   const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
-    code: 0,
+    code: '',
     cluster_id: '',
     pathway_id: '',
     start_date: '',
@@ -206,11 +206,11 @@ export function NewIntervention() {
                     Code *
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     id="code"
                     required
                     value={formData.code}
-                    onChange={(e) => setFormData({...formData, code: parseInt(e.target.value) })}
+                    onChange={(e) => setFormData({...formData, code: e.target.value })}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                   />
                 </div>
