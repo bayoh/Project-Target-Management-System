@@ -110,7 +110,7 @@ export function NewIntervention() {
         .from('interventions')
         .insert([{
           name: formData.name,
-          codee: formData.code,
+          code: formData.code,
           description: formData.description,
           pathway_id: formData.pathway_id,
           start_date: formData.start_date,

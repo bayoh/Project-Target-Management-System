@@ -42,10 +42,19 @@ export function InterventionDetails() {
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     loadData();
+    getUser();
   }, [id]);
+
+  const getUser =  async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log(user.user_metadata.role === 'super_admin')
+    setUser(user)
+    return user;
+  };
 
   const loadData = async () => {
     try {
@@ -267,13 +276,13 @@ export function InterventionDetails() {
               )}
             </div>
           </div>
-          <button
+         { (user.user_metadata.role === 'super_admin' || user.id === intervention.lead_id) && <button
             onClick={() => navigate(`/interventions/${id}/edit`)}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
           >
             <Pencil className="h-4 w-4 mr-2" />
             Edit
-          </button>
+          </button>}
         </div>
 
         {/* Overview */}

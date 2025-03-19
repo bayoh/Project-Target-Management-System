@@ -46,6 +46,7 @@ export function InterventionDashboard() {
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [pathways, setPathways] = useState<Pathway[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [sessionUser, setSessionUser] = useState(null);
   const [filters, setFilters] = useState({
     clusterId: '',
     pathwayId: '',
@@ -54,14 +55,21 @@ export function InterventionDashboard() {
   });
   const [showFilters, setShowFilters] = useState(false);
   const navigate = useNavigate();
-
+ 
   useEffect(() => {
     Promise.all([
+      getSessionUser(),
       loadInterventions(),
       loadClusters(),
       loadUsers()
     ]);
   }, []);
+
+  const getSessionUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log(user?.user_metadata)
+    setSessionUser(user);
+  };
 
   useEffect(() => {
     if (filters.clusterId) {
@@ -346,6 +354,8 @@ export function InterventionDashboard() {
                             <Eye className="h-4 w-4 mr-2" />
                             View Details
                           </button>
+                          { (intervention.lead_id === sessionUser?.id || intervention.created_by === sessionUser?.id || sessionUser?.user_metadata.role === 'super_admin') && (
+                            <>
                           <button
                             onClick={() => navigate(`/interventions/${intervention.id}/edit`)}
                             className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -353,6 +363,7 @@ export function InterventionDashboard() {
                             <Edit2 className="h-4 w-4 mr-2" />
                             Edit
                           </button>
+                          
                           <button
                             onClick={() => handleDeleteClick(intervention.id)}
                             className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
@@ -360,7 +371,9 @@ export function InterventionDashboard() {
                             <Trash2 className="h-4 w-4 mr-2" />
                             Delete
                           </button>
-                          {intervention.status !== 'completed' && (
+                          </>
+                          )}
+                          {intervention.status !== 'completed' && intervention.lead_id === sessionUser?.id && (
                             <button
                               onClick={() => handleStatusClick(intervention.id, 'completed')}
                               className="flex items-center w-full px-4 py-2 text-sm text-green-600 hover:bg-gray-100"
@@ -369,6 +382,7 @@ export function InterventionDashboard() {
                               Mark Complete
                             </button>
                           )}
+                        
                         </div>
                       </div>
                     )}
@@ -418,13 +432,14 @@ export function InterventionDashboard() {
                         <Edit2 className="h-4 w-4 mr-2" />
                         Edit
                       </button>
+                      { intervention.lead_id === sessionUser?.id && (
                       <button
                         onClick={() => handleDeleteClick(intervention.id)}
                         className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete
-                      </button>
+                      </button>) }
                       {intervention.status !== 'completed' && (
                         <button
                           onClick={() => handleStatusClick(intervention.id, 'completed')}

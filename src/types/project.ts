@@ -47,6 +47,9 @@ export interface Action extends BaseEntity {
   end_date: string | null;
   lead_id: string | null;
   supporting_staff: string[];
+  issues: [];
+  needs: [];
+  comments: [];
   tasks?: Task[];
   indicators?: Indicator[];
 }

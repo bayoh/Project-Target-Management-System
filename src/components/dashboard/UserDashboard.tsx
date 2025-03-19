@@ -8,10 +8,12 @@ interface DashboardItem {
   id: string;
   type: 'intervention' | 'action';
   name: string;
+  code: string | null;
   description: string | null;
   status: string;
   start_date: string | null;
   end_date: string | null;
+  intervention_id: string | null;
   role: 'lead' | 'supporting';
 }
 
@@ -37,7 +39,7 @@ export function UserDashboard() {
       // Fetch interventions where user is lead
       const { data: interventions, error: interventionsError } = await supabase
         .from('interventions')
-        .select('id, name, description, status, start_date, end_date')
+        .select('id, name, description, status, start_date,code, end_date')
         .eq('lead_id', user.id);
   
       if (interventionsError) throw interventionsError;
@@ -45,7 +47,7 @@ export function UserDashboard() {
       // Fetch actions with intervention details where user is lead or supporting staff
       const { data: actions, error: actionsError } = await supabase
         .from('actions')
-        .select('id, name, description, status, start_date, end_date, lead_id, supporting_staff, intervention_id, intervention:interventions(id, name)')
+        .select('id, name, description,code, status, start_date, end_date, lead_id, supporting_staff, intervention_id, intervention:interventions(id, name)')
         .or(`lead_id.eq.${user.id},supporting_staff.cs.{${user.id}}`);
   
       if (actionsError) throw actionsError;
@@ -55,6 +57,7 @@ export function UserDashboard() {
         ...(interventions || []).map(item => ({
           ...item,
           type: 'intervention' as const,
+          code: item.code,
           role: 'lead' as const,
           relatedActions: (actions || [])
             .filter(action => action.intervention_id === item.id)
@@ -69,6 +72,8 @@ export function UserDashboard() {
           .map(item => ({
             ...item,
             type: 'action' as const,
+            code: item.code,
+            intervention_id: interventions?.find(int => int.id === item.intervention_id)?.id,
             role: item.lead_id === user.id ? 'lead' as const : 'supporting' as const
           }))
       ];
@@ -150,6 +155,9 @@ export function UserDashboard() {
             <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
               <div className="flex items-start justify-between">
                 <div>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 mr-4 rounded-full text-xs font-medium ${item.type === 'intervention' ? ' text-purple-600' : 'bg-blue-100 text-blue-800'}`}>
+                    {item.code}
+                  </span>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.type === 'intervention' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
                     {item.type === 'intervention' ? 'Intervention' : 'Action'}
                   </span>
@@ -187,6 +195,37 @@ export function UserDashboard() {
                   >
                     <Edit className="h-4 w-4" />
                   </button>
+                  {item.type == 'action' && <>
+                     <button
+                     onClick={() => navigate(`/interventions/${item.intervention_id}/actions/${item.id}#issues`)}
+                     className="p-1 text-gray-400 hover:text-gray-600"
+                     title="Issues"
+                   >
+                     <AlertTriangle className="h-4 w-4" />
+                   </button>
+                   <button
+                     onClick={() => navigate(`/interventions/${item.id}/actions/${item.id}#achievements`)}
+                     className="p-1 text-gray-400 hover:text-gray-600"
+                     title="Achievements"
+                   >
+                     <Trophy className="h-4 w-4" />
+                   </button>
+                   <button
+                     onClick={() => navigate(`/interventions/${item.intervention_id}/actions/${item.id}#targets`)}
+                     className="p-1 text-gray-400 hover:text-gray-600"
+                     title="Targets"
+                   >
+                     <Target className="h-4 w-4" />
+                   </button>
+                   <button
+                     onClick={() => navigate(`/interventions/${item.intervention_id}/actions/${item.id}#comments`)}
+                     className="p-1 text-gray-400 hover:text-gray-600"
+                     title="Comments"
+                   >
+                     <MessageSquare className="h-4 w-4" />
+                   </button>
+                  </>
+                  }
                 </div>
               </div>
             </div>
@@ -201,6 +240,9 @@ export function UserDashboard() {
                   >
                     <div className="flex items-start justify-between">
                       <div>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 mr-4 rounded-full text-xs font-medium ${item.type === 'intervention' ? 'text-purple-600' : 'bg-blue-100 text-blue-800'}`}>
+                          {action.code}
+                        </span>
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                           Action
                         </span>
