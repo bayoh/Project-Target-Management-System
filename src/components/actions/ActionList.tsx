@@ -11,9 +11,10 @@ interface ActionListProps {
   interventionId: string;
   onActionUpdate: () => void;
   users: User[];
+  showEdit: boolean;
 }
 
-export function ActionList({ actions, interventionId, onActionUpdate, users }: ActionListProps) {
+export function ActionList({ actions, interventionId, onActionUpdate, users , showEdit}: ActionListProps) {
   const navigate = useNavigate();
   const [showAddForm, setShowAddForm] = useState(false);
   const [canCreate, setCanCreate] = useState(false);
@@ -96,7 +97,7 @@ export function ActionList({ actions, interventionId, onActionUpdate, users }: A
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-medium text-gray-900">Actions</h2>
-        {canCreate && (
+        {(canCreate && showEdit) && (
           <button
             onClick={() => setShowAddForm(true)}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
@@ -272,7 +273,7 @@ export function ActionList({ actions, interventionId, onActionUpdate, users }: A
                     >
                       <Eye className="h-4 w-4" />
                     </button>
-                    {canEdit && (
+                    {(canEdit && showEdit) && (
                       <button
                         onClick={() => setEditingAction(action)}
                         className="text-blue-600 hover:text-blue-900"

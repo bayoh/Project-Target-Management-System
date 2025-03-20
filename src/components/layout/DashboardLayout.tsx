@@ -8,6 +8,8 @@ import {
   Settings, 
   LogOut,
   Menu,
+  Plus,
+  ListChecks,
   X,
   User,
   UserCheck2Icon,
@@ -17,7 +19,8 @@ import {
   ShieldAlert,
   UserCog,
   Loader2,
-  Settings2Icon
+  Settings2Icon,
+  AmbulanceIcon,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
@@ -62,7 +65,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     const loadUserAndSettings = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        console.log(user)
         if (user?.user_metadata?.role) {
           setUserRole(user.user_metadata.role);
         }
@@ -91,8 +93,20 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const navItems: NavItem[] = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership']},
-    { icon: UserCheck2Icon, label: 'My Tasks', path: '/userdashboard', roles: ['supporting_staff','super_admin','supporting_staff', 'lead',]},
+    { icon: UserCheck2Icon, label: 'My Tasks', path: '/userdashboard', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership']},
+    // { icon: ShieldAlert, label: 'Issue Registry', path: '/issue', roles: ['supporting_staff','super_admin','leadership', 'lead']},
     { icon: Folders, label: 'Clusters', path: '/clusters', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership'] },
+    // { 
+    //   icon: Target,
+    //   label: 'Targets',
+    //   path: '/targets',
+    //   roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'],
+    //   subItems: [
+    //     { icon: LayoutDashboard, label: 'Dashboard', path: '/targets', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
+    //     { icon: ListChecks, label: 'Target Tracking', path: '/targets/tracking', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
+    //     { icon: Plus, label: 'New Target', path: '/targets/new', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] }
+    //   ]
+    // },
     { 
       icon: Target, 
       label: 'Interventions', 
@@ -114,6 +128,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         { icon: Upload, label: 'Data Import', path: '/settings/import', roles: ['super_admin'] },
       ]
     },
+    // { icon: AmbulanceIcon, label: 'Help', path: '/help', roles: ['lead', 'super_admin', 'leadership', 'supporting_staff'] },
   ];
 
   // Filter navigation items based on user role
