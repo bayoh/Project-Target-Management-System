@@ -353,6 +353,7 @@ export function InterventionDetails() {
           interventionId={intervention.id}
           onActionUpdate={loadData}
           users={users}
+          showEdit={(user.user_metadata.role === 'super_admin' || user.id === intervention.lead_id)}
         />
 
         {/* Documents */}
