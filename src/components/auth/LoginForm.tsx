@@ -119,7 +119,7 @@ export function LoginForm() {
           </div>
 
           <div className="flex items-center justify-between">
-            <div className="text-sm">
+            {/* <div className="text-sm">
               {!isMagicLink && (
                 <button
                   type="button"
@@ -129,14 +129,14 @@ export function LoginForm() {
                   Forgot your password?
                 </button>
               )}
-            </div>
+            </div> */}
             <div className="text-sm">
               <button
                 type="button"
                 onClick={() => setIsMagicLink(!isMagicLink)}
                 className="font-medium text-indigo-600 hover:text-indigo-500 flex items-center"
               >
-                {isMagicLink ? 'Use password' : 'Use magic link'}
+                {isMagicLink ? 'Use password' : 'Use magic link to login'}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </button>
             </div>
