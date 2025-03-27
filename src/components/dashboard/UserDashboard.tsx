@@ -110,7 +110,7 @@ export function UserDashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">My Dashboard</h2>
+        <h2 className="text-2xl font-bold text-gray-900">My Tasks</h2>
       </div>
 
       {/* Filters */}
