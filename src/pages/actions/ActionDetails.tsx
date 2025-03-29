@@ -32,16 +32,6 @@ export function ActionDetails() {
             status,
             assigned_to,
             due_date
-          ),
-          indicators (
-            id,
-            name,
-            description,
-            type,
-            target_value,
-            target_date,
-            unit,
-            indicator_reports(*)
           )
         `)
         .eq('id', id)
