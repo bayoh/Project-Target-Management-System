@@ -375,16 +375,16 @@ export function ActionReports() {
 
         <div className="bg-white shadow-sm rounded-lg p-6">
           <div className="space-y-4">
-            <div className="flex items-center space-x-4">
-              <div className="w-64">
-                <label htmlFor="lead" className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="flex flex-col md:flex-row gap-6 mb-8">
+              <div className="flex-1">
+                <label htmlFor="lead" className="block text-sm font-medium text-gray-700 mb-2">
                   Select Lead
                 </label>
                 <select
                   id="lead"
                   value={selectedLeadId}
                   onChange={(e) => setSelectedLeadId(e.target.value)}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="w-full rounded-lg border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
                   disabled={loading}
                 >
                   <option value="">Select a lead</option>
@@ -396,32 +396,30 @@ export function ActionReports() {
                 </select>
               </div>
 
-              <div className="w-64">
-                <label htmlFor="dateRange" className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="flex-1">
+                <label htmlFor="dateRange" className="block text-sm font-medium text-gray-700 mb-2">
                   Date Range
                 </label>
                 <button
                   onClick={() => setCalendarOpen(true)}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="w-full px-4 py-2 text-left rounded-lg border border-gray-200 shadow-sm hover:border-blue-300 focus:border-blue-500 focus:ring-blue-500 text-sm transition-colors"
                 >
-                  {(dateRange.start && dateRange.end) ? 
-                   ( <span>  
-                      {format(dateRange.start, 'dd/MM/yyyy')} - {format(dateRange.end, 'dd/MM/yyyy')}
-                    </span>) :
-                    <span>Select a date range</span>
-
-                  }
-                  {!dateRange.start && !dateRange.end && (
-                    <span>Select a date range</span>
-
-                  )}
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-gray-500" />
+                    {(dateRange.start && dateRange.end) ? (
+                      <span className="text-gray-900">
+                        {format(dateRange.start, 'dd/MM/yyyy')} - {format(dateRange.end, 'dd/MM/yyyy')}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">Select a date range</span>
+                    )}
+                  </div>
                 </button>
                 <Calendar 
                   selectionType="week" 
                   isOpen={isCalendarOpen}
                   onClose={() => setCalendarOpen(false)}
                   onSelect={(selection) => {
-                    console.log(selection);
                     if (typeof selection === 'object' && 'start' in selection) {
                       setDateRange(selection);
                       if (selectedActionId) {
@@ -432,15 +430,15 @@ export function ActionReports() {
                 />
               </div>
 
-              <div className="w-96">
-                <label htmlFor="action" className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="flex-1">
+                <label htmlFor="action" className="block text-sm font-medium text-gray-700 mb-2">
                   Select Action
                 </label>
                 <select
                   id="action"
                   value={selectedActionId}
                   onChange={(e) => setSelectedActionId(e.target.value)}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="w-full rounded-lg border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
                   disabled={!selectedLeadId || loading}
                 >
                   <option value="">Select an action</option>
@@ -456,18 +454,18 @@ export function ActionReports() {
             </div>
 
             {loading && (
-              <div className="flex items-center justify-center py-4">
+              <div className="flex items-center justify-center py-8 bg-white rounded-lg border border-gray-100 shadow-sm">
                 <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-                <span className="ml-2 text-sm text-gray-500">Loading...</span>
+                <span className="ml-3 text-sm font-medium text-gray-600">Loading report...</span>
               </div>
             )}
 
             {error && (
-              <div className="rounded-md bg-red-50 p-4">
-                <div className="flex">
-                  <AlertTriangle className="h-5 w-5 text-red-400" />
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-red-800">Error</h3>
+              <div className="rounded-lg bg-red-50 p-6 mb-8">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-red-800">Error Loading Report</h3>
                     <div className="mt-2 text-sm text-red-700">{error}</div>
                   </div>
                 </div>
@@ -475,45 +473,51 @@ export function ActionReports() {
             )}
 
             {report && (
-              <div className="mt-6 space-y-6">
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <div className="mt-6 space-y-8">
+                <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
                   {/* Header Section */}
-                  <div className="p-6 border-b border-gray-200">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h2 className="text-2xl font-semibold text-gray-900">{report.name}</h2>
+                  <div className="p-8 border-b border-gray-100">
+                    <div className="flex items-start justify-between mb-6">
+                      <div className="space-y-2">
+                        <h2 className="text-3xl font-bold text-gray-900">{report.name}</h2>
                         {report.path && (
-                          <div className="mt-1 text-sm text-gray-600">
+                          <div className="text-sm text-gray-600 flex items-center gap-2">
+                            <FileText className="h-4 w-4" />
                             Path: {report.path}
                           </div>
                         )}
                       </div>
-                      <div className='grid grid-rows-3 gap-2'>
-                      <div className="">
-                        <span>Status: {report.status} {getStatusIcon(report.status)}</span>
-                        {/* <span className="text-sm text-gray-600">Last updated: {report.lastUpdated}</span> */}
+                      <div className='space-y-3'>
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <span className="flex items-center gap-2">
+                            Status: <span className="capitalize">{report.status}</span> {getStatusIcon(report.status)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Users className="h-4 w-4" />
+                          <span>Lead: {report.lead}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Users className="h-4 w-4" />
+                          <span>Supporting Staff: {users.filter(user => report.supporting_staffs.includes(user.id)).map(user => user.full_name).join(', ')}</span>
+                        </div>
                       </div>
-                        <span>Lead: {report.lead}</span>
-                        <span>Supporting Staffs: {users.filter(user => report.supporting_staffs.includes(user.id)).map(user => user.full_name).join(', ')}</span>
-                       
-                      </div>
-                      
                     </div>
-                    <p className="text-gray-700">{report.description}</p>
+                    <p className="text-base text-gray-700 leading-relaxed">{report.description}</p>
                   </div>
                 
                   {/* Progress Section */}
-                  <div className="p-6 border-b border-gray-200 bg-gray-50">
-                    <div className="grid grid-cols-2 gap-6">
+                  <div className="p-8 bg-gray-50 border-b border-gray-100">
+                    <div className="grid grid-cols-2 gap-8">
                       <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">Achievements</h3>
-                        <div className="space-y-3">
+                        <h3 className="text-xl font-semibold text-gray-900 mb-6">Achievements</h3>
+                        <div className="space-y-4">
                           {report.milestones.map((milestone, index) => (
-                            <div key={index} className="flex items-center space-x-3 bg-white p-3 rounded-md border border-gray-200">
+                            <div key={index} className="flex items-start gap-4 bg-white p-4 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors">
                               {getStatusIcon(milestone.status)}
                               <div>
-                                <div className="font-medium">{milestone.title}</div>
-                                <div className="text-sm text-gray-500">{milestone.date}</div>
+                                <div className="font-medium text-gray-900">{milestone.title}</div>
+                                <div className="text-sm text-gray-500 mt-1">{milestone.date}</div>
                               </div>
                             </div>
                           ))}
@@ -521,46 +525,51 @@ export function ActionReports() {
                         </div>
                       </div>
                       <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">Progress</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="bg-white p-4 rounded-md border border-gray-200">
-                            <div className="text-sm font-medium text-gray-500">Jobs Target</div>
-                            <div className="mt-2 flex items-center">
-                              <Target className="h-5 w-5 text-blue-500 mr-2" />
-                              <p className="text-md font-semibold text-gray-900">{report.jobsTarget}</p>
+                        <h3 className="text-xl font-semibold text-gray-900 mb-6">Progress</h3>
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                          <div className="bg-white p-5 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors">
+                            <div className="text-sm font-medium text-gray-600">Jobs Target</div>
+                            <div className="mt-3 flex items-center">
+                              <Target className="h-5 w-5 text-blue-500 mr-3" />
+                              <p className="text-2xl font-bold text-gray-900">{report.jobsTarget}</p>
                             </div>
                           </div>
-                          <div className="bg-white p-4 rounded-md border border-gray-200">
-                            <div className="text-sm font-medium text-gray-500">Action Budget</div>
-                            <div className="mt-2 flex items-center">
-                              <DollarSign className="h-5 w-5 text-green-500 mr-2" />
-                              <span className="text-xl font-semibold text-gray-900">{report.projectCost}</span>
-                            </div>
-                          </div>
-                          <div className="bg-white p-4 rounded-md border border-gray-200 col-span-2">
-                            <div className="text-sm font-medium text-gray-500">Other Targets</div>
-                            <div className="mt-2 flex items-center">
-                              
-                              <span className="text-sm text-gray-900">{report.otherTargets.map((target, index) => <ListItem key={index} icon={<Target className="h-4 w-4 text-blue-500 mr-2" />}>
-                                <div className="flex-1 grid grid-cols-2">
-                                <p className="text-gray-700 mr-4">{target.metric}:</p>
-                                <p className="text-gray-700">{target.current_value} / {target.target_value }</p>
-                                <div className="h-2 w-full rounded-full bg-gray-200 mt-1">
-                                  <div className="h-full rounded-full bg-blue-500" style={{ width: `${(target.current_value / target.target_value) * 100}%` }}></div>
-                                </div>
-                                <p className="text-gray-700 ml-4">{ formatRelative( subDays(target.last_updated, 3), new Date())}</p>
-
-                              </div>
-                              </ListItem>)}</span>
+                          <div className="bg-white p-5 rounded-lg border border-gray-100 hover:border-green-200 transition-colors">
+                            <div className="text-sm font-medium text-gray-600">Action Budget</div>
+                            <div className="mt-3 flex items-center">
+                              <DollarSign className="h-5 w-5 text-green-500 mr-3" />
+                              <span className="text-2xl font-bold text-gray-900">{report.projectCost}</span>
                             </div>
                           </div>
                         </div>
+                        <div className="bg-white p-5 rounded-lg border border-gray-100 mb-6">
+                          <div className="text-sm font-medium text-gray-600 mb-4">Other Targets</div>
+                          <div className="space-y-4">
+                            {report.otherTargets.map((target, index) => (
+                              <ListItem key={index} icon={<Target className="h-4 w-4 text-blue-500" />}>
+                                <div className="flex-1 space-y-2">
+                                  <div className="flex justify-between items-center">
+                                    <p className="text-sm font-medium text-gray-700">{target.metric}</p>
+                                    <p className="text-sm text-gray-600">{target.current_value} / {target.target_value}</p>
+                                  </div>
+                                  <div className="h-2 w-full rounded-full bg-gray-100">
+                                    <div 
+                                      className="h-full rounded-full bg-blue-500 transition-all duration-300" 
+                                      style={{ width: `${(target.current_value / target.target_value) * 100}%` }}
+                                    ></div>
+                                  </div>
+                                  <p className="text-xs text-gray-500 text-right">Updated {formatRelative(subDays(target.last_updated, 3), new Date())}</p>
+                                </div>
+                              </ListItem>
+                            ))}
+                          </div>
+                        </div>
                         {report.keyMilestones.length > 0 && (
-                          <div className="mt-4">
-                            <h4 className="text-sm font-medium text-gray-900 mb-2">Key Milestones</h4>
-                            <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700">
+                          <div className="bg-white p-5 rounded-lg border border-gray-100">
+                            <h4 className="text-sm font-medium text-gray-900 mb-3">Key Milestones</h4>
+                            <ul className="list-disc pl-5 space-y-2">
                               {report.keyMilestones.map((milestone, index) => (
-                                <li key={index}>{milestone}</li>
+                                <li key={index} className="text-sm text-gray-700">{milestone}</li>
                               ))}
                             </ul>
                           </div>
@@ -570,34 +579,38 @@ export function ActionReports() {
                   </div>
                 
                   {/* Issues Section */}
-                  <div className="p-6">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Issues</h3>
+                  <div className="p-8">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-6">Issues</h3>
                     {report.issues.length > 0 ? (
-                      <div className="space-y-3">
+                      <div className="space-y-4">
                         {report.issues.map((issue, index) => (
-                          <div key={index} className="flex items-start space-x-3 bg-white p-4 rounded-md border border-gray-200">
-                            <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5" />
-                            <div className="flex-1 grid grid-cols-4 gap-4">
-                              <p className="text-gray-700">{issue.description}</p>
-                              <p className="text-gray-700">{issue.status}</p>
-                              <p className="text-gray-700">{issue.severity}</p>
-                              <p className="text-gray-700">{issue.date_identified}</p>
+                          <div key={index} className="flex items-start gap-4 bg-white p-5 rounded-lg border border-gray-100 hover:border-amber-200 transition-colors">
+                            <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                            <div className="flex-1 grid grid-cols-4 gap-6">
+                              <p className="text-sm text-gray-700 col-span-2">{issue.description}</p>
+                              <p className="text-sm text-gray-600 capitalize">{issue.status}</p>
+                              <p className="text-sm text-gray-600">{issue.severity}</p>
+                              <p className="text-sm text-gray-500">{issue.date_identified}</p>
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-gray-500">No active issues</p>
+                      <p className="text-sm text-gray-500">No active issues</p>
                     )}
                   </div>
 
-
-                  <div className="p-6">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Needs</h3>
+                  {/* Needs Section */}
+                  <div className="p-8 border-t border-gray-100">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-6">Needs</h3>
                     {report.needs.length > 0 ? (
-                      <List>
+                      <List className="space-y-4">
                         {report.needs.map((need, index) => (
-                          <ListItem icon={<AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5" />} key={index}>
+                          <ListItem 
+                            key={index} 
+                            icon={<AlertTriangle className="h-5 w-5 text-amber-500" />}
+                            className="bg-white p-5 rounded-lg border border-gray-100 hover:border-amber-200 transition-colors"
+                          >
                             <div className="flex-1 grid grid-cols-4 gap-4">
                               <p className="text-gray-700">{need.description}</p>
                               <p className="text-gray-700">{need.status}</p>
@@ -611,7 +624,7 @@ export function ActionReports() {
                     )}
                   </div>
 
-                  <div className="p-6">
+                  <div className="p-6 border-t border-gray-100">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Comments</h3>
                     {report.needs.length > 0 ? (
                       <List>
