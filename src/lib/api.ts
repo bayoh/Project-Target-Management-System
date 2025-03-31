@@ -9,6 +9,12 @@ interface UserUpdateData {
   status?: 'active' | 'inactive';
 }
 
+interface ActionPramas {
+  actionId: string;
+  startDate: Date;
+  endDate: Date;
+}
+
 export const userApi = {
   // Get all users
   async getUsers() {
@@ -230,6 +236,37 @@ export const projectApi = {
     }
   },
 
+  async getActionStats() {
+    try {
+      const [projectsResponse] = await Promise.all([
+        supabase
+          .from('actions')
+          .select('status')
+          .not('status', 'is', null),
+  
+      ]);
+
+      if (projectsResponse.error) throw projectsResponse.error;
+      // if (tasksResponse.error) throw tasksResponse.error;
+
+      // Count projects by status
+      const action = projectsResponse.data.reduce((acc: Record<string, number>, curr) => {
+        acc[curr.status] = (acc[curr.status] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Count tasks by status
+      // const tasks = tasksResponse.data.reduce((acc: Record<string, number>, curr) => {
+      //   acc[curr.status] = (acc[curr.status] || 0) + 1;
+      //   return acc;
+      // }, {});
+
+      return { action };
+    } catch (error) {
+      console.error('Failed to load stats:', error);
+      return { action: {} };
+    }
+  },
   // Clusters
   async getClusters() {
     const { data, error } = await supabase
@@ -370,9 +407,9 @@ async getActions(){
    .select(`
           *,
           lead:profiles!actions_lead_id_fkey1(id, email, full_name),
-          achievements:action_achievements(*),
-          issues:action_issues(*), 
-          targets:action_targets(*),
+          action_achievements:action_achievements(*),
+          action_issues:action_issues(*), 
+          action_targets:action_targets(*),
           intervention:interventions(
             id,
             name,
@@ -517,6 +554,56 @@ async getActions(){
     return data as Action;
   },
 
+async deleteAction(id: string) {
+  try {
+    // Delete all related achievements
+    const { error: achievementsError } = await supabase
+      .from('action_achievements')
+      .delete()
+      .eq('action_id', id);
+    if (achievementsError) throw achievementsError;
+
+    // Delete all related needs
+    const { error: needsError } = await supabase
+      .from('action_needs')
+      .delete()
+      .eq('action_id', id);
+    if (needsError) throw needsError;
+
+    // Delete all related issues
+    const { error: issuesError } = await supabase
+      .from('action_issues')
+      .delete()
+      .eq('action_id', id);
+    if (issuesError) throw issuesError;
+
+    // Delete all related comments
+    const { error: commentsError } = await supabase
+      .from('action_comments')
+      .delete()
+      .eq('action_id', id);
+    if (commentsError) throw commentsError;
+
+    // Delete all related targets
+    const { error: targetsError } = await supabase
+      .from('action_targets')
+      .delete()
+      .eq('action_id', id);
+    if (targetsError) throw targetsError;
+
+    // Finally delete the action itself
+    const { error: actionError } = await supabase
+      .from('actions')
+      .delete()
+      .eq('id', id);
+    if (actionError) throw actionError;
+
+  } catch (error) {
+    console.error('Error deleting action and related data:', error);
+    throw error;
+  }
+},
+
   async updateAction(id: string, updates: Partial<Action>) {
     const { data, error } = await supabase
       .from('actions')
@@ -567,9 +654,9 @@ async getActions(){
 
 export const reportApi = {
   // Get action report data
-  async getActionReport(actionId: string) {
+  async getActionReport({actionId, endDate, startDate,}: ActionPramas) {
     try {
-      const [actionData, achievementsData, issuesData, targetsData] = await Promise.all([
+      const [actionData, achievementsData, issuesData, needsData, commentsData, targetsData] = await Promise.all([
         // Get action details
         supabase
           .from('actions')
@@ -592,6 +679,7 @@ export const reportApi = {
           .from('action_achievements')
           .select('*')
           .eq('action_id', actionId)
+          .in('date_achieved', [`${startDate}`, `${endDate}`])
           .order('date_achieved', { ascending: false }),
 
         // Get issues
@@ -599,8 +687,22 @@ export const reportApi = {
           .from('action_issues')
           .select('*')
           .eq('action_id', actionId)
+          .in('date_identified', [`${startDate}`, `${endDate}`])
           .order('date_identified', { ascending: false }),
 
+        supabase
+          .from('action_needs')
+          .select('*')
+          .eq('action_id', actionId)
+          .in('date_identified', [`${startDate}`, `${endDate}`])
+          .order('date_identified', { ascending: false }),
+
+          supabase
+          .from('action_comments')
+          .select('*')
+          .eq('action_id', actionId)
+          // .in('created_at', [`${startDate}`, `${endDate}`])
+          .order('created_at', { ascending: false }),
         // Get targets
         supabase
           .from('action_targets')
@@ -612,10 +714,14 @@ export const reportApi = {
       if (actionData.error) throw actionData.error;
       if (achievementsData.error) throw achievementsData.error;
       if (issuesData.error) throw issuesData.error;
+      if (needsData.error) throw needsData.error;
+      if (commentsData.error) throw commentsData.error;
       if (targetsData.error) throw targetsData.error;
 
       // Process job targets
       const jobTargets = targetsData.data.filter(target => target.category === 'jobs');
+      const otherTargets = targetsData.data.filter(target => target.category === 'other')
+      // const progressOnTargets = otherTargets.reduce()
       const totalJobs = jobTargets.reduce((sum, target) => {
         return {
           target: (sum.target || 0) + (target.target_value || 0),
@@ -638,33 +744,42 @@ export const reportApi = {
       const milestones = achievementsData.data.map(achievement => ({
         date: achievement.date_achieved,
         title: achievement.description,
-        status: 'completed' as const
+        status: 'completed' as const,
+        images: achievement.evidence_file || []
       }));
+      // const milestones = achievementsData.data.map(achievement => achievement.description)
 
       // Get active issues
       const activeIssues = issuesData.data
         .filter(issue => issue.status !== 'resolved')
         .map(issue => issue.description);
 
+     const budget = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD'
+      }).format(actionData.data.budget)
+      
       return {
         id: actionData.data.id,
         name: actionData.data.name,
         description: actionData.data.description,
         status: actionData.data.status,
-        milestones,
+        lead: actionData.data.lead?.full_name,
+        supportingStaff: actionData.data.supporting_staff || [],
+        milestones: milestones,
         keyMilestones: achievementsData.data
           .slice(0, 3)
           .map(a => a.description),
         issues: activeIssues,
+        needs: needsData.data,
+        comments: commentsData.data,
+        otherTargets: otherTargets,
         jobsTarget: totalJobs.target > 0 
-          ? `Target: ${totalJobs.target} jobs (Current: ${totalJobs.current})\nWomen: ${totalJobs.women_target} (Current: ${totalJobs.women_current})\nYouth: ${totalJobs.youth_target} (Current: ${totalJobs.youth_current})` 
+          ? `Target: ${totalJobs.target} jobs (Current: ${totalJobs.current})\n\
+          Women: ${totalJobs.women_target} (Current: ${totalJobs.women_current})\n\
+          Youth: ${totalJobs.youth_target} (Current: ${totalJobs.youth_current})` 
           : 'No job targets set',
-        projectCost: actionData.data.budget 
-          ? new Intl.NumberFormat('en-US', {
-              style: 'currency',
-              currency: 'USD'
-            }).format(actionData.data.budget)
-          : 'Budget not set',
+        projectCost: budget,
         lastUpdated: actionData.data.updated_at,
         path: actionData.data.intervention?.pathway?.cluster?.name 
           ? `${actionData.data.intervention.pathway.cluster.name} > ${actionData.data.intervention.pathway.name} > ${actionData.data.intervention.name}`
@@ -695,5 +810,15 @@ export const reportApi = {
 
     if (error) throw error;
     return data;
+  },
+
+  async getAllActionsIssues() {
+    const {data, error } = await supabase
+     .from('action_issues')
+     .select('*')
+     .order('date_identified', { ascending: false });
+
+     if(error) throw error;
+     return data;
   }
 };

@@ -82,7 +82,7 @@ export function TargetForm({ onSubmit, onCancel, target }: TargetFormProps) {
         >
           <option value="">Select a category</option>
           <option value="jobs">Jobs</option>
-          <option value="other">Other</option>
+          <option value="other">Others</option>
         </select>
       </div>
 

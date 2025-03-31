@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { LoginForm } from './components/auth/LoginForm';
+import { PasswordReset } from './components/auth/PasswordReset';
+import { UpdatePassword } from './components/auth/UpdatePassword';
 import { Dashboard } from './pages/Dashboard';
 import { Clusters } from './pages/Clusters';
 import { NewCluster } from './pages/NewCluster';
@@ -29,6 +31,14 @@ import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
 import type { User } from './types/auth';
 import { MyDashboard } from './pages/UserDashboard';
+import { PojectsPartners } from './pages/settings/PojectsPartners';
+import { Issue } from './pages/issues';
+import Help from './pages/Help';
+import TargetTracking from './pages/targets/TargetTracking';
+import NewTarget from './pages/targets/NewTarget';
+import TargetDetail from './pages/targets/TargetDetail';
+import TargetsIndex from './pages/targets/index';
+import Actions, { ActionDashboard } from './pages/actions/ActionDashboard';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -40,7 +50,12 @@ export default function App() {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log(event);
+      if (event === 'PASSWORD_RECOVERY') {
+        // Don't update user state for password recovery
+        return;
+      }
       setUser(session?.user as User || null);
       setLoading(false);
     });
@@ -85,8 +100,15 @@ export default function App() {
       <Routes>
         <Route 
           path="/login" 
-          element={user ? <Navigate to="/" replace /> : <LoginForm />} 
-        />
+          element={user ? <Navigate to="/" replace /> : <LoginForm />} />
+          
+        <Route 
+          path="/reset-password" 
+          element={user ? <Navigate to="/" replace /> : <PasswordReset /> }/>
+
+        <Route 
+          path="/update-password" 
+          element={user ? <Navigate to="/" replace /> : <UpdatePassword /> }/>
         <Route 
           path="/" 
           element={user ? <Dashboard /> : <Navigate to="/login" replace />} 
@@ -126,6 +148,10 @@ export default function App() {
         <Route 
           path="/interventions/:interventionId/actions/:id" 
           element={user ? <ActionDetails /> : <Navigate to="/login" replace />} 
+        />
+         <Route 
+          path="/actions" 
+          element={user ? <ActionDashboard /> : <Navigate to="/login" replace />} 
         />
         <Route
           path="/reports"
@@ -184,6 +210,10 @@ export default function App() {
           path="/settings/profile"
           element={user ? <Profile /> : <Navigate to="/login" replace />}
         />
+        <Route
+          path="/settings/projectspartners"
+          element={user ? <PojectsPartners /> : <Navigate to="/login" replace />}
+        />
 
         <Route
           path="/404"
@@ -194,6 +224,37 @@ export default function App() {
           path="/userdashboard"
           element={ user ? <MyDashboard/> : <Navigate to="/" replace />}
 
+        />
+         <Route
+          path="/issue"
+          element={ user ? <Issue/> : <Navigate to="/" replace />}
+
+        />
+         <Route
+          path="/help"
+          element={ user ? <Help/> : <Navigate to="/" replace />}
+
+        />
+
+        <Route
+          path="/targets"
+          element={user ? <TargetsIndex /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/targets/tracking"
+          element={user ? <TargetTracking /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/targets/new"
+          element={user ? <NewTarget /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/targets/:id"
+          element={user ? <TargetDetail /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/targets/edit/:id"
+          element={user ? <TargetDetail /> : <Navigate to="/login" replace />}
         />
 
         <Route 

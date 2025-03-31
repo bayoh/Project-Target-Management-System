@@ -271,27 +271,119 @@ export function InterventionDashboard() {
   };
 
   const renderListView = (interventions: Intervention[]) => (
-    <div className="bg-white shadow-sm rounded-lg">
-      <div className="min-w-full">
+    <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+      {/* Mobile View */}
+      <div className="md:hidden space-y-4 p-4">
+        {interventions.map((intervention) => (
+          <div key={intervention.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-600">{intervention.code || '-'}</span>
+                <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(intervention.status)}`}>
+                  {intervention.status.replace('_', ' ')}
+                </span>
+              </div>
+              
+              <div className="space-y-1">
+                <h3 className="text-sm font-medium text-gray-900 line-clamp-1">{intervention.name}</h3>
+                {intervention.description && (
+                  <p className="text-sm text-gray-500 line-clamp-2">{intervention.description}</p>
+                )}
+              </div>
+
+              <div className="flex flex-col space-y-2 text-sm text-gray-500">
+                <div className="flex items-center space-x-2">
+                  <Users className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">{intervention.lead?.full_name || 'Unassigned'}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">
+                    {intervention.start_date && new Date(intervention.start_date).toLocaleDateString()}
+                    {intervention.end_date && ` - ${new Date(intervention.end_date).toLocaleDateString()}`}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end pt-2">
+                <div className="relative">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveMenu(activeMenu === intervention.id ? null : intervention.id);
+                    }}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <MoreVertical className="h-5 w-5" />
+                  </button>
+                  {activeMenu === intervention.id && (
+                    <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 overflow-visible transform -translate-x-0 sm:translate-x-0">
+                      <div className="py-1" role="menu">
+                        <button
+                          onClick={() => navigate(`/interventions/${intervention.id}`)}
+                          className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Details
+                        </button>
+                        {(intervention.lead_id === sessionUser?.id || intervention.created_by === sessionUser?.id || sessionUser?.user_metadata.role === 'super_admin') && (
+                          <>
+                            <button
+                              onClick={() => navigate(`/interventions/${intervention.id}/edit`)}
+                              className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            >
+                              <Edit2 className="h-4 w-4 mr-2" />
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteClick(intervention.id)}
+                              className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </button>
+                          </>
+                        )}
+                        {intervention.status !== 'completed' && intervention.lead_id === sessionUser?.id && (
+                          <button
+                            onClick={() => handleStatusClick(intervention.id, 'completed')}
+                            className="flex items-center w-full px-4 py-2 text-sm text-green-600 hover:bg-gray-100"
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                            Mark Complete
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop View */}
+      <div className="hidden md:block">
         <table className="w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/8">
+              <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/8">
                 Code
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/3">
+              <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/3">
                 Name
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
+              <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
                 Status
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
+              <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
                 Lead
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
+              <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
                 Timeline
               </th>
-              <th className="relative px-6 py-3 w-[100px]">
+              <th className="relative px-4 sm:px-6 py-3 w-[100px]">
                 <span className="sr-only">Actions</span>
               </th>
             </tr>
@@ -299,32 +391,34 @@ export function InterventionDashboard() {
           <tbody className="bg-white divide-y divide-gray-200">
             {interventions.map((intervention) => (
               <tr key={intervention.id} className="hover:bg-gray-50">
-                <td>
-                  <div className="text-sm font-medium text-gray-900 text-center max-w-xs">
+                <td className="px-4 sm:px-6 py-4">
+                  <div className="text-sm font-medium text-gray-900 text-center">
                     {intervention.code || '-'}
                   </div>
                 </td>
-                <td className="px-6 py-4">
-                  <div className="text-sm font-medium text-gray-900 truncate max-w-xs">
-                    {intervention.name}
-                  </div>
-                  {intervention.description && (
-                    <div className="text-sm text-gray-500 truncate max-w-xs">
-                      {intervention.description}
+                <td className="px-4 sm:px-6 py-4">
+                  <div className="group relative">
+                    <div className="text-sm font-medium text-gray-900 line-clamp-2 group-hover:line-clamp-none">
+                      {intervention.name}
                     </div>
-                  )}
+                    {intervention.description && (
+                      <div className="text-sm text-gray-500 line-clamp-2 group-hover:line-clamp-none mt-1">
+                        {intervention.description}
+                      </div>
+                    )}
+                  </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(intervention.status)}`}>
                     {intervention.status.replace('_', ' ')}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   <div className="truncate max-w-[150px]">
                     {intervention.lead?.full_name || 'Unassigned'}
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   <div className="flex items-center space-x-2">
                     <Calendar className="h-4 w-4 flex-shrink-0" />
                     <span className="truncate">
@@ -333,7 +427,7 @@ export function InterventionDashboard() {
                     </span>
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="relative">
                     <button
                       onClick={(e) => {
@@ -345,7 +439,7 @@ export function InterventionDashboard() {
                       <MoreVertical className="h-5 w-5" />
                     </button>
                     {activeMenu === intervention.id && (
-                      <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                      <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 overflow-visible transform -translate-x-0 sm:translate-x-0">
                         <div className="py-1" role="menu">
                           <button
                             onClick={() => navigate(`/interventions/${intervention.id}`)}
@@ -397,13 +491,13 @@ export function InterventionDashboard() {
   );
 
   const renderGridView = (interventions: Intervention[]) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
       {interventions.map((intervention) => (
         <div
           key={intervention.id}
-          className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
+          className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow h-full"
         >
-          <div className="p-6">
+          <div className="p-4 sm:p-6 flex flex-col h-full">
             <div className="flex items-center justify-between mb-4">
               <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(intervention.status)}`}>
                 {intervention.status.replace('_', ' ')}
@@ -488,12 +582,12 @@ export function InterventionDashboard() {
   return (
     <DashboardLayout>
       <div className="h-[calc(100vh-64px)] flex flex-col space-y-6 p-6">
-        <div className="flex items-center justify-between flex-shrink-0">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between flex-shrink-0 space-y-4 sm:space-y-0">
           <h1 className="text-2xl font-bold text-gray-900">Interventions</h1>
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`inline-flex items-center px-3 py-2 border rounded-md text-sm font-medium ${
+              className={`inline-flex items-center justify-center px-3 py-2 border rounded-md text-sm font-medium w-full sm:w-auto ${
                 showFilters || getActiveFiltersCount() > 0
                   ? 'bg-blue-50 text-blue-700 border-blue-200'
                   : 'text-gray-700 border-gray-300 hover:bg-gray-50'
@@ -508,10 +602,10 @@ export function InterventionDashboard() {
               )}
             </button>
 
-            <div className="flex items-center space-x-2 bg-white rounded-lg shadow-sm p-1">
+            <div className="flex items-center justify-center space-x-2 bg-white rounded-lg shadow-sm p-1 w-full sm:w-auto">
               <button
                 onClick={() => setViewMode('list')}
-                className={`inline-flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                className={`flex-1 sm:flex-none inline-flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium ${
                   viewMode === 'list'
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100'
@@ -522,7 +616,7 @@ export function InterventionDashboard() {
               </button>
               <button
                 onClick={() => setViewMode('grid')}
-                className={`inline-flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                className={`flex-1 sm:flex-none inline-flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium ${
                   viewMode === 'grid'
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100'
@@ -534,7 +628,7 @@ export function InterventionDashboard() {
             </div>
             <button
               onClick={() => navigate('/interventions/new')}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+              className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
             >
               <Plus className="h-4 w-4 mr-2" />
               New Intervention

@@ -22,7 +22,8 @@ import {
   UserCheck,
   UserPlus,
   Briefcase,
-  BarChart2
+  BarChart2,
+  ListStartIcon
 } from 'lucide-react';
 import { projectApi } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
@@ -274,7 +275,7 @@ export function ProjectStats() {
       </div>
 
       {/* Project Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white p-6 rounded-lg shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -292,7 +293,7 @@ export function ProjectStats() {
         <div className="bg-white p-6 rounded-lg shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">In Progress</p>
+              <p className="text-sm font-medium text-gray-600">On Going / On Track</p>
               <p className="text-2xl font-semibold text-gray-900">
                 {stats.projects.in_progress || 0}
               </p>
@@ -306,13 +307,27 @@ export function ProjectStats() {
         <div className="bg-white p-6 rounded-lg shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">At Risk</p>
+              <p className="text-sm font-medium text-gray-600">On Going / Off Track</p>
               <p className="text-2xl font-semibold text-gray-900">
                 {stats.projects.at_risk || 0}
               </p>
             </div>
             <div className="p-3 bg-red-100 rounded-full">
               <AlertCircle className="h-6 w-6 text-red-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Not Started</p>
+              <p className="text-2xl font-semibold text-gray-900">
+                {stats.projects.not_started || 0}
+              </p>
+            </div>
+            <div className="p-3 bg-red-100 rounded-full">
+              <ListStartIcon className="h-6 w-6 text-red-600" />
             </div>
           </div>
         </div>

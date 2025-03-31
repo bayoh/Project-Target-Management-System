@@ -59,7 +59,6 @@ export function InterventionDetails() {
   const loadData = async () => {
     try {
       const [interventionData, usersData, commentsData, documentsData] = await Promise.all([
-        // projectApi.getInterventionById(id),
         supabase
           .from('interventions')
           .select(`
@@ -97,9 +96,20 @@ export function InterventionDetails() {
       if (commentsData.error) throw commentsData.error;
       if (documentsData.error) throw documentsData.error;
 
-      // const data = await projectApi.getInterventionById(id);
-      console.log(interventionData.data);
+      // Calculate start and end dates from actions
+      const actions = interventionData.data.actions || [];
+      if (actions.length > 0) {
+        const actionDates = actions.reduce((dates, action) => {
+          if (action.start_date) dates.push(new Date(action.start_date));
+          if (action.end_date) dates.push(new Date(action.end_date));
+          return dates;
+        }, []);
 
+        if (actionDates.length > 0) {
+          interventionData.data.start_date = new Date(Math.min(...actionDates)).toISOString().split('T')[0];
+          interventionData.data.end_date = new Date(Math.max(...actionDates)).toISOString().split('T')[0];
+        }
+      }
 
       setIntervention(interventionData.data);
       setUsers(usersData.data);
@@ -112,6 +122,13 @@ export function InterventionDetails() {
       setLoading(false);
     }
   };
+
+    // Calculate completion percentage
+    const calculateProgress = () => {
+      if (!intervention?.actions || intervention.actions.length === 0) return 0;
+      const completedActions = intervention.actions.filter(action => action.status === 'completed').length;
+      return Math.round((completedActions / intervention.actions.length) * 100);
+    };
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -256,10 +273,10 @@ export function InterventionDetails() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6 px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
             <button
               onClick={() => navigate(-1)}
               className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
@@ -269,7 +286,7 @@ export function InterventionDetails() {
             </button>
             <div>
               
-                <h1 className="col-start-2 col-start-9 text-2xl font-bold text-gray-900">{intervention.name}</h1>
+                <h1 className="col-start-2 col-start-9 text-2xl font-bold text-gray-900 truncate max-w-2xl">{intervention.name}</h1>
            
               {intervention.pathway && (
                 <p className="mt-1 text-sm text-gray-500">{intervention.pathway.name}</p>
@@ -286,8 +303,22 @@ export function InterventionDetails() {
         </div>
 
         {/* Overview */}
-        <div className="bg-white shadow-sm rounded-lg p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white shadow-sm rounded-lg p-4 sm:p-6">
+          {/* Progress Bar */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-gray-500">Overall Progress</h3>
+              <span className="text-sm font-medium text-gray-900">{calculateProgress()}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div
+                className={`h-2.5 rounded-full ${calculateProgress() === 100 ? 'bg-green-600' : 'bg-blue-600'}`}
+                style={{ width: `${calculateProgress()}%` }}
+              ></div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             <div>
               <h3 className="text-sm font-medium text-gray-500">Intervention #</h3>
               <p className="mt-1 text-sm text-gray-900">{intervention.code}</p>
@@ -342,7 +373,7 @@ export function InterventionDetails() {
           {intervention.description && (
             <div className="mt-6">
               <h3 className="text-sm font-medium text-gray-500">Description</h3>
-              <p className="mt-1 text-sm text-gray-900">{intervention.description}</p>
+              <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap line-clamp-3 hover:line-clamp-none transition-all duration-200">{intervention.description}</p>
             </div>
           )}
         </div>
@@ -357,8 +388,8 @@ export function InterventionDetails() {
         />
 
         {/* Documents */}
-        <div className="bg-white shadow-sm rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white shadow-sm rounded-lg p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 space-y-3 sm:space-y-0">
             <h2 className="text-lg font-medium text-gray-900">Documents</h2>
             <button
               onClick={() => setShowUploadModal(true)}
@@ -376,7 +407,7 @@ export function InterventionDetails() {
                 key={doc.id}
                 className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
               >
-                <div className="flex items-center space-x-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
                   <FileText className="h-5 w-5 text-gray-400" />
                   <div>
                     <p className="text-sm font-medium text-gray-900">{doc.name}</p>
@@ -404,7 +435,7 @@ export function InterventionDetails() {
         </div>
 
         {/* Comments */}
-        <div className="bg-white shadow-sm rounded-lg p-6">
+        <div className="bg-white shadow-sm rounded-lg p-4 sm:p-6">
           <h2 className="text-lg font-medium text-gray-900 mb-4">Comments</h2>
 
           {/* Comment Form */}
@@ -461,9 +492,9 @@ export function InterventionDetails() {
 
         {/* Upload Modal */}
         {showUploadModal && (
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg p-6 max-w-lg w-full">
-              <div className="flex items-center justify-between mb-4">
+          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-2 sm:p-4 z-50">
+            <div className="bg-white rounded-lg p-4 sm:p-6 max-w-lg w-full mx-2 sm:mx-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 space-y-3 sm:space-y-0">
                 <h3 className="text-lg font-medium text-gray-900">Upload Documents</h3>
                 <button
                   onClick={() => {
@@ -549,3 +580,6 @@ export function InterventionDetails() {
     </DashboardLayout>
   );
 }
+
+
+

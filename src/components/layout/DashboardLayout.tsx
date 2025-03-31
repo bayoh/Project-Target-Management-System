@@ -13,6 +13,7 @@ import {
   X,
   User,
   UserCheck2Icon,
+  Link,
   ChevronLeft,
   ChevronRight,
   Upload,
@@ -21,6 +22,7 @@ import {
   Loader2,
   Settings2Icon,
   AmbulanceIcon,
+  ActivityIcon,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
@@ -87,30 +89,40 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    const {error } = await supabase.auth.signOut();
+    // Redirect to login page after sign out
+    // You can use the navigate function from react-router-dom to do this
+    if(error) throw error;
+
     navigate('/login');
   };
 
   const navItems: NavItem[] = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership']},
     { icon: UserCheck2Icon, label: 'My Tasks', path: '/userdashboard', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership']},
-    // { icon: ShieldAlert, label: 'Issue Registry', path: '/issue', roles: ['supporting_staff','super_admin','leadership', 'lead']},
+    { icon: ShieldAlert, label: 'Issue Registry', path: '/issue', roles: ['supporting_staff','super_admin','leadership', 'lead']},
     { icon: Folders, label: 'Clusters', path: '/clusters', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership'] },
-    // { 
-    //   icon: Target,
-    //   label: 'Targets',
-    //   path: '/targets',
-    //   roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'],
-    //   subItems: [
-    //     { icon: LayoutDashboard, label: 'Dashboard', path: '/targets', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
-    //     { icon: ListChecks, label: 'Target Tracking', path: '/targets/tracking', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
-    //     { icon: Plus, label: 'New Target', path: '/targets/new', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] }
-    //   ]
-    // },
+    { 
+      icon: Target,
+      label: 'Targets',
+      path: '/targets',
+      roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'],
+      subItems: [
+        { icon: LayoutDashboard, label: 'Dashboard', path: '/targets', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
+        { icon: ListChecks, label: 'Target Tracking', path: '/targets/tracking', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
+        { icon: Plus, label: 'New Target', path: '/targets/new', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] }
+      ]
+    },
     { 
       icon: Target, 
       label: 'Interventions', 
       path: '/interventions',
+      roles: ['leadership', 'super_admin', 'supporting_staff', 'lead']
+    },
+    { 
+      icon: ActivityIcon, 
+      label: 'Actions', 
+      path: '/actions',
       roles: ['leadership', 'super_admin', 'supporting_staff', 'lead']
     },
     { icon: BarChart2, label: 'Reports', path: '/reports', roles: ['lead', 'super_admin', 'leadership'] },
@@ -118,17 +130,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       icon: Settings, 
       label: 'Settings', 
       path: '/settings',
-      roles: ['super_admin'],
+      roles: ['super_admin', 'lead'],
       subItems: [
         { icon: User, label: 'User Management', path: '/settings/users', roles: ['super_admin'] },
         { icon: UserCog, label: 'Role Management', path: '/settings/roles', roles: ['super_admin'] },
-        { icon: UserCheck2Icon, label: 'Assignment Management', path: '/settings/assignment', roles: ['super_admin'] },
+        { icon: UserCheck2Icon, label: 'Batch Assignment', path: '/settings/assignment', roles: ['super_admin'] },
+        { icon: Link, label: 'Projects/partners', path: '/settings/projectspartners', roles: ['super_admin', 'lead'] },
         { icon: ShieldAlert, label: 'Security Settings', path: '/settings/security', roles: ['super_admin'] },
         { icon: Settings2Icon, label: 'Systems Settings', path: '/settings/system', roles: ['super_admin'] },
         { icon: Upload, label: 'Data Import', path: '/settings/import', roles: ['super_admin'] },
       ]
     },
-    // { icon: AmbulanceIcon, label: 'Help', path: '/help', roles: ['lead', 'super_admin', 'leadership', 'supporting_staff'] },
+    { icon: AmbulanceIcon, label: 'Help', path: '/help', roles: ['lead', 'super_admin', 'leadership', 'supporting_staff'] },
   ];
 
   // Filter navigation items based on user role

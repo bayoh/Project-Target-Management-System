@@ -13,7 +13,6 @@ type ResourcePermissions = {
 };
 
 export function getUserPermissions(user: User | null): ResourcePermissions {
-    console.log(user)
   if (!user?.user_metadata.role) {
     return {
       interventions: { view: false, create: false, edit: false, delete: false },
@@ -55,7 +54,6 @@ export function getUserPermissions(user: User | null): ResourcePermissions {
 }
 
 export function canViewIntervention(user: User | null): boolean {
-    console.log(user)
   return getUserPermissions(user).interventions.view;
 }
 

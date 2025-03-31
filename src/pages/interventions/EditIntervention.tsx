@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { AlertTriangle, ChevronLeft, Upload, X } from 'lucide-react';
 import type { User } from '../../types/auth';
 import { canEditIntervention } from '../../lib/permissions';
+import { Select } from '../../components/ui/Select';
 
 interface FormData {
   name: string;
@@ -107,7 +108,7 @@ export function EditIntervention() {
       if (!user) throw new Error('No authenticated user');
 
       // Update intervention
-      const { error: updateError } = await supabase
+      const { error: updateError , data} = await supabase
         .from('interventions')
         .update({
           name: formData.name,
@@ -158,6 +159,13 @@ export function EditIntervention() {
       setSaving(false);
     }
   };
+
+  const statusOptions = [
+    { label: 'Not Started', value: 'not_started' },
+    { label: 'In Progress', value: 'in_progress' },
+    { label: 'At Risk', value: 'at_risk' },
+    { label: 'Completed', value: 'completed' }
+  ];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -284,18 +292,13 @@ export function EditIntervention() {
                   <label htmlFor="status" className="block text-sm font-medium text-gray-700">
                     Status *
                   </label>
-                  <select
-                    id="status"
-                    required
+                  <Select
+                    options={statusOptions}
                     value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                    className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                  >
-                    <option value="not_started">Not Started</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="at_risk">At Risk</option>
-                    <option value="completed">Completed</option>
-                  </select>
+                    placeholder='Select status'
+                    onChange={(value) => setFormData({...formData, status: value })}
+                    // className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -306,7 +309,9 @@ export function EditIntervention() {
                     <input
                       type="date"
                       id="start_date"
+                      disabled
                       value={formData.start_date}
+                      placeholder='Date based on Action start date'
                       onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
                       className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                     />
@@ -319,6 +324,7 @@ export function EditIntervention() {
                     <input
                       type="date"
                       id="end_date"
+                      disabled
                       value={formData.end_date}
                       onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
                       className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
@@ -330,7 +336,15 @@ export function EditIntervention() {
                   <label htmlFor="lead" className="block text-sm font-medium text-gray-700">
                     Lead
                   </label>
-                  <select
+                  <Select
+                    value={formData.lead_id}
+                    placeholder='Select a lead'
+                    options={users.map(lead => ({ value: lead.id, label: lead.full_name}))}
+                    onChange={(e) => setFormData({...formData, lead_id: e.target.value })}
+                    // className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  />
+
+                  {/* <select
                     id="lead"
                     value={formData.lead_id}
                     onChange={(e) => setFormData({ ...formData, lead_id: e.target.value })}
@@ -342,7 +356,7 @@ export function EditIntervention() {
                         {user.full_name}
                       </option>
                     ))}
-                  </select>
+                  </select> */}
                 </div>
 
                 <div>

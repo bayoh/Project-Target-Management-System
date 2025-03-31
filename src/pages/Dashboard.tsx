@@ -33,6 +33,7 @@ interface DashboardStats {
     onTrack: number;
     atRisk: number;
     completed: number;
+    notStarted: number
     byStatus: Record<string, number>;
   };
   tasks: {
@@ -69,7 +70,7 @@ export function Dashboard() {
   const [stats, setStats] = useState<DashboardStats>({
     clusters: { total: 0, pathways: 0, interventions: 0 },
     interventions: { total: 0, onTrack: 0, atRisk: 0, completed: 0, byStatus: {} },
-    actions: { total: 0, onTrack: 0, atRisk: 0, completed: 0, byStatus: {} },
+    actions: { total: 0, onTrack: 0, atRisk: 0, completed: 0, notStarted: 0, byStatus: {} },
     tasks: { total: 0, pending: 0, inProgress: 0, completed: 0, delayed: 0, byStatus: {} }
   });
   const [clusters, setClusters] = useState<ClusterWithProgress[]>([]);
@@ -155,6 +156,7 @@ export function Dashboard() {
           onTrack: actionsData.data.filter(a => a.status === 'in_progress').length,
           atRisk: actionsData.data.filter(a => a.status === 'at_risk').length,
           completed: actionsData.data.filter(a => a.status === 'completed').length,
+          notStarted: actionsData.data.filter(a => a.status === 'not_started').length,
           byStatus: countByStatus(actionsData.data)
         },
         tasks: {
@@ -222,6 +224,10 @@ export function Dashboard() {
         return 'bg-amber-500';
       case 'delayed':
         return 'bg-red-500';
+      case 'completed':
+        return 'bg-green-500';
+      case 'not_started':
+        return 'bg-gray-500';
       default:
         return 'bg-gray-500';
     }
@@ -271,7 +277,7 @@ export function Dashboard() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="text-3xl font-bold text-gray-900">{stats.clusters.total}</div>
             <div className="text-sm font-medium text-gray-500">Clusters</div>
@@ -288,7 +294,7 @@ export function Dashboard() {
             <div className="text-3xl font-bold text-gray-900">{stats.interventions.atRisk}</div>
             <div className="text-sm font-medium text-gray-500">Need attention</div>
           </div>
-        </div>
+        </div> */}
 
         <ProjectStats/>
 

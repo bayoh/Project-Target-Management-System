@@ -120,11 +120,12 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
   const [showForm, setShowForm] = useState(false);
   const [formType, setFormType] = useState<'achievement' | 'issue' | 'need' | 'target' | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [showEdit, setShowEdit] = useState(false);
 
   useEffect(() => {
-    console.log(action)
     loadData();
     loadComments();
+    getUserPermission();
   }, [action.id]);
 
   const loadComments = async () => {
@@ -225,7 +226,6 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
       setUsers(userData.data);
       setImplementingPartners(implementing_parnters.data);
       setAssociatedProjects(associated_partners.data);
-      console.log(implementing_parnters)
     } catch (err) {
       console.error('Error loading data:', err);
     }
@@ -355,6 +355,13 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
     }
   };
 
+  const getUserPermission = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    setShowEdit(user?.id === action.lead_id || user?.user_metadata.role === 'super_admin');
+ 
+  }
+
   const handleQuickUpdateTarget = async (target: any, newValue: number) => {
     setLoading(true);
     setError(null);
@@ -406,10 +413,10 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
             {formType === 'need' && 'Need'}
             {formType === 'target' && 'Target'}
           </h3>
-          {formType === 'achievement' && <AchievementForm {...commonProps} achievement={editingItem} />}
-          {formType === 'issue' && <IssueForm {...commonProps} issue={editingItem} />}
-          {formType === 'need' && <NeedForm {...commonProps} need={editingItem} />}
-          {formType === 'target' && <TargetForm {...commonProps} target={editingItem} />}
+          {formType === 'achievement' && <AchievementForm {...commonProps} achievement={editingItem} showEdit/>}
+          {formType === 'issue' && <IssueForm {...commonProps} issue={editingItem} showEdit />}
+          {formType === 'need' && <NeedForm {...commonProps} need={editingItem} showEdit />}
+          {formType === 'target' && <TargetForm {...commonProps} target={editingItem} showEdit />}
         </div>
       </div>
     );
@@ -648,7 +655,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium text-gray-900">Recent Achievements</h3>
-              <button
+              {showEdit && <button
                 onClick={() => {
                   setFormType('achievement');
                   setShowForm(true);
@@ -658,7 +665,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Achievement
-              </button>
+              </button>}
             </div>
 
             {achievements.length === 0 ? (
@@ -681,13 +688,13 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                           Achieved on {new Date(achievement.date_achieved).toLocaleDateString()}
                         </p>
                       </div>
-                      <button
+                      { showEdit && <button
                         type="button"
                         onClick={() => handleEdit(achievement, 'achievement')}
                         className="ml-4 text-sm text-blue-600 hover:text-blue-500"
                       >
                         Edit
-                      </button>
+                      </button>}
                     </div>
                   </div>
                 ))}
@@ -700,7 +707,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium text-gray-900">Issues</h3>
-              <button
+              {showEdit && <button
                 onClick={() => {
                   setFormType('issue');
                   setShowForm(true);
@@ -710,7 +717,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Issue
-              </button>
+              </button>}
             </div>
 
             <div className="space-y-4">
@@ -755,12 +762,12 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                           <Check className="h-4 w-4" />
                         </button>
                       )}
-                      <button
+                      {showEdit && <button
                         onClick={() => handleEdit(issue, 'issue')}
                         className="text-blue-600 hover:text-blue-800"
                       >
                         <Edit2 className="h-4 w-4" />
-                      </button>
+                      </button>}
                     </div>
                   </div>
 
@@ -790,7 +797,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium text-gray-900">Needs Assessment</h3>
-              <button
+              {showEdit && <button
                 onClick={() => {
                   setFormType('need');
                   setShowForm(true);
@@ -800,7 +807,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Need
-              </button>
+              </button>}
             </div>
 
             <div className="space-y-4">
@@ -828,12 +835,12 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                           <Check className="h-4 w-4" />
                         </button>
                       )}
-                      <button
+                      {showEdit && <button
                         onClick={() => handleEdit(need, 'need')}
                         className="text-blue-600 hover:text-blue-800"
                       >
                         <Edit2 className="h-4 w-4" />
-                      </button>
+                      </button>}
                     </div>
                   </div>
 
@@ -876,7 +883,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium text-gray-900">Targets and Progress</h3>
-              <button
+              {showEdit && <button
                 onClick={() => {
                   setFormType('target');
                   setShowForm(true);
@@ -886,7 +893,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Target
-              </button>
+              </button>}
             </div>
 
             <div className="space-y-4">
@@ -948,11 +955,11 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                 <label htmlFor="comment" className="sr-only">Add comment</label>
                 <textarea
                   id="comment"
-                  rows={3}
+                  rows={4}
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   placeholder="Add a comment..."
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="board block w-full shadow-sm rounded-m border-solid border-gray-500 focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
               </div>
               <div className="flex justify-end">

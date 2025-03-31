@@ -38,6 +38,7 @@ import toast from 'react-hot-toast';
 import { ImageSlider } from '../../components/imageSlider/index.tsx';
 import { Calendar } from '../../components/ui/Calendar.tsx';
 import { List, ListItem } from '../../components/ui/List.tsx';
+import { Select } from '../../components/ui/Select.tsx';
 import { format, formatDate, formatDistance, formatRelative, subDays } from 'date-fns'
 
 interface Milestone {
@@ -187,6 +188,7 @@ export function ActionReports() {
   const [selectedLeadId, setSelectedLeadId] = useState<string>('');  
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
   const [selectedWeeks, setSelectedWeeks] = useState<string>('');
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isCalendarOpen, setCalendarOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
 
@@ -205,11 +207,11 @@ export function ActionReports() {
     }
   }, [selectedLeadId]);
 
-  useEffect(() => {
-    if (selectedActionId) {
-      loadReport(selectedActionId);
-    }
-  }, [selectedActionId]);
+  // useEffect(() => {
+  //   if (selectedActionId) {
+  //     loadReport(selectedActionId);
+  //   }
+  // }, [selectedActionId]);
 
   const loadLeads = async () => {
     try {
@@ -366,92 +368,111 @@ export function ActionReports() {
     );
   }
 
+  const handleGenerateReport = async () => {
+    if (!selectedLeadId || !selectedActionId) return;
+    setIsGenerating(true);
+    try {
+      await loadReport(selectedActionId);
+      // const reportData = await reportApi.generateReport(selectedActionId);
+      // setReport(reportData);
+    } catch (error) {
+      toast.error('Failed to generate report');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="p-6 space-y-2">
+      <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">Action Reports</h1>
         </div>
 
         <div className="bg-white shadow-sm rounded-lg p-6">
           <div className="space-y-4">
-            <div className="flex flex-col md:flex-row gap-6 mb-8">
-              <div className="flex-1">
-                <label htmlFor="lead" className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Lead
-                </label>
-                <select
-                  id="lead"
-                  value={selectedLeadId}
-                  onChange={(e) => setSelectedLeadId(e.target.value)}
-                  className="w-full rounded-lg border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                  disabled={loading}
-                >
-                  <option value="">Select a lead</option>
-                  {leads.map((lead) => (
-                    <option key={lead.id} value={lead.id}>
-                      {lead.full_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+  <div className="w-full">
+    <label htmlFor="lead" className="block text-sm font-medium text-gray-700 mb-2">
+      Select Lead
+    </label>
+    <Select
+      options={leads.map(lead => ({ value: lead.id, label: lead.full_name || lead.email || '' }))}
+      value={selectedLeadId}
+      onChange={setSelectedLeadId}
+      placeholder="Select Lead"
+      className="w-full"
+      disabled={loading}
+    />
+  </div>
 
-              <div className="flex-1">
-                <label htmlFor="dateRange" className="block text-sm font-medium text-gray-700 mb-2">
-                  Date Range
-                </label>
-                <button
-                  onClick={() => setCalendarOpen(true)}
-                  className="w-full px-4 py-2 text-left rounded-lg border border-gray-200 shadow-sm hover:border-blue-300 focus:border-blue-500 focus:ring-blue-500 text-sm transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-gray-500" />
-                    {(dateRange.start && dateRange.end) ? (
-                      <span className="text-gray-900">
-                        {format(dateRange.start, 'dd/MM/yyyy')} - {format(dateRange.end, 'dd/MM/yyyy')}
-                      </span>
-                    ) : (
-                      <span className="text-gray-500">Select a date range</span>
-                    )}
-                  </div>
-                </button>
-                <Calendar 
-                  selectionType="week" 
-                  isOpen={isCalendarOpen}
-                  onClose={() => setCalendarOpen(false)}
-                  onSelect={(selection) => {
-                    if (typeof selection === 'object' && 'start' in selection) {
-                      setDateRange(selection);
-                      if (selectedActionId) {
-                        loadReport(selectedActionId);
-                      }
-                    }
-                  }} 
-                />
-              </div>
+  <div className="w-full">
+    <label htmlFor="dateRange" className="block text-sm font-medium text-gray-700 mb-2">
+      Date Range
+    </label>
+    <button
+      onClick={() => setCalendarOpen(true)}
+      className="w-full px-4 py-2 text-left rounded-lg border border-gray-200 shadow-sm hover:border-blue-300 focus:border-blue-500 focus:ring-blue-500 text-sm transition-colors"
+    >
+      <div className="flex items-center gap-2">
+        <Clock className="h-4 w-4 text-gray-500" />
+        {(dateRange.start && dateRange.end) ? (
+          <span className="text-gray-900 truncate">
+            {format(dateRange.start, 'dd/MM/yyyy')} - {format(dateRange.end, 'dd/MM/yyyy')}
+          </span>
+        ) : (
+          <span className="text-gray-500">Select a date range</span>
+        )}
+      </div>
+    </button>
+    
+    <div className="relative">
+      <Calendar
+        selectionType="week" 
+        isOpen={isCalendarOpen}
+        onClose={() => setCalendarOpen(false)}
+        onSelect={(selection) => {
+          if (typeof selection === 'object' && 'start' in selection) {
+            setDateRange(selection);
+            setCalendarOpen(false);
+          }
+        }} 
+      />
+    </div>
+  </div>
 
-              <div className="flex-1">
-                <label htmlFor="action" className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Action
-                </label>
-                <select
-                  id="action"
-                  value={selectedActionId}
-                  onChange={(e) => setSelectedActionId(e.target.value)}
-                  className="w-full rounded-lg border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                  disabled={!selectedLeadId || loading}
-                >
-                  <option value="">Select an action</option>
-                  {actions.map((action) => (
-                    <option key={action.id} value={action.id}>
-                      {action.intervention?.pathway?.cluster?.name && 
-                        `${action.intervention.pathway.cluster.name} > ${action.intervention.pathway.name} > ${action.intervention.name} > `}
-                      {action.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+  <div className="w-full">
+    <label htmlFor="action" className="block text-sm font-medium text-gray-700 mb-2">
+      Select Action
+    </label>
+    <Select
+      options={actions.map(action => ({ value: action.id, label: action.name, prefix: action.code }))}
+      value={selectedActionId}
+      onChange={setSelectedActionId}
+      placeholder="Select Action"
+      className="w-full"
+      disabled={!selectedLeadId}
+    />
+  </div>
+
+  <div className="w-full flex items-end">
+    <button
+      onClick={handleGenerateReport}
+      disabled={!selectedLeadId || !selectedActionId || isGenerating}
+      className={`
+        w-full px-4 py-2 rounded-lg font-medium
+        focus:outline-none focus:ring-2 focus:ring-blue-500
+        ${(!selectedLeadId || !selectedActionId || isGenerating)
+          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+          : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'}
+        transition-colors duration-200
+      `}
+    >
+      {isGenerating ? 'Generating...' : 'Generate Report'}
+    </button>
+  </div>
+</div>
 
             {loading && (
               <div className="flex items-center justify-center py-8 bg-white rounded-lg border border-gray-100 shadow-sm">
@@ -473,103 +494,105 @@ export function ActionReports() {
             )}
 
             {report && (
-              <div className="mt-6 space-y-8">
+              <div className="mt-6 space-y-2">
                 <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
                   {/* Header Section */}
-                  <div className="p-8 border-b border-gray-100">
-                    <div className="flex items-start justify-between mb-6">
-                      <div className="space-y-2">
-                        <h2 className="text-3xl font-bold text-gray-900">{report.name}</h2>
+                  <div className="p-4 sm:p-6 md:p-8 border-b border-gray-100">
+                    <div className="flex flex-col sm:flex-row items-start justify-between gap-4 sm:gap-6 mb-4 sm:mb-6">
+                      <div className="w-full sm:w-auto space-y-2">
+                        <h2 className="text-2xl sm:text-2xl md:text-3xl font-bold text-gray-900 break-words">{report.name}</h2>
                         {report.path && (
-                          <div className="text-sm text-gray-600 flex items-center gap-2">
-                            <FileText className="h-4 w-4" />
-                            Path: {report.path}
+                          <div className="text-xs sm:text-sm text-gray-600 flex items-center gap-2 flex-wrap">
+                            <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+                            <span className="break-all">Path: {report.path}</span>
                           </div>
                         )}
                       </div>
-                      <div className='space-y-3'>
-                        <div className="flex items-center gap-2 text-sm font-medium">
-                          <span className="flex items-center gap-2">
+                      <div className='space-y-2 sm:space-y-3 w-full sm:w-auto'>
+                        <div className="flex items-center gap-2 text-xs sm:text-sm font-medium">
+                          <span className="flex items-center gap-1 sm:gap-2">
                             Status: <span className="capitalize">{report.status}</span> {getStatusIcon(report.status)}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Users className="h-4 w-4" />
-                          <span>Lead: {report.lead}</span>
+                        <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-600">
+                          <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="break-words">Lead: {report.lead}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Users className="h-4 w-4" />
-                          <span>Supporting Staff: {users.filter(user => report.supporting_staffs.includes(user.id)).map(user => user.full_name).join(', ')}</span>
+                        <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-600">
+                          <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="break-words">Supporting Staff: {users.filter(user => report.supporting_staffs.includes(user.id)).map(user => user.full_name).join(', ')}</span>
                         </div>
                       </div>
                     </div>
-                    <p className="text-base text-gray-700 leading-relaxed">{report.description}</p>
+                    <p className="text-sm sm:text-base text-gray-700 leading-relaxed break-words">{report.description}</p>
                   </div>
                 
                   {/* Progress Section */}
-                  <div className="p-8 bg-gray-50 border-b border-gray-100">
-                    <div className="grid grid-cols-2 gap-8">
+                  <div className="p-4 md:p-8 bg-gray-50 border-b border-gray-100">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
                       <div>
-                        <h3 className="text-xl font-semibold text-gray-900 mb-6">Achievements</h3>
-                        <div className="space-y-4">
+                        <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-4 md:mb-6">Achievements</h3>
+                        <div className="space-y-3 md:space-y-4">
                           {report.milestones.map((milestone, index) => (
-                            <div key={index} className="flex items-start gap-4 bg-white p-4 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors">
+                            <div key={index} className="flex items-start gap-3 md:gap-4 bg-white p-3 md:p-4 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors">
                               {getStatusIcon(milestone.status)}
-                              <div>
-                                <div className="font-medium text-gray-900">{milestone.title}</div>
-                                <div className="text-sm text-gray-500 mt-1">{milestone.date}</div>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium text-gray-900 text-sm md:text-base truncate">{milestone.title}</div>
+                                <div className="text-xs md:text-sm text-gray-500 mt-1">{milestone.date}</div>
                               </div>
                             </div>
                           ))}
-                          <ImageSlider images={report.milestones.flatMap(milestone => milestone?.images || [])} />
+                          <div className="mt-4">
+                            <ImageSlider images={report.milestones.flatMap(milestone => milestone?.images || [])} />
+                          </div>
                         </div>
                       </div>
                       <div>
-                        <h3 className="text-xl font-semibold text-gray-900 mb-6">Progress</h3>
-                        <div className="grid grid-cols-2 gap-4 mb-6">
-                          <div className="bg-white p-5 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors">
-                            <div className="text-sm font-medium text-gray-600">Jobs Target</div>
-                            <div className="mt-3 flex items-center">
-                              <Target className="h-5 w-5 text-blue-500 mr-3" />
-                              <p className="text-2xl font-bold text-gray-900">{report.jobsTarget}</p>
+                        <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-4 md:mb-6 mt-6 md:mt-0">Progress</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-6">
+                          <div className="bg-white p-4 md:p-5 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors">
+                            <div className="text-xs md:text-sm font-medium text-gray-600">Jobs Target</div>
+                            <div className="mt-2 md:mt-3 flex items-center">
+                              <Target className="h-4 md:h-5 w-4 md:w-5 text-blue-500 mr-2 md:mr-3" />
+                              <p className="text-xl md:text-md sm:text-sm font-bold text-gray-900">{report.jobsTarget}</p>
                             </div>
                           </div>
-                          <div className="bg-white p-5 rounded-lg border border-gray-100 hover:border-green-200 transition-colors">
-                            <div className="text-sm font-medium text-gray-600">Action Budget</div>
-                            <div className="mt-3 flex items-center">
-                              <DollarSign className="h-5 w-5 text-green-500 mr-3" />
-                              <span className="text-2xl font-bold text-gray-900">{report.projectCost}</span>
+                          <div className="bg-white p-4 md:p-5 rounded-lg border border-gray-100 hover:border-green-200 transition-colors">
+                            <div className="text-xs md:text-sm font-medium text-gray-600">Action Budget</div>
+                            <div className="mt-2 md:mt-3 flex items-center">
+                              <DollarSign className="h-4 md:h-5 w-4 md:w-5 text-green-500 mr-2 md:mr-3" />
+                              <span className="text-xl md:text-md sm:text-sm font-bold text-gray-900">{report.projectCost}</span>
                             </div>
                           </div>
                         </div>
-                        <div className="bg-white p-5 rounded-lg border border-gray-100 mb-6">
-                          <div className="text-sm font-medium text-gray-600 mb-4">Other Targets</div>
-                          <div className="space-y-4">
+                        <div className="bg-white p-4 md:p-5 rounded-lg border border-gray-100 mb-4 md:mb-6">
+                          <div className="text-xs md:text-sm font-medium text-gray-600 mb-3 md:mb-4">Other Targets</div>
+                          <div className="space-y-3 md:space-y-4">
                             {report.otherTargets.map((target, index) => (
-                              <ListItem key={index} icon={<Target className="h-4 w-4 text-blue-500" />}>
+                              <ListItem key={index} icon={<Target className="h-3 md:h-4 w-3 md:w-4 text-blue-500" />}>
                                 <div className="flex-1 space-y-2">
-                                  <div className="flex justify-between items-center">
-                                    <p className="text-sm font-medium text-gray-700">{target.metric}</p>
-                                    <p className="text-sm text-gray-600">{target.current_value} / {target.target_value}</p>
+                                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
+                                    <p className="text-xs md:text-sm font-medium text-gray-700">{target.metric}</p>
+                                    <p className="text-xs md:text-sm text-gray-600">{target.current_value} / {target.target_value}</p>
                                   </div>
-                                  <div className="h-2 w-full rounded-full bg-gray-100">
+                                  <div className="h-1.5 md:h-2 w-full rounded-full bg-gray-100">
                                     <div 
                                       className="h-full rounded-full bg-blue-500 transition-all duration-300" 
                                       style={{ width: `${(target.current_value / target.target_value) * 100}%` }}
                                     ></div>
                                   </div>
-                                  <p className="text-xs text-gray-500 text-right">Updated {formatRelative(subDays(target.last_updated, 3), new Date())}</p>
+                                  <p className="text-xs text-gray-500 text-right">{formatRelative(subDays(target.last_updated, 3), new Date())}</p>
                                 </div>
                               </ListItem>
                             ))}
                           </div>
                         </div>
                         {report.keyMilestones.length > 0 && (
-                          <div className="bg-white p-5 rounded-lg border border-gray-100">
-                            <h4 className="text-sm font-medium text-gray-900 mb-3">Key Milestones</h4>
-                            <ul className="list-disc pl-5 space-y-2">
+                          <div className="bg-white p-4 md:p-5 rounded-lg border border-gray-100">
+                            <h4 className="text-xs md:text-sm font-medium text-gray-900 mb-2 md:mb-3">Key Milestones</h4>
+                            <ul className="list-disc pl-4 md:pl-5 space-y-1.5 md:space-y-2">
                               {report.keyMilestones.map((milestone, index) => (
-                                <li key={index} className="text-sm text-gray-700">{milestone}</li>
+                                <li key={index} className="text-xs md:text-sm text-gray-700">{milestone}</li>
                               ))}
                             </ul>
                           </div>
@@ -667,6 +690,7 @@ export function ActionReports() {
               </PDFDownloadLink>
 
             </div>
+          </div>
           </div>
               
         </DashboardLayout>
