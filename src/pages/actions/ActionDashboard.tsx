@@ -435,26 +435,32 @@ export function ActionDashboard() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
-                        
                       <div className="flex items-center gap-3">
-                        {/* {getStatusIcon(action.code)} */}
-                        <p className="text-sm font-medium text-gray-500">
-                          {action.code}
-                        </p>
-                        <h2 className="text-lg font-medium text-gray-900 truncate">
-                          {action.name}
-                        </h2>
+                        <div className="flex items-center gap-2">
+                          {getStatusIcon(action.status)}
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${action.status === 'completed' ? 'bg-green-100 text-green-800' : action.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : action.status === 'at_risk' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
+                            {action.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-500">{action.code}</p>
+                        <h2 className="text-lg font-medium text-gray-900 truncate">{action.name}</h2>
                       </div>
                       {intervention && (
-                        <p className="mt-1 text-sm text-gray-500">
-                          Intervention: {intervention.name}
-                        </p>
+                        <p className="mt-1 text-sm text-gray-500">Intervention: {intervention.name}</p>
                       )}
                       {lead && (
-                        <p className="mt-1 text-sm text-gray-500">
-                          Lead: {lead.full_name || lead.email}
-                        </p>
+                        <p className="mt-1 text-sm text-gray-500">Lead: {lead.full_name || lead.email}</p>
                       )}
+                      <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          <span>Start: {action.start_date ? new Date(action.start_date).toLocaleDateString() : 'Not set'}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          <span>End: {action.end_date ? new Date(action.end_date).toLocaleDateString() : 'Not set'}</span>
+                        </div>
+                      </div>
                       {action.description && (
                         <p className="mt-2 text-sm text-gray-700">{action.description}</p>
                       )}

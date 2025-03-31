@@ -30,7 +30,9 @@ export function ActionModal({
     lead_id: '',
     status: 'not_started',
     start_date: '',
-    end_date: ''
+    end_date: '',
+    actual_startDate: '',
+    actual_endDate: ''
   };
 
   const [formData, setFormData] = React.useState<Partial<Action>>(
@@ -40,14 +42,16 @@ export function ActionModal({
   React.useEffect(() => {
     if (action) {
       setFormData({
-        code: action.code || '',
+        code: action.code || 0,
         name: action.name || '',
         description: action.description || '',
         intervention_id: action.intervention_id || '',
         lead_id: action.lead_id || '',
         status: action.status || 'not_started',
         start_date: action.start_date || '',
-        end_date: action.end_date || ''
+        end_date: action.end_date || '',
+        actual_startDate: action.actual_startDate || '',
+        actual_endDate: action.actual_endDate || ''
       });
     } else if (!isOpen) {
       setFormData(initialFormState);
@@ -130,35 +134,20 @@ export function ActionModal({
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
                 </div>
-
                 <div>
                   <label htmlFor="intervention" className="block text-sm font-medium text-gray-700">
-                    Intervention
+                    Status
                   </label>
                   <Select
-                    options={interventions.map((intervention) => ({
-                      value: intervention.id,
-                      label: intervention.name,
-                      prefix: intervention.code
-                    }))}
-                    value={formData.intervention_id}
-                    onChange={(value) => setFormData({ ...formData, intervention_id: value })}
-                    placeholder="Select Intervention"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="lead" className="block text-sm font-medium text-gray-700">
-                    Lead
-                  </label>
-                  <Select
-                    options={users.map((user) => ({
-                      value: user.id,
-                      label: user.full_name || user.email || ''
-                    }))}
-                    value={formData.lead_id}
-                    onChange={(value) => setFormData({ ...formData, lead_id: value })}
-                    placeholder="Select Lead"
+                    options={[
+                        { value: 'not_started', label: 'Not Started' },
+                        { value: 'in_progress', label: 'In Progress' },
+                        { value: 'at_risk', label: 'At Risk' },
+                        { value: 'completed', label: 'Completed' }
+                      ]}
+                    value={formData.status}
+                    onChange={(value) => setFormData({ ...formData, status: value })}
+                    placeholder="Select Status"
                   />
                 </div>
 
@@ -190,6 +179,66 @@ export function ActionModal({
                   </div>
                 </div>
 
+                {(action || formData.status !== 'not_started') && (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="actual_start_date" className="block text-sm font-medium text-gray-700">
+                        Actual Start Date
+                      </label>
+                      <input
+                        type="date"
+                        id="actual_start_date"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                        value={formData.actual_startDate}
+                        onChange={(e) => setFormData({ ...formData, actual_startDate: e.target.value })}
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="actual_end_date" className="block text-sm font-medium text-gray-700">
+                        Actual End Date
+                      </label>
+                      <input
+                        type="date"
+                        id="actual_end_date"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                        value={formData.actual_endDate}
+                        onChange={(e) => setFormData({ ...formData, actual_endDate: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label htmlFor="intervention" className="block text-sm font-medium text-gray-700">
+                    Intervention
+                  </label>
+                  <Select
+                    options={interventions.map((intervention) => ({
+                      value: intervention.id,
+                      label: intervention.name,
+                      prefix: intervention.code
+                    }))}
+                    value={formData.intervention_id}
+                    onChange={(value) => setFormData({ ...formData, intervention_id: value })}
+                    placeholder="Select Intervention"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="lead" className="block text-sm font-medium text-gray-700">
+                    Lead
+                  </label>
+                  <Select
+                    options={users.map((user) => ({
+                      value: user.id,
+                      label: user.full_name || user.email || ''
+                    }))}
+                    value={formData.lead_id}
+                    onChange={(value) => setFormData({ ...formData, lead_id: value })}
+                    placeholder="Select Lead"
+                  />
+                </div>
                 <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
                   <button
                     type="submit"

@@ -28,6 +28,8 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
     status: action?.status || 'not_started',
     start_date: action?.start_date || '',
     end_date: action?.end_date || '',
+    actual_startDate: action?.actual_startDate || '',
+    actual_endDate: action?.actual_endDate || '',
     lead_id: action?.lead_id || '',
     supporting_staff: action?.supporting_staff || [],
     budget: action?.budget?.toString() || '',
@@ -112,6 +114,8 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
         status: formData.status,
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,
+        actual_startDate: formData.actual_startDate || null,
+        actual_endDate: formData.actual_endDate || null,
         lead_id: formData.lead_id || null,
         supporting_staff: formData.supporting_staff,
         budget: formData.budget ? parseFloat(formData.budget) : null,
@@ -248,10 +252,10 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 mt-4 md:grid-cols-2 gap-6">
         <div>
           <label htmlFor="start_date" className="block text-sm font-medium text-gray-700">
-            Start Date
+            Planned Start Date
           </label>
           <input
             type="date"
@@ -264,13 +268,40 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
 
         <div>
           <label htmlFor="end_date" className="block text-sm font-medium text-gray-700">
-            End Date
+            Planned End Date
           </label>
           <input
             type="date"
             id="end_date"
             value={formData.end_date}
             onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+            className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 mt-2 md:grid-cols-2 gap-6">
+        <div>
+          <label htmlFor="actual_start_date" className="block text-sm font-medium text-gray-700">
+            Actual Start Date
+          </label>
+          <input
+            type="date"
+            id="actual_start_date"
+            value={formData.actual_startDate}
+            onChange={(e) => setFormData({ ...formData, actual_startDate: e.target.value })}
+            className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="actual_end_date" className="block text-sm font-medium text-gray-700">
+            Actual End Date
+          </label>
+          <input
+            type="date"
+            id="actual_end_date"
+            value={formData.actual_endDate}
+            onChange={(e) => setFormData({ ...formData, actual_endDate: e.target.value })}
             className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
           />
         </div>

@@ -286,7 +286,7 @@ export function InterventionDetails() {
             </button>
             <div>
               
-                <h1 className="col-start-2 col-start-9 text-2xl font-bold text-gray-900 truncate max-w-2xl">{intervention.name}</h1>
+                <h1 className="col-start-2 col-start-9 text-xl whitespace-pre-wrap line-clamp-2 hover:line-clamp-none transition-all duration-200 font-semi-bold text-gray-900 truncate max-w-2xl">{intervention.name}</h1>
            
               {intervention.pathway && (
                 <p className="mt-1 text-sm text-gray-500">{intervention.pathway.name}</p>
@@ -373,7 +373,7 @@ export function InterventionDetails() {
           {intervention.description && (
             <div className="mt-6">
               <h3 className="text-sm font-medium text-gray-500">Description</h3>
-              <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap line-clamp-3 hover:line-clamp-none transition-all duration-200">{intervention.description}</p>
+              <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap line-clamp-4 hover:line-clamp-none transition-all duration-200">{intervention.description}</p>
             </div>
           )}
         </div>
