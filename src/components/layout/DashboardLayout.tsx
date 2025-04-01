@@ -13,6 +13,7 @@ import {
   X,
   User,
   UserCheck2Icon,
+  FileArchiveIcon,
   Link,
   ChevronLeft,
   ChevronRight,
@@ -102,19 +103,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { icon: UserCheck2Icon, label: 'My Tasks', path: '/userdashboard', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership']},
     { icon: ShieldAlert, label: 'Issue Registry', path: '/issue', roles: ['supporting_staff','super_admin','leadership', 'lead']},
     { icon: Folders, label: 'Clusters', path: '/clusters', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership'] },
+    
     { 
-      icon: Target,
-      label: 'Targets',
-      path: '/targets',
-      roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'],
-      subItems: [
-        { icon: LayoutDashboard, label: 'Dashboard', path: '/targets', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
-        { icon: ListChecks, label: 'Target Tracking', path: '/targets/tracking', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
-        { icon: Plus, label: 'New Target', path: '/targets/new', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] }
-      ]
-    },
-    { 
-      icon: Target, 
+      icon: FileArchiveIcon, 
       label: 'Interventions', 
       path: '/interventions',
       roles: ['leadership', 'super_admin', 'supporting_staff', 'lead']
@@ -126,6 +117,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       roles: ['leadership', 'super_admin', 'supporting_staff', 'lead']
     },
     { icon: BarChart2, label: 'Reports', path: '/reports', roles: ['lead', 'super_admin', 'leadership'] },
+    { 
+      icon: Target,
+      label: 'Targets',
+      path: '/targets',
+      roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'],
+      subItems: [
+        { icon: LayoutDashboard, label: 'Dashboard', path: '/targets', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
+        { icon: ListChecks, label: 'Target Tracking', path: '/targets/tracking', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
+        { icon: Plus, label: 'New Target', path: '/targets/new', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] }
+      ]
+    },
     { 
       icon: Settings, 
       label: 'Settings', 
