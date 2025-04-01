@@ -141,8 +141,8 @@ export function ActionModal({
                   <Select
                     options={[
                         { value: 'not_started', label: 'Not Started' },
-                        { value: 'in_progress', label: 'In Progress' },
-                        { value: 'at_risk', label: 'At Risk' },
+                        { value: 'at_risk', label: 'On Going/Off Track' },
+                        { value: 'in_progress', label: 'On Going/On Track' },
                         { value: 'completed', label: 'Completed' }
                       ]}
                     value={formData.status}

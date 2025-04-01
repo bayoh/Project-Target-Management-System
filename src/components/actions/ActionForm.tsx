@@ -320,8 +320,8 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
           className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
         >
           <option value="not_started">Not Started</option>
-          <option value="in_progress">In Progress</option>
-          <option value="at_risk">At Risk</option>
+          <option value="in_progress">On Going/On Track</option>
+          <option value="at_risk">On Going/Off Track</option>
           <option value="completed">Completed</option>
         </select>
       </div>

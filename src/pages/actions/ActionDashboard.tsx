@@ -328,7 +328,7 @@ export function ActionDashboard() {
                 <Clock className="h-6 w-6 text-blue-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">In Progress</p>
+                <p className="text-sm font-medium text-gray-500">On Going/On Track</p>
                 <h3 className="text-xl font-semibold text-gray-900">{metrics.statusCounts.in_progress}</h3>
               </div>
             </div>
@@ -339,7 +339,7 @@ export function ActionDashboard() {
                 <AlertTriangle className="h-6 w-6 text-amber-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">At Risk</p>
+                <p className="text-sm font-medium text-gray-500">On Going/Off Track</p>
                 <h3 className="text-xl font-semibold text-gray-900">{metrics.statusCounts.at_risk}</h3>
               </div>
             </div>
