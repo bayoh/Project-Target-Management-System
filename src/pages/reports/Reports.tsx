@@ -50,13 +50,13 @@ export function Reports() {
       path: '/reports/actions',
       color: 'bg-blue-500'
     },
-    {
-      title: 'Template Reports',
-      description: 'Generate custom reports using predefined templates',
-      icon: FileText,
-      path: '/reports/templates',
-      color: 'bg-green-500'
-    }
+    // {
+    //   title: 'Template Reports',
+    //   description: 'Generate custom reports using predefined templates',
+    //   icon: FileText,
+    //   path: '/reports/templates',
+    //   color: 'bg-green-500'
+    // }
   ];
 
   if (loading) {
@@ -72,7 +72,7 @@ export function Reports() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        {/* <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
           <button
             onClick={() => navigate('/reports/templates/new')}
@@ -81,10 +81,10 @@ export function Reports() {
             <Plus className="h-4 w-4 mr-2" />
             New Template
           </button>
-        </div>
+        </div> */}
 
         {/* Report Types Grid */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-1 lg:grid-cols-1 mt-20">
           {reportTypes.map((type) => (
             <div
               key={type.path}
@@ -113,11 +113,11 @@ export function Reports() {
 
         {/* Recent Reports */}
         <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
+          {/* <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-medium text-gray-900">Recent Reports</h2>
-          </div>
+          </div> */}
           <div className="divide-y divide-gray-200">
-            {templates.slice(0, 5).map((template) => (
+            {/* {templates.slice(0, 5).map((template) => (
               <div
                 key={template.id}
                 className="px-6 py-4 hover:bg-gray-50 cursor-pointer"
@@ -147,9 +147,9 @@ export function Reports() {
                   </div>
                 </div>
               </div>
-            ))}
+            ))} */}
 
-            {templates.length === 0 && (
+            {/* {templates.length === 0 && (
               <div className="px-6 py-8 text-center">
                 <FileText className="mx-auto h-12 w-12 text-gray-400" />
                 <h3 className="mt-2 text-sm font-medium text-gray-900">
@@ -168,7 +168,7 @@ export function Reports() {
                   </button>
                 </div>
               </div>
-            )}
+            )} */}
           </div>
         </div>
       </div>

@@ -256,13 +256,13 @@ export default function TargetDetail() {
           <div className="flex justify-between items-start mb-6">
             <h3 className="text-lg font-medium text-gray-900">Target Information</h3>
             <div className="flex space-x-2">
-              <button
+              {/* <button
                 onClick={handleEdit}
                 className="p-2 text-blue-600 hover:text-blue-800 rounded-full hover:bg-blue-50"
                 title="Edit Target"
               >
                 <FileEdit className="h-5 w-5" />
-              </button>
+              </button> */}
               <button
                 onClick={handleDelete}
                 className="p-2 text-red-600 hover:text-red-800 rounded-full hover:bg-red-50"

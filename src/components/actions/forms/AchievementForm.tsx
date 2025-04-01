@@ -5,6 +5,7 @@ import { supabase } from '../../../lib/supabase';
 interface AchievementFormProps {
   onSubmit: (data: any) => Promise<void>;
   onCancel: () => void;
+  showEdit: boolean;
   achievement?: {
     description: string;
     date_achieved: string;
@@ -51,7 +52,7 @@ function DeleteConfirmationDialog({ isOpen, fileName, onConfirm, onCancel }: Del
   );
 }
 
-export function AchievementForm({ onSubmit, onCancel, achievement }: AchievementFormProps) {
+export function AchievementForm({ onSubmit, onCancel, achievement, showEdit }: AchievementFormProps) {
   const [formData, setFormData] = useState({
     description: achievement?.description || '',
     date_achieved: achievement?.date_achieved || new Date().toISOString().split('T')[0],
