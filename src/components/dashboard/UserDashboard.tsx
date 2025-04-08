@@ -77,7 +77,6 @@ export function UserDashboard() {
             role: item.lead_id === user.id ? 'lead' as const : 'supporting' as const
           }))
       ];
-  
       setItems(dashboardItems);
     } catch (err: any) {
       console.error('Error loading dashboard items:', err);
@@ -182,43 +181,43 @@ export function UserDashboard() {
                 </div>
                 <div className="flex items-center space-x-2 ml-auto">
                   <button
-                    onClick={() => navigate(`/${item.type}s/${item.id}`)}
+                    onClick={() => item.type === "intervention" ? navigate(`/${item.type}s/${item.id}`) : navigate(`/interventions/${item.intervention?.id}/actions/${item.id}`)}
                     className="p-1 text-gray-400 hover:text-gray-600"
                     title="View Details"
                   >
                     <Eye className="h-4 w-4" />
                   </button>
-                  <button
-                    onClick={() => navigate(`/${item.type}s/${item.id}/edit`)}
+                  {/* <button
+                    onClick={() => item.type === "intervention" ? navigate(`/${item.type}s/${item.id}/edit`) : navigate(`/interventions/${item.intervention?.id}/actions/${item.id}/edit`)}
                     className="p-1 text-gray-400 hover:text-gray-600"
                     title="Edit"
                   >
                     <Edit className="h-4 w-4" />
-                  </button>
+                  </button> */}
                   {item.type == 'action' && <>
                      <button
-                     onClick={() => navigate(`/interventions/${item.intervention_id}/actions/${item.id}#issues`)}
+                     onClick={() => navigate(`/interventions/${item.intervention?.id}/actions/${item.id}#issues`)}
                      className="p-1 text-gray-400 hover:text-gray-600"
                      title="Issues"
                    >
                      <AlertTriangle className="h-4 w-4" />
                    </button>
                    <button
-                     onClick={() => navigate(`/interventions/${item.id}/actions/${item.id}#achievements`)}
+                     onClick={() => navigate(`/interventions/${item.intervention?.id}/actions/${item.id}#achievements`)}
                      className="p-1 text-gray-400 hover:text-gray-600"
                      title="Achievements"
                    >
                      <Trophy className="h-4 w-4" />
                    </button>
                    <button
-                     onClick={() => navigate(`/interventions/${item.intervention_id}/actions/${item.id}#targets`)}
+                     onClick={() => navigate(`/interventions/${item.intervention?.id}/actions/${item.id}#targets`)}
                      className="p-1 text-gray-400 hover:text-gray-600"
                      title="Targets"
                    >
                      <Target className="h-4 w-4" />
                    </button>
                    <button
-                     onClick={() => navigate(`/interventions/${item.intervention_id}/actions/${item.id}#comments`)}
+                     onClick={() => navigate(`/interventions/${item.intervention?.id}/actions/${item.id}#comments`)}
                      className="p-1 text-gray-400 hover:text-gray-600"
                      title="Comments"
                    >
@@ -267,42 +266,42 @@ export function UserDashboard() {
                       </div>
                       <div className="flex items-center space-x-2 ml-auto">
                   <button
-                    onClick={() => navigate(`/${item.type}s/${item.id}/actions/${action.id}`)}
+                    onClick={() => navigate(`/interventions/${item.id}/actions/${action.id}`)}
                     className="p-1 text-gray-400 hover:text-gray-600"
                     title="View Details"
                   >
                     <Eye className="h-4 w-4" />
                   </button>
-                  <button
-                    onClick={() => navigate(`/${item.type}s/${item.id}/actions/${action.id}/edit`)}
+                  {/* <button
+                    onClick={() => navigate(`/interventions/${item.id}/actions/${action.id}/edit`)}
                     className="p-1 text-gray-400 hover:text-gray-600"
                     title="Edit"
                   >
                     <Edit className="h-4 w-4" />
-                  </button>
+                  </button> */}
                   <button
-                    onClick={() => navigate(`/${item.type}s/${item.id}/actions/${action.id}#issues`)}
+                    onClick={() => navigate(`/interventions/${item.id}/actions/${action.id}#issues`)}
                     className="p-1 text-gray-400 hover:text-gray-600"
                     title="Issues"
                   >
                     <AlertTriangle className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={() => navigate(`/${item.type}s/${item.id}/actions/${action.id}#achievements`)}
+                    onClick={() => navigate(`/interventions/${item.id}/actions/${action.id}#achievements`)}
                     className="p-1 text-gray-400 hover:text-gray-600"
                     title="Achievements"
                   >
                     <Trophy className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={() => navigate(`/${item.type}s/${item.id}/actions/${action.id}#targets`)}
+                    onClick={() => navigate(`/interventions/${item.id}/actions/${action.id}#targets`)}
                     className="p-1 text-gray-400 hover:text-gray-600"
                     title="Targets"
                   >
                     <Target className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={() => navigate(`/${item.type}s/${item.id}/actions/${action.id}#comments`)}
+                    onClick={() => navigate(`/interventions/${item.id}/actions/${action.id}#comments`)}
                     className="p-1 text-gray-400 hover:text-gray-600"
                     title="Comments"
                   >

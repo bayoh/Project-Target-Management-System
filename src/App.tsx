@@ -155,7 +155,7 @@ export default function App() {
         />
         <Route
           path="/reports"
-          element={user ? <Reports /> : <Navigate to="/login" replace />}
+          element={user ? <ActionReports /> : <Navigate to="/login" replace />}
         />
         <Route
           path="/reports/actions"

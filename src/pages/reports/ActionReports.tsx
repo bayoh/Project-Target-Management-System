@@ -44,14 +44,14 @@ import { format, formatDate, formatDistance, formatRelative, subDays } from 'dat
 interface Milestone {
   date: string;
   title: string;
-  status: 'completed' | 'in_progress' | 'pending';
+  status: 'completed' | 'ongoing/ontrack' | 'ongoing/offtrack'| 'pending';
 }
 
 interface ActionReport {
   id: string;
   name: string;
   description: string;
-  status: 'not_started' | 'in_progress' | 'at_risk' | 'completed';
+  status: 'completed' | 'ongoing/ontrack' | 'ongoing/offtrack'| 'pending';
   milestones: Milestone[];
   keyMilestones: string[];
   needs: [];

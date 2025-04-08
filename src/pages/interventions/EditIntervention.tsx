@@ -340,7 +340,9 @@ export function EditIntervention() {
                     value={formData.lead_id}
                     placeholder='Select a lead'
                     options={users.map(lead => ({ value: lead.id, label: lead.full_name}))}
-                    onChange={(e) => setFormData({...formData, lead_id: e.target.value })}
+                    onChange={(e) => setFormData({...formData, lead_id: e })}
+                    allowClear
+                    key={'lead'}
                     // className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                   />
 
