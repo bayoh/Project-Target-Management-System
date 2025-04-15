@@ -652,9 +652,15 @@ async deleteAction(id: string) {
   }
 };
 
+const formatdate = (date: Date) => {
+  const d = new Date(date);
+  return d.toISOString().slice(0, 19).replace('T', ' ');
+}
 export const reportApi = {
   // Get action report data
   async getActionReport({actionId, endDate, startDate,}: ActionPramas) {
+    // console.log(formatdate(new Date(endDate)))
+    // console.log(actionId, new Date(endDate).toISOString().split('T')[0], startDate)
     try {
       const [actionData, achievementsData, issuesData, needsData, commentsData, targetsData] = await Promise.all([
         // Get action details
@@ -679,7 +685,7 @@ export const reportApi = {
           .from('action_achievements')
           .select('*')
           .eq('action_id', actionId)
-          .in('date_achieved', [`${startDate}`, `${endDate}`])
+          // .in('date_achieved', [`${startDate}`, `${endDate}`])
           .order('date_achieved', { ascending: false }),
 
         // Get issues
@@ -687,21 +693,20 @@ export const reportApi = {
           .from('action_issues')
           .select('*')
           .eq('action_id', actionId)
-          .in('date_identified', [`${startDate}`, `${endDate}`])
+          // .in('date_identified', [`${startDate}`, `${endDate}`])
           .order('date_identified', { ascending: false }),
 
         supabase
           .from('action_needs')
           .select('*')
           .eq('action_id', actionId)
-          .in('date_identified', [`${startDate}`, `${endDate}`])
+          // .in('date_identified', [`${startDate}`, `${endDate}`])
           .order('date_identified', { ascending: false }),
 
           supabase
           .from('action_comments')
           .select('*')
           .eq('action_id', actionId)
-          // .in('created_at', [`${startDate}`, `${endDate}`])
           .order('created_at', { ascending: false }),
         // Get targets
         supabase
@@ -770,7 +775,7 @@ export const reportApi = {
         keyMilestones: achievementsData.data
           .slice(0, 3)
           .map(a => a.description),
-        issues: activeIssues,
+        issues: issuesData.data,
         needs: needsData.data,
         comments: commentsData.data,
         otherTargets: otherTargets,

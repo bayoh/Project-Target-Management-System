@@ -18,7 +18,8 @@ import {
   DollarSign,
   Target,
   Loader2,
-  SpeechIcon
+  SpeechIcon,
+  HandCoinsIcon
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { User } from '../../types/auth';
@@ -274,6 +275,7 @@ export function ActionReports() {
       }
       console.log(params)
       const data = await reportApi.getActionReport(params);
+      console.log(data)
       if (!data) {
         throw new Error('Failed to load report data');
       }
@@ -286,20 +288,37 @@ export function ActionReports() {
         // Filter issues within date range
         data.issues = data.issues?.filter(issue => {
           const issueDate = new Date(issue.created_at);
-          return issueDate >= startDate && issueDate <= endDate;
+          const issueIdentifiedDate = issue.date_identified ? new Date(issue.date_identified) : null;
+          const isWithinDateRange = (issueDate >= startDate && issueDate <= endDate) || 
+                                  (issueIdentifiedDate && issueIdentifiedDate >= startDate && issueIdentifiedDate <= endDate);
+          // const isUnresolved = issue.status !== 'resolved' && issue.status !== 'closed';
+          return isWithinDateRange;
         }) || [];
 
+        // data.issues = data.issues?.filter(issue => {
+        //   const issueDate = new Date(issue.date_identified);
+        //   return (issueDate >= startDate && issueDate <= endDate) || issue.date_resolved === null;
+        // }) || [];
+
         // Filter comments within date range
-        data.comments = data.comments?.filter(comment => {
-          const commentDate = new Date(comment.created_at);
-          return commentDate >= startDate && commentDate <= endDate;
-        }) || [];
+        // data.comments = data.comments?.filter(comment => {
+        //   const commentDate = new Date(comment.created_at);
+        //   return commentDate >= startDate && commentDate <= endDate;
+        // }) || [];
 
         // Filter needs within date range
         data.needs = data.needs?.filter(need => {
-          const needDate = new Date(need.created_at);
-          return needDate >= startDate && needDate <= endDate;
+          const needDate = new Date(need.date_identified);
+          const dateFulfiled =  new Date(need.date_fulfilled);
+          return (needDate >= startDate && needDate <= endDate) || (dateFulfiled && dateFulfiled >=startDate && dateFulfiled <= endDate || dateFulfiled === null) ;
         }) || [];
+
+        // Filter milestones within date range
+        data.milestones = data.milestones?.filter(milestone => {
+          const milestoneDate = new Date(milestone.date);
+          return milestoneDate >= startDate && milestoneDate <= endDate;
+        }) || [];
+
       }
       
       // Transform action data into report format
@@ -325,7 +344,7 @@ export function ActionReports() {
         keyMilestones: data.key_milestones || [],
         issues: data.issues || [],
         needs: data.needs || [],
-        comments: data.comments?.map(m => m),
+        comments: data.comments,
         jobsTarget: data.jobsTarget?.toString() || '0',
         otherTargets: data.otherTargets || [],
         projectCost: data.projectCost|| '0',
@@ -605,21 +624,57 @@ export function ActionReports() {
                   <div className="p-8">
                     <h3 className="text-xl font-semibold text-gray-900 mb-6">Issues</h3>
                     {report.issues.length > 0 ? (
-                      <div className="space-y-4">
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-4 gap-6 px-4 text-sm font-medium text-gray-600">
+                          <div className="col-span-2">Description</div>
+                          <div>Status</div>
+                          <div>Severity</div>
+                        </div>
                         {report.issues.map((issue, index) => (
-                          <div key={index} className="flex items-start gap-4 bg-white p-5 rounded-lg border border-gray-100 hover:border-amber-200 transition-colors">
-                            <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
-                            <div className="flex-1 grid grid-cols-4 gap-6">
-                              <p className="text-sm text-gray-700 col-span-2">{issue.description}</p>
-                              <p className="text-sm text-gray-600 capitalize">{issue.status}</p>
-                              <p className="text-sm text-gray-600">{issue.severity}</p>
-                              <p className="text-sm text-gray-500">{issue.date_identified}</p>
+                          <div 
+                            key={index} 
+                            className="bg-white p-5 rounded-lg border border-gray-100 hover:border-amber-200 transition-colors"
+                          >
+                            <div className="flex items-start gap-4">
+                              <div className="flex-shrink-0">
+                                <AlertTriangle className="h-5 w-5 text-amber-500" />
+                              </div>
+                              <div className="flex-1 grid grid-cols-4 gap-6">
+                                <div className="col-span-2">
+                                  <p className="text-sm text-gray-700">{issue.description}</p>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Identified on: {format(new Date(issue.date_identified), 'MMM d, yyyy')}
+                                  </p>
+                                </div>
+                                <div className="flex items-center">
+                                  <span className={`
+                                    inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                    ${issue.status === 'resolved' ? 'bg-green-100 text-green-800' : 
+                                      issue.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : 
+                                      'bg-gray-100 text-gray-800'}
+                                  `}>
+                                    {issue.status}
+                                  </span>
+                                </div>
+                                <div className="flex items-center">
+                                  <span className={`
+                                    inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                    ${issue.severity === 'high' ? 'bg-red-100 text-red-800' : 
+                                      issue.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' : 
+                                      'bg-green-100 text-green-800'}
+                                  `}>
+                                    {issue.severity}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-500">No active issues</p>
+                      <div className="text-center py-8 bg-gray-50 rounded-lg">
+                        <p className="text-sm text-gray-500">No reported issues for the selected week</p>
+                      </div>
                     )}
                   </div>
 
@@ -627,24 +682,57 @@ export function ActionReports() {
                   <div className="p-8 border-t border-gray-100">
                     <h3 className="text-xl font-semibold text-gray-900 mb-6">Needs</h3>
                     {report.needs.length > 0 ? (
+                      <div className="space-y-6">
+                      <div className="grid grid-cols-4 gap-6 px-4 text-sm font-medium text-gray-600">
+                        <div className="col-span-2">Description</div>
+                        <div>Status</div>
+                        <div>Budget</div>
+                      </div>
                       <List className="space-y-4">
                         {report.needs.map((need, index) => (
-                          <ListItem 
-                            key={index} 
-                            icon={<AlertTriangle className="h-5 w-5 text-amber-500" />}
-                            className="bg-white p-5 rounded-lg border border-gray-100 hover:border-amber-200 transition-colors"
-                          >
-                            <div className="flex-1 grid grid-cols-4 gap-4">
-                              <p className="text-gray-700">{need.description}</p>
-                              <p className="text-gray-700">{need.status}</p>
-                              <p className="text-gray-700">{need.date_identified}</p>
+                          <div 
+                          key={index} 
+                          className="bg-white p-5 rounded-lg border border-gray-100 hover:border-amber-200 transition-colors"
+                        >
+                          <div className="flex items-start gap-4">
+                            <div className="flex-shrink-0">
+                              <HandCoinsIcon className="h-5 w-5 text-amber-500" />
                             </div>
-                          </ListItem>
+                            <div className="flex-1 grid grid-cols-4 gap-6">
+                              <div className="col-span-2">
+                                <p className="text-sm text-gray-700">{need.description}</p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Identified on: {format(new Date(need.date_identified), 'MMM d, yyyy')}
+                                </p>
+                              </div>
+                              <div className="flex items-center">
+                                <span className={`
+                                  inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                  ${need.date_fulfilled && 'Fullfiled' ? 'bg-green-100 text-green-800' : 
+                                    need.date_fulfilled == null && 'Not Fulfilled' ? 'bg-blue-100 text-blue-800' : 
+                                    'bg-gray-100 text-gray-800'}
+                                `}>
+                                  {need.date_fulfilled ? 'Fullfiled' : 'Not Fulfilled'}
+                                </span>
+                              </div>
+                              <div className="flex items-center">
+                                <span className={`
+                                  inline-flex items-center px-2.5 py-0.5 rounded-full text-md font-medium`}>
+                                  {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(need.budget_impact || 0)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                         ))}
                       </List>
+                      </div>
                     ) : (
-                      <p className="text-gray-500">No active issues</p>
+                      <div className="text-center py-8 bg-gray-50 rounded-lg">
+                        <p className="text-sm text-gray-500">No reported needs for the selected week</p>
+                      </div>
                     )}
+              
                   </div>
 
                   <div className="p-6 border-t border-gray-100">
