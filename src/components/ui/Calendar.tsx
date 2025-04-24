@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { format, startOfWeek, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval, getWeek } from 'date-fns';
+import { format, startOfWeek, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval, getWeek, isBefore, isAfter } from 'date-fns';
 
 type SelectionType = 'single' | 'range' | 'week';
 
@@ -42,8 +42,11 @@ export const Calendar: React.FC<CalendarProps> = ({ selectionType = 'single', on
             start: dateRange.start,
             end: date,
           };
+          if (isBefore(newRange.end, newRange.start)) {
+            newRange.start = date;
+            newRange.end = dateRange.start;
+          }
           setDateRange(newRange);
-          onSelect?.(newRange);
         }
         break;
       case 'week':
@@ -60,13 +63,36 @@ export const Calendar: React.FC<CalendarProps> = ({ selectionType = 'single', on
     if (selectionType === 'single') {
       return selectedDate && isSameDay(date, selectedDate);
     }
-    if (selectionType === 'range' && dateRange.start && dateRange.end) {
-      return isWithinInterval(date, { start: dateRange.start, end: dateRange.end });
+    if (selectionType === 'range') {
+      if (dateRange.start && dateRange.end) {
+        return isWithinInterval(date, { start: dateRange.start, end: dateRange.end });
+      }
+      return dateRange.start && isSameDay(date, dateRange.start);
     }
     if (selectionType === 'week' && selectedWeek) {
       return getWeek(date) === selectedWeek;
     }
     return false;
+  };
+
+  const isInRange = (date: Date) => {
+    if (selectionType !== 'range' || !dateRange.start || !dateRange.end) return false;
+    return isWithinInterval(date, { start: dateRange.start, end: dateRange.end });
+  };
+
+  const isRangeStart = (date: Date) => {
+    return dateRange.start && isSameDay(date, dateRange.start);
+  };
+
+  const isRangeEnd = (date: Date) => {
+    return dateRange.end && isSameDay(date, dateRange.end);
+  };
+
+  const handleAcceptRange = () => {
+    if (dateRange.start && dateRange.end) {
+      onSelect?.(dateRange);
+      onClose?.();
+    }
   };
 
   const modalRef = useRef<HTMLDivElement>(null);
@@ -145,7 +171,11 @@ export const Calendar: React.FC<CalendarProps> = ({ selectionType = 'single', on
                   className={`
                     p-2 text-sm rounded-full w-10 h-10 flex items-center justify-center
                     ${isCurrentMonth ? 'text-gray-900' : 'text-gray-400'}
-                    ${isSelected(day) ? 'bg-primary text-white' : 'hover:bg-gray-100'}
+                    ${isRangeStart(day) ? 'bg-primary text-white rounded-r-none' : ''}
+                    ${isRangeEnd(day) ? 'bg-primary text-white rounded-l-none' : ''}
+                    ${isInRange(day) && !isRangeStart(day) && !isRangeEnd(day) ? 'bg-primary/20' : ''}
+                    ${!isInRange(day) && !isRangeStart(day) && !isRangeEnd(day) ? 'hover:bg-gray-100' : ''}
+                    ${isSelected(day) && selectionType !== 'range' ? 'bg-primary text-white' : ''}
                   `}
                 >
                   {format(day, 'd')}
@@ -159,6 +189,20 @@ export const Calendar: React.FC<CalendarProps> = ({ selectionType = 'single', on
       {selectionType === 'week' && (
         <div className="mt-4 text-sm text-gray-600">
           {selectedWeek ? `Selected: Week ${selectedWeek}` : 'Select a week'}
+        </div>
+      )}
+
+      {selectionType === 'range' && dateRange.start && dateRange.end && (
+        <div className="mt-4 flex justify-between items-center">
+          <div className="text-sm text-gray-600">
+            {`${format(dateRange.start, 'MMM d, yyyy')} - ${format(dateRange.end, 'MMM d, yyyy')}`}
+          </div>
+          <button
+            onClick={handleAcceptRange}
+            className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
+          >
+            Accept
+          </button>
         </div>
       )}
     </div>
