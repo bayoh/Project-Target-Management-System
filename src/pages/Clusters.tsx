@@ -50,7 +50,7 @@ export function Clusters() {
 
   const renderGridView = () => (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {clusters.map((cluster) => {
+      {[...clusters].sort((a, b) => String(a.code).localeCompare(String(b.code))).map((cluster) => {
         const { pathwayCount, interventionCount } = getClusterStats(cluster);
         return (
           <div
@@ -112,7 +112,7 @@ export function Clusters() {
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {clusters.map((cluster) => {
+          {[...clusters].sort((a, b) => String(a.code).localeCompare(String(b.code))).map((cluster) => {
             const { pathwayCount, interventionCount } = getClusterStats(cluster);
             return (
               <tr

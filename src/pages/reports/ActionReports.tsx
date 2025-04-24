@@ -889,7 +889,7 @@ export function ActionReports() {
                         ))}
                       </List>
                     ) : (
-                      <p className="text-gray-500">No active issues</p>
+                      <p className="text-gray-500">No comments here</p>
                     )}
                   </div>
               </div>
