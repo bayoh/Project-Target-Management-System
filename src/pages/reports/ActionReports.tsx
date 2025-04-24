@@ -31,7 +31,7 @@ import {
   View, 
   StyleSheet, 
   PDFDownloadLink,
-  Font 
+  Image
 } from '@react-pdf/renderer';
 import { reportApi, projectApi } from '../../lib/api';
 import { userApi } from '../../lib/api';
@@ -88,8 +88,25 @@ const styles = StyleSheet.create({
     borderRadius: 4
   },
   text: {
+    fontSize: 12, 
+  },
+  smallText: {
+    fontSize: 10,
+    color: '#6B7280'
+  },
+  boldText: {
     fontSize: 12,
-    marginBottom: 5
+    fontWeight: 'bold'
+  },
+  flexRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5
+  },
+  statusBadge: {
+    padding: 4,
+    borderRadius: 4,
+    marginLeft: 5
   },
   milestone: {
     flexDirection: 'row',
@@ -102,82 +119,35 @@ const styles = StyleSheet.create({
   milestoneTitle: {
     flex: 1,
     fontSize: 12
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    padding: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 10
   }
 });
 
+// Helper function for status colors
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'completed':
+      return '#22C55E';
+    case 'in_progress':
+      return '#3B82F6';
+    case 'at_risk':
+      return '#F59E0B';
+    case 'not_started':
+      return '#6B7280';
+    default:
+      return '#6B7280';
+  }
+};
+
 // PDF Document Component
-const ActionReportPDF = ({ report }: { report: ActionReport} ) => (
-  <Document>
-    <Page size="A4" style={styles.page}>
-      {/* Header Section */}
-      <View style={[styles.section, { borderBottom: 1, borderColor: '#e5e7eb', paddingBottom: 20 }]}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
-          <Text style={styles.header}>{report?.name}</Text>
-          <Text style={styles.text}>Last updated: {report?.lastUpdated}</Text>
-        </View>
-        {report?.path && (
-          <Text style={[styles.text, { color: '#4B5563' }]}>Path: {report?.path}</Text>
-        )}
-        <Text style={[styles.text, { marginTop: 10 }]}>{report?.description}</Text>
-      </View>
 
-      {/* Progress Section */}
-      <View style={[styles.section, { backgroundColor: '#F9FAFB' }]}>
-        <View style={{ flexDirection: 'row', gap: 20 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.subheader, { marginBottom: 15 }]}>Progress</Text>
-            <View style={{ gap: 10 }}>
-              {report?.milestones.map((milestone, index) => (
-                <View key={index} style={[styles.milestone, { backgroundColor: '#FFFFFF', padding: 10, borderRadius: 6, border: 1, borderColor: '#E5E7EB' }]}>
-                  <Text style={styles.milestoneDate}>{milestone.date}</Text>
-                  <Text style={styles.milestoneTitle}>{milestone.title}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.subheader, { marginBottom: 15 }]}>Achievements</Text>
-            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 15 }}>
-              <View style={{ flex: 1, backgroundColor: '#FFFFFF', padding: 10, borderRadius: 6, border: 1, borderColor: '#E5E7EB' }}>
-                <Text style={[styles.text, { color: '#6B7280' }]}>Jobs Target</Text>
-                <Text style={[styles.text, { fontSize: 18, fontWeight: 'bold' }]}>{report?.jobsTarget}</Text>
-              </View>
-              <View style={{ flex: 1, backgroundColor: '#FFFFFF', padding: 10, borderRadius: 6, border: 1, borderColor: '#E5E7EB' }}>
-                <Text style={[styles.text, { color: '#6B7280' }]}>Project Cost</Text>
-                <Text style={[styles.text, { fontSize: 18, fontWeight: 'bold' }]}>{report?.projectCost}</Text>
-              </View>
-            </View>
-            {report?.keyMilestones.length > 0 && (
-              <View>
-                <Text style={[styles.text, { fontWeight: 'medium', marginBottom: 5 }]}>Key Milestones</Text>
-                {report.keyMilestones.map((milestone, index) => (
-                  <Text key={index} style={[styles.text, { marginLeft: 15 }]}>• {milestone}</Text>
-                ))}
-              </View>
-            )}
-          </View>
-        </View>
-      </View>
-
-      {/* Issues Section */}
-      <View style={styles.section}>
-        <Text style={[styles.subheader, { marginBottom: 15 }]}>Issues & Needs</Text>
-        {report?.issues.length > 0 ? (
-          <View style={{ gap: 10 }}>
-            {report.issues.map((issue, index) => (
-              <View key={index} style={{ backgroundColor: '#FFFFFF', padding: 10, borderRadius: 6, border: 1, borderColor: '#E5E7EB' }}>
-                <Text style={styles.text}>{issue?.description}</Text>
-              </View>
-            ))}
-          </View>
-        ) : (
-          <Text style={styles.text}>No active issues</Text>
-        )}
-      </View>
-    </Page>
-  </Document>
-);
 
 export function ActionReports() {
   const [loading, setLoading] = useState(true);
@@ -192,6 +162,168 @@ export function ActionReports() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCalendarOpen, setCalendarOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
+
+  const ActionReportPDF = ({ report }: { report: ActionReport} ) => (
+
+    <Document>
+      <Page size="A4" style={styles.page}>
+        {/* Header Section */}
+        <View style={[styles.section, { borderBottom: 1, borderColor: '#e5e7eb', paddingBottom: 20 }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
+            <Text style={styles.header}>{report?.name}</Text>
+            <Text style={styles.text}>Created At: {new Date().toDateString()}</Text>
+          </View>
+          {report?.path && (
+            <Text style={[styles.text, { color: '#4B5563' }]}>Path: {report?.path}</Text>
+          )}
+          <View style={[styles.flexRow, { marginTop: 10, marginBottom: 10 }]}>
+            <Text style={styles.boldText}>Status: </Text>
+            <Text style={[styles.text, { color: getStatusColor(report?.status) }]}>{report?.status}</Text>
+          </View>
+          <View style={[styles.flexRow, { marginBottom: 10 }]}>
+            <Text style={styles.boldText}>Lead: </Text>
+            <Text style={styles.text}>{report?.lead}</Text>
+          </View>
+          <View style={[styles.flexRow, { marginBottom: 10 }]}>
+            <Text style={styles.boldText}>Supporting Staff: </Text>
+            <Text style={styles.text}>{users.filter(user => report?.supporting_staffs.includes(user.id)).map(user => user.full_name).join(', ')}</Text>
+          </View>
+          <Text style={[styles.text, { marginTop: 10 }]}>{report?.description}</Text>
+        </View>
+  
+        {/* Progress Section */}
+        <View style={[styles.section, { backgroundColor: '#F9FAFB' }]}>
+          <View style={{ flexDirection: 'row', gap: 20 }}>
+  
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.subheader, { marginBottom: 15 }]}>Achievements</Text>
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 15 }}>
+                <View style={styles.card}>
+                  <Text style={styles.smallText}>Jobs Target</Text>
+                  <View style={styles.flexRow}>
+                    <Text style={[styles.boldText, { fontSize: 12 }]}>{report?.jobsTarget}</Text>
+                  </View>
+                </View>
+                <View style={styles.card}>
+                  <Text style={styles.smallText}>Project Cost</Text>
+                  <View style={styles.flexRow}>
+                    <Text style={[styles.boldText, { fontSize: 14 }]}>{report?.projectCost}</Text>
+                  </View>
+                </View>
+              </View> 
+              {report?.milestones.length > 0 && (
+                <View style={styles.card}>
+                  <Text style={[styles.boldText, { marginBottom: 10 }]}>Key Achievements</Text>
+                  {report.milestones.map((milestone, index) => (
+                    <View key={index} style={styles.card}>
+                      <View style={styles.flexRow}>
+                        <Text key={index} style={[styles.text, { fontSize: 12 }]}>{milestone.title}</Text>
+                        <Text style={[styles.milestoneDate, {fontSize: 12}]}>{milestone.date}</Text>
+                      </View> 
+                </View>
+                  ))}
+                </View>
+  
+              )}
+              {report?.otherTargets.length > 0 && (
+                <View style={styles.card}>
+                  <Text style={[styles.boldText, { marginBottom: 10 }]}>Other Targets</Text>
+                  {report.otherTargets.map((target, index) => (
+                    <View key={index} style={[styles.card]}>
+                    <View>
+                      <View>
+                        <Text style={[styles.text, {fontSize: 12}]}>{target.metric}</Text>
+                        <Text style={[styles.text, {fontSize: 12}]}>Progess: {target.current_value} / {target.target_value}</Text>
+                      </View>
+                      <View>
+                        <View 
+                          
+                          style={{ width: `${(target.current_value / target.target_value) * 100}%` }}
+                        ></View>
+                      </View>
+                      <Text style={[styles.text]}>Last Updated: {formatRelative(subDays(target.last_updated, 3), new Date())}</Text>
+                    </View>
+                  </View>
+                   
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+  
+        {/* Issues & Needs Section */}
+        <View style={styles.section}>
+          <Text style={[styles.subheader, { marginBottom: 15 }]}>Issues & Needs</Text>
+          
+          {/* Issues */}
+          <Text style={[styles.boldText, { marginBottom: 10 }]}>Issues</Text>
+          {report?.issues.length > 0 ? (
+            <View style={{ gap: 10, marginBottom: 20 }}>
+              {report.issues.map((issue, index) => (
+                <View key={index} style={styles.card}>
+                  <View style={styles.flexRow}>
+                    <Text style={[styles.statusBadge, { backgroundColor: getStatusColor(issue.status) + '20', color: getStatusColor(issue.status) }]}>
+                      {issue.status}
+                    </Text>
+                    {issue.severity && (
+                      <Text style={[styles.smallText, { marginLeft: 10 }]}>Severity: {issue.severity}</Text>
+                    )}
+                  </View>
+                  <Text style={[styles.text, { marginTop: 5 }]}>{issue.description}</Text>
+                  {issue.resolution_steps && (
+                    <Text style={[styles.smallText, { marginTop: 5 }]}>Resolution: {issue.resolution_steps}</Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={[styles.text, { marginBottom: 20 }]}>No active issues</Text>
+          )}
+  
+          {/* Needs */}
+          <Text style={[styles.boldText, { marginBottom: 10 }]}>Needs</Text>
+          {report?.needs.length > 0 ? (
+            <View style={{ gap: 10 }}>
+              {report.needs.map((need, index) => (
+                <View key={index} style={styles.card}>
+                  <View style={styles.flexRow}>
+                    <Text style={styles.smallText}>{need.date_identified}</Text>
+                    {need.date_fulfilled && (
+                      <Text style={[styles.smallText, { color: '#22C55E' }]}>Fulfilled: {need.date_fulfilled}</Text>
+                    )}
+                  </View>
+                  <Text style={[styles.text, { marginTop: 5 }]}>{need.description}</Text>
+                  {need.resource_requirements && (
+                    <Text style={[styles.smallText, { marginTop: 5 }]}>Requirements: {need.resource_requirements}</Text>
+                  )}
+                  {need.budget_impact && (
+                    <Text style={[styles.smallText, { marginTop: 5 }]}>Budget Impact: ${need.budget_impact}</Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.text}>No resource needs</Text>
+          )}
+        </View >
+        <View style={styles.section}>
+          <Text style={[styles.subheader, { marginBottom: 15 }]}>Photos</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {report?.milestones?.length > 0 && report.milestones.flatMap(milestone => milestone?.images || []).map((image, index) => (
+              <View key={index} style={{ width: 300, height: 300, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#E5E7EB' }}>
+                <Image
+                  source={{ uri: image }}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              </View> 
+            ))
+            }
+          </View>
+        </View>
+      </Page>
+    </Document>
+  );
 
   useEffect(() => {
     loadLeads();
@@ -243,7 +375,7 @@ export function ActionReports() {
       const data = await projectApi.getActions();
       // Filter actions for selected lead
       const filteredActions = selectedLeadId
-        ? data.filter(action => action.lead_id === selectedLeadId)
+        ? data.filter(action => action.lead_id === selectedLeadId && action.status !== 'not_started' )
         : data;
       setActions(filteredActions);
     } catch (err: any) {
@@ -419,7 +551,13 @@ export function ActionReports() {
     <Select
       options={leads.map(lead => ({ value: lead.id, label: lead.full_name || lead.email || '' }))}
       value={selectedLeadId}
-      onChange={setSelectedLeadId}
+      onChange={(value) => {
+        if (typeof value === 'string') {
+          setSelectedLeadId(value);
+        }
+      }}
+      sortable
+      searchable
       placeholder="Select Lead"
       className="w-full"
       disabled={loading}
@@ -448,7 +586,7 @@ export function ActionReports() {
     
     <div className="relative">
       <Calendar
-        selectionType="week" 
+        selectionType="range" 
         isOpen={isCalendarOpen}
         onClose={() => setCalendarOpen(false)}
         onSelect={(selection) => {
@@ -468,9 +606,10 @@ export function ActionReports() {
     <Select
       options={actions.map(action => ({ value: action.id, label: action.name, prefix: action.code }))}
       value={selectedActionId}
-      onChange={setSelectedActionId}
+      onChange={(value)=> typeof value === 'string' && setSelectedActionId(value)}
       placeholder="Select Action"
       className="w-full"
+      searchable
       disabled={!selectedLeadId}
     />
   </div>

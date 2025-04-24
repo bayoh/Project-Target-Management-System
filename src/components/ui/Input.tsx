@@ -39,8 +39,8 @@ export function Input({
           <textarea
           
             className={cn(
-              'block w-full field-sizing-fixed rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm',
-              'disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500',
+              'block w-full field-sizing-fixed rounded-md border border-gray-200 focus:border-blue-500 focus:ring-blue-500 sm:text-sm',
+              'disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 pl-2 pt-1',
               icon && 'pl-10',
               error && 'border-red-300 focus:border-red-500 focus:ring-red-500',
               className
@@ -52,8 +52,8 @@ export function Input({
           <input
             type={inputType}
             className={cn(
-              'block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm',
-              'disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500',
+              'block w-full rounded-md border border-gray-200 focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2',
+              'disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 pl-2',
               icon && 'pl-10',
               showPasswordToggle && 'pr-10',
               error && 'border-red-300 focus:border-red-500 focus:ring-red-500',

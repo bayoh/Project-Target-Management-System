@@ -386,6 +386,9 @@ export function ActionDashboard() {
                   value={filters.interventionId}
                   onChange={(value) => setFilters(prev => ({ ...prev, interventionId: value }))}
                   placeholder="Select Intervention"
+                  allowClear
+                  searchable
+                  sortable
                 />
               </div>
               <div>
@@ -400,6 +403,9 @@ export function ActionDashboard() {
                   value={filters.leadId}
                   onChange={(value) => setFilters(prev => ({ ...prev, leadId: value }))}
                   placeholder="Select Lead"
+                  allowClear
+                  searchable
+                  sortable
                 />
               </div>
               <div>
