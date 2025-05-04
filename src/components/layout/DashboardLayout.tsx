@@ -203,26 +203,28 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-40 bg-white shadow-lg transition-all duration-300 ease-in-out ${
-          isSidebarOpen ? 'w-64' : 'w-20'
+          isSidebarOpen ? 'w-64' : 'w-24'
         } ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
         <div className="h-full flex flex-col">
-          <div className="px-4 py-6 border-b">
+          <div className="px-4 py-2 border-b">
             <div className="flex items-center justify-between">
               {settings?.logo_url ? (
                 <div className={`flex items-center ${isSidebarOpen ? 'space-x-3' : 'justify-center w-full'}`}>
+                  <div className='row-span-3'>
                   <img 
                     src={settings.logo_url} 
                     alt={settings.app_name}
-                    className="h-10 w-10 object-contain"
+                    className="h-62 w-62 object-contain" 
                   />
+                  </div>
                   {isSidebarOpen && (
                     <div>
-                      <h1 className="text-lg font-bold text-gray-800">
+                      <h1 className="text-[12px] font-semibold text-gray-800">
                         {settings.app_name}
                       </h1>
                       {settings.tagline && (
-                        <p className="text-xs text-gray-500">{settings.tagline}</p>
+                        <p className="col-span-2 text-[8px] text-gray-500">{settings.tagline}</p>
                       )}
                     </div>
                   )}
