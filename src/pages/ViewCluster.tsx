@@ -185,8 +185,8 @@ export function ViewCluster() {
 
         {/* Pathways */}
         <div className="bg-white shadow-sm rounded-lg divide-y divide-gray-200">
-          <div className="px-6 py-4">
-            <h2 className="text-lg font-medium text-gray-900">Pathways</h2>
+          <div className="px-6 py-4 gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Pathways</h2>
           </div>
 
           {cluster.pathways?.map((pathway) => (

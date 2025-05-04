@@ -275,27 +275,6 @@ export function Dashboard() {
             Overview of clusters
           </p>
         </div>
-
-        {/* Summary Cards */}
-        {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="text-3xl font-bold text-gray-900">{stats.clusters.total}</div>
-            <div className="text-sm font-medium text-gray-500">Clusters</div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="text-3xl font-bold text-gray-900">{stats.clusters.pathways}</div>
-            <div className="text-sm font-medium text-gray-500">Critical pathways</div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="text-3xl font-bold text-gray-900">{stats.interventions.onTrack}</div>
-            <div className="text-sm font-medium text-gray-500">On track</div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="text-3xl font-bold text-gray-900">{stats.interventions.atRisk}</div>
-            <div className="text-sm font-medium text-gray-500">Need attention</div>
-          </div>
-        </div> */}
-
         <ProjectStats/>
 
         {/* Clusters and Pathways */}
@@ -323,10 +302,6 @@ export function Dashboard() {
                         </p>
                         <div className="mt-2">
                           <div className="flex items-center justify-between text-sm">
-                            {/* <div className="flex items-center space-x-2">
-                              <div className={`h-3 w-3 rounded-full ${getStatusColor(pathway.status)}`}></div>
-                              <span className="text-gray-500 capitalize">{pathway.status}</span>
-                            </div> */}
                             <span className="font-medium text-gray-900">{pathway.progress.toFixed(0)}%</span>
                           </div>
                           <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
