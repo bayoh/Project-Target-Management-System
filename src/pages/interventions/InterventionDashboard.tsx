@@ -8,6 +8,7 @@ import {
   Calendar,
   Clock,
   DollarSign,
+  Target,
   Users,
   AlertTriangle,
   Edit2,
@@ -167,6 +168,17 @@ export function InterventionDashboard() {
     }
   };
 
+  const getMetrics = () => {
+    const totalActions = filteredInterventions.length;
+    const statusCounts = {
+      completed: filteredInterventions.filter(a => a.status === 'completed').length,
+      in_progress: filteredInterventions.filter(a => a.status === 'in_progress').length,
+      at_risk: filteredInterventions.filter(a => a.status === 'at_risk').length,
+      not_started: filteredInterventions.filter(a => a.status === 'not_started').length
+    };
+    return { totalActions, statusCounts };
+  };
+
   const handleDeleteClick = (id: string) => {
     setConfirmation({
       isOpen: true,
@@ -270,6 +282,8 @@ export function InterventionDashboard() {
     return colors[status as keyof typeof colors] || colors.not_started;
   };
 
+  const metrics = getMetrics();
+
   const renderListView = (interventions: Intervention[]) => (
     <div className="bg-white shadow-sm rounded-lg overflow-hidden">
       {/* Mobile View */}
@@ -368,19 +382,19 @@ export function InterventionDashboard() {
         <table className="w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/8">
+              <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-1/8">
                 Code
               </th>
-              <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/3">
+              <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-1/3">
                 Name
               </th>
-              <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
+              <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-1/6">
                 Status
               </th>
-              <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
+              <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-1/6">
                 Lead
               </th>
-              <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
+              <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-1/4">
                 Timeline
               </th>
               <th className="relative px-4 sm:px-6 py-3 w-[100px]">
@@ -633,6 +647,64 @@ export function InterventionDashboard() {
               <Plus className="h-4 w-4 mr-2" />
               New Intervention
             </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="bg-white shadow-sm rounded-lg p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Target className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Total Interventions</p>
+                <h3 className="text-xl font-semibold text-gray-900">{metrics.totalActions}</h3>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white shadow-sm rounded-lg p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <CheckCircle2 className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Completed</p>
+                <h3 className="text-xl font-semibold text-gray-900">{metrics.statusCounts.completed}</h3>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white shadow-sm rounded-lg p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Clock className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">On Going/On Track</p>
+                <h3 className="text-xl font-semibold text-gray-900">{metrics.statusCounts.in_progress}</h3>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white shadow-sm rounded-lg p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <AlertTriangle className="h-6 w-6 text-amber-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">On Going/Off Track</p>
+                <h3 className="text-xl font-semibold text-gray-900">{metrics.statusCounts.at_risk}</h3>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white shadow-sm rounded-lg p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-gray-100 rounded-lg">
+                <X className="h-6 w-6 text-gray-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Not Started</p>
+                <h3 className="text-xl font-semibold text-gray-900">{metrics.statusCounts.not_started}</h3>
+              </div>
+            </div>
           </div>
         </div>
 
