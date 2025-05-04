@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
-import { Plus, ChevronRight, Network, List } from 'lucide-react';
+import { Plus, ChevronRight, Network, EarthIcon, LucideHeartHandshake, List, LucideComputer, LucideGraduationCap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import type { Cluster } from '../types/project';
@@ -59,10 +59,25 @@ export function Clusters() {
             className="bg-white overflow-hidden shadow rounded-lg cursor-pointer hover:shadow-md transition-shadow"
           >
             <div className="px-4 py-5 sm:p-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium text-gray-900 truncate">
-                 {cluster.code} {cluster.name}
-                </h3>
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0 p-2 bg-blue-50 rounded-lg">
+                  {/* Generate a unique icon based on cluster code/id */}
+                  {cluster.code == 1 ? (
+                    <EarthIcon className="h-6 w-6 text-blue-600" />
+                  ) : cluster.code == 4 ? (
+                    <LucideGraduationCap className="h-6 w-6 text-blue-600" />
+                  ) : cluster.code == 2 ? (
+                    <LucideHeartHandshake className="h-6 w-6 text-blue-600" />
+                  ) : (
+                    <LucideComputer className="h-6 w-6 text-blue-600" />
+                  )}
+                </div>
+                <div className="flex items-center">
+                  <h4 className="text-lg font-medium text-gray-800">{cluster.code}. </h4>
+                  <h3 className="text-lg font-semibold text-gray-900 truncate">
+                    {cluster.name}
+                  </h3>
+                </div>
               </div>
               {cluster.description && (
                 <p className="mt-1 text-sm text-gray-500 line-clamp-2">
@@ -71,8 +86,8 @@ export function Clusters() {
               )}
               <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
                 <div className="space-y-1">
-                  <div>{pathwayCount} pathways</div>
-                  <div>{interventionCount} interventions</div>
+                  <div>{pathwayCount} Pathways</div>
+                  <div>{interventionCount} Interventions</div>
                 </div>
                 <div className="flex items-center text-blue-600">
                   <span>View details</span>
@@ -124,7 +139,7 @@ export function Clusters() {
                   <div className="text-sm font-medium text-gray-900">{cluster.code}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{cluster.name}</div>
+                  <div className="text-md font-medium semi-bold text-gray-900">{cluster.name}</div>
                   {cluster.description && (
                     <div className="text-sm text-gray-500 truncate max-w-md">
                       {cluster.description}
