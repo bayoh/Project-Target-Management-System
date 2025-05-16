@@ -90,7 +90,7 @@ export const Calendar: React.FC<CalendarProps> = ({ selectionType = 'single', on
 
   const handleAcceptRange = () => {
     if (dateRange.start && dateRange.end) {
-      onSelect?.(dateRange);
+      onSelect?.({ start: dateRange.start!, end: dateRange.end! });
       onClose?.();
     }
   };
