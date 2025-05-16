@@ -100,10 +100,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const navItems: NavItem[] = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership']},
-    { icon: UserCheck2Icon, label: 'My Tasks', path: '/userdashboard', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership']},
-    { icon: ShieldAlert, label: 'Issue Registry', path: '/issue', roles: ['supporting_staff','super_admin','leadership', 'lead']},
     { icon: Folders, label: 'Clusters', path: '/clusters', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership'] },
-    
     { 
       icon: FileArchiveIcon, 
       label: 'Interventions', 
@@ -116,6 +113,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       path: '/actions',
       roles: ['leadership', 'super_admin', 'supporting_staff', 'lead']
     },
+    { icon: UserCheck2Icon, label: 'My Tasks', path: '/userdashboard', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership']},
     { icon: BarChart2, label: 'Reports', path: '/reports', roles: ['lead', 'super_admin', 'leadership'] },
     { 
       icon: Target,
@@ -128,6 +126,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         { icon: Plus, label: 'New Target', path: '/targets/new', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] }
       ]
     },
+    
+    { icon: ShieldAlert, label: 'Issue Registry', path: '/issue', roles: ['supporting_staff','super_admin','leadership', 'lead']},
     { 
       icon: Settings, 
       label: 'Settings', 
