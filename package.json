@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && cp dist/index.html dist/404.html",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -20,7 +20,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^3.3.1",
     "lucide-react": "^0.344.0",
-    "netlify-plugin-no-more-404": "^0.0.15",
+    "netlify-redirector": "^0.5.0",
     "react": "^18.3.1",
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.3.1",
