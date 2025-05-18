@@ -331,7 +331,7 @@ export function InterventionDashboard() {
                     <MoreVertical className="h-5 w-5" />
                   </button>
                   {activeMenu === intervention.id && (
-                    <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 overflow-visible transform -translate-x-0 sm:translate-x-0">
+                    <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-350 overflow-visible transform -translate-x-0 sm:translate-x-0">
                       <div className="py-1" role="menu">
                         <button
                           onClick={() => navigate(`/interventions/${intervention.id}`)}
@@ -403,7 +403,7 @@ export function InterventionDashboard() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {interventions.map((intervention) => (
+            {interventions.map((intervention, index) => (
               <tr key={intervention.id} className="hover:bg-gray-50">
                 <td className="px-4 sm:px-6 py-4">
                   <div className="text-sm font-medium text-gray-900 text-center">
@@ -423,8 +423,16 @@ export function InterventionDashboard() {
                   </div>
                 </td>
                 <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(intervention.status)}`}>
-                    {intervention.status.replace('_', ' ')}
+                  <span className={`text-sm font-medium rounded-full ${getStatusColor(intervention.status)}`}>
+                              {intervention.status === 'completed' ? (
+                                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              ) : intervention.status === 'in_progress' ? (
+                                <Clock className="h-4 w-4 text-blue-600" />
+                              ) : intervention.status === 'at_risk' ? (
+                                <AlertTriangle className="h-4 w-4 text-red-600" />
+                              ) : (
+                                <X className="h-4 w-4 text-gray-600" />
+                              )}
                   </span>
                 </td>
                 <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -453,7 +461,7 @@ export function InterventionDashboard() {
                       <MoreVertical className="h-5 w-5" />
                     </button>
                     {activeMenu === intervention.id && (
-                      <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 overflow-visible transform -translate-x-0 sm:translate-x-0">
+                      <div className={`absolute ${index < 2 ? 'top-0' : index >= filteredInterventions.length - 2 ? 'bottom-0' : 'top-0 -translate-y-1/2'} right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-[9999] overflow-visible transform -translate-x-0 sm:translate-x-0`}>
                         <div className="py-1" role="menu">
                           <button
                             onClick={() => navigate(`/interventions/${intervention.id}`)}
@@ -462,24 +470,23 @@ export function InterventionDashboard() {
                             <Eye className="h-4 w-4 mr-2" />
                             View Details
                           </button>
-                          { (intervention.lead_id === sessionUser?.id || intervention.created_by === sessionUser?.id || sessionUser?.user_metadata.role === 'super_admin') && (
+                          {(intervention.lead_id === sessionUser?.id || intervention.created_by === sessionUser?.id || sessionUser?.user_metadata.role === 'super_admin') && (
                             <>
-                          <button
-                            onClick={() => navigate(`/interventions/${intervention.id}/edit`)}
-                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          >
-                            <Edit2 className="h-4 w-4 mr-2" />
-                            Edit
-                          </button>
-                          
-                          <button
-                            onClick={() => handleDeleteClick(intervention.id)}
-                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </button>
-                          </>
+                              <button
+                                onClick={() => navigate(`/interventions/${intervention.id}/edit`)}
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                              >
+                                <Edit2 className="h-4 w-4 mr-2" />
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteClick(intervention.id)}
+                                className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </button>
+                            </>
                           )}
                           {intervention.status !== 'completed' && intervention.lead_id === sessionUser?.id && (
                             <button
@@ -490,7 +497,6 @@ export function InterventionDashboard() {
                               Mark Complete
                             </button>
                           )}
-                        
                         </div>
                       </div>
                     )}
@@ -524,7 +530,7 @@ export function InterventionDashboard() {
                   <MoreVertical className="h-5 w-5" />
                 </button>
                 {activeMenu === intervention.id && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                  <div className="fixed right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-150" style={{transform: 'translateX(-50px)'}}>
                     <div className="py-1" role="menu">
                       <button
                         onClick={() => navigate(`/interventions/${intervention.id}`)}
