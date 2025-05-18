@@ -300,7 +300,13 @@ export function ActionDashboard() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="bg-white shadow-sm rounded-lg p-6">
+          <div 
+            className="bg-white shadow-sm rounded-lg p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+            onClick={() => {
+              setShowFilters(true);
+              setFilters(prev => ({ ...prev, status: '' }));
+            }}
+          >
             <div className="flex items-center">
               <div className="p-2 bg-blue-100 rounded-lg">
                 <Target className="h-6 w-6 text-blue-600" />
@@ -311,7 +317,13 @@ export function ActionDashboard() {
               </div>
             </div>
           </div>
-          <div className="bg-white shadow-sm rounded-lg p-6">
+          <div 
+            className="bg-white shadow-sm rounded-lg p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+            onClick={() => {
+              setShowFilters(true);
+              setFilters(prev => ({ ...prev, status: 'completed' }));
+            }}
+          >
             <div className="flex items-center">
               <div className="p-2 bg-green-100 rounded-lg">
                 <CheckCircle2 className="h-6 w-6 text-green-600" />
@@ -322,7 +334,13 @@ export function ActionDashboard() {
               </div>
             </div>
           </div>
-          <div className="bg-white shadow-sm rounded-lg p-6">
+          <div 
+            className="bg-white shadow-sm rounded-lg p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+            onClick={() => {
+              setShowFilters(true);
+              setFilters(prev => ({ ...prev, status: 'in_progress' }));
+            }}
+          >
             <div className="flex items-center">
               <div className="p-2 bg-blue-100 rounded-lg">
                 <Clock className="h-6 w-6 text-blue-600" />
@@ -333,7 +351,13 @@ export function ActionDashboard() {
               </div>
             </div>
           </div>
-          <div className="bg-white shadow-sm rounded-lg p-6">
+          <div 
+            className="bg-white shadow-sm rounded-lg p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+            onClick={() => {
+              setShowFilters(true);
+              setFilters(prev => ({ ...prev, status: 'at_risk' }));
+            }}
+          >
             <div className="flex items-center">
               <div className="p-2 bg-amber-100 rounded-lg">
                 <AlertTriangle className="h-6 w-6 text-amber-600" />
@@ -344,7 +368,13 @@ export function ActionDashboard() {
               </div>
             </div>
           </div>
-          <div className="bg-white shadow-sm rounded-lg p-6">
+          <div 
+            className="bg-white shadow-sm rounded-lg p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+            onClick={() => {
+              setShowFilters(true);
+              setFilters(prev => ({ ...prev, status: 'not_started' }));
+            }}
+          >
             <div className="flex items-center">
               <div className="p-2 bg-gray-100 rounded-lg">
                 <X className="h-6 w-6 text-gray-600" />
