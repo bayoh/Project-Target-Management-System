@@ -148,20 +148,20 @@ export function IssueDashboard() {
 
       {/* Metrics */}
       <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow-sm">
-          <div className="text-sm text-gray-500">Total Issues</div>
+        <div className="bg-white p-4 rounded-lg shadow-sm text-center">
+          <div className="text-md text-gray-700">Total Issues</div>
           <div className="text-2xl font-bold">{metrics.total}</div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm">
-          <div className="text-sm text-gray-500">High Severity</div>
+        <div className="bg-white p-4 rounded-lg shadow-sm text-center">
+          <div className="text-md text-gray-700">High Severity</div>
           <div className="text-2xl font-bold text-red-600">{metrics.bySeverity.high}</div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm">
-          <div className="text-sm text-gray-500">Open Issues</div>
+        <div className="bg-white p-4 rounded-lg shadow-sm text-center">
+          <div className="text-md text-gray-700">Open Issues</div>
           <div className="text-2xl font-bold text-yellow-600">{metrics.byStatus.open}</div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm">
-          <div className="text-sm text-gray-500">Resolved Issues</div>
+        <div className="bg-white p-4 rounded-lg shadow-sm text-center">
+          <div className="text-md text-gray-700">Resolved Issues</div>
           <div className="text-2xl font-bold text-green-600">{metrics.byStatus.resolved + metrics.byStatus.closed}</div>
         </div>
       </div>
