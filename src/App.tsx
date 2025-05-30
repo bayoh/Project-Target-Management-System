@@ -39,6 +39,7 @@ import NewTarget from './pages/targets/NewTarget';
 import TargetDetail from './pages/targets/TargetDetail';
 import TargetsIndex from './pages/targets/index';
 import Actions, { ActionDashboard } from './pages/actions/ActionDashboard';
+import { Jobs } from './pages/jobs';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -111,7 +112,11 @@ export default function App() {
           element={user ? <Navigate to="/" replace /> : <UpdatePassword /> }/>
         <Route 
           path="/" 
-          element={user ? <Dashboard /> : <Navigate to="/login" replace />} 
+          element={user ? <Jobs /> : <Navigate to="/login" replace />} 
+        />
+        <Route 
+          path="/jobs" 
+          element={user ? <Jobs /> : <Navigate to="/login" replace />} 
         />
         <Route 
           path="/clusters" 

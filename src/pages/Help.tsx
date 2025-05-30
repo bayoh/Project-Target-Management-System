@@ -1,389 +1,209 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Disclosure } from '@headlessui/react';
-import { ChevronUpIcon } from 'lucide-react';
+import { ChevronUpIcon, BookOpen, LayoutDashboard, Briefcase, Target, AlertTriangle, FileText, Users, Settings as SettingsIcon, Search, Icon as LucideIcon } from 'lucide-react'; 
 import { DashboardLayout } from '../components/layout/DashboardLayout';
+import userManualData from './helpContent.json'; // Import the JSON data
+
+interface HelpSectionItem {
+  title: string;
+  content: string[];
+}
+
+interface HelpSection {
+  id: string;
+  title: string;
+  icon: LucideIcon;
+}
+
+interface UserManualContent {
+  [key: string]: HelpSectionItem[];
+}
+
+const userManualContent: UserManualContent = userManualData;
+
+// Sidebar Component
+interface HelpSidebarProps {
+  sections: HelpSection[];
+  activeSection: string;
+  setActiveSection: (id: string) => void;
+  searchTerm: string;
+  setSearchTerm: (term: string) => void;
+}
+
+const HelpSidebar: React.FC<HelpSidebarProps> = ({ sections, activeSection, setActiveSection, searchTerm, setSearchTerm }) => (
+  <aside className="lg:col-span-3 py-6 lg:py-0">
+    <nav className="sticky top-20 space-y-1 bg-white p-4 rounded-lg shadow-sm">
+      <div className="mb-4">
+        <label htmlFor="help-search" className="sr-only">Search help topics</label>
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" aria-hidden="true" />
+          </div>
+          <input
+            type="text"
+            name="help-search"
+            id="help-search"
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            placeholder="Search help..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+      {sections.map((section) => {
+        const Icon = section.icon;
+        return (
+          <button
+            key={section.id}
+            onClick={() => {
+              setActiveSection(section.id);
+              setSearchTerm(''); // Reset search on section change
+            }}
+            className={`group flex items-center w-full text-left px-3 py-2.5 text-sm font-medium rounded-md transition-colors duration-150 ease-in-out ${ 
+              activeSection === section.id
+                ? 'bg-indigo-500 text-white shadow-md'
+                : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'
+            }`}
+          >
+            <Icon className={`mr-3 h-5 w-5 ${activeSection === section.id ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'}`} />
+            {section.title}
+          </button>
+        );
+      })}
+    </nav>
+  </aside>
+);
+
+// Main Content Component
+interface HelpMainContentProps {
+  currentSectionDetails?: HelpSection;
+  contentToDisplay: HelpSectionItem[];
+  searchTerm: string;
+  setSearchTerm: (term: string) => void;
+}
+
+const HelpMainContent: React.FC<HelpMainContentProps> = ({ currentSectionDetails, contentToDisplay, searchTerm, setSearchTerm }) => (
+  <main className="lg:col-span-9 mt-6 lg:mt-0">
+    <div className="bg-white shadow-xl sm:rounded-xl overflow-hidden">
+      <div className="px-6 py-8 sm:p-10">
+        {currentSectionDetails && (
+          <div className="flex items-center mb-8">
+            <currentSectionDetails.icon className="h-8 w-8 text-indigo-600 mr-3" />
+            <h1 className="text-3xl font-bold text-gray-800">
+              {currentSectionDetails.title}
+            </h1>
+          </div>
+        )}
+
+        {contentToDisplay.length > 0 ? (
+          <div className="space-y-6">
+            {contentToDisplay.map((section, idx) => (
+              <Disclosure key={idx} as="div" className="bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
+                {({ open }) => (
+                  <>
+                    <Disclosure.Button className="flex w-full items-center justify-between px-5 py-4 text-left text-md font-semibold text-gray-800 hover:bg-gray-100 focus:outline-none focus-visible:ring focus-visible:ring-indigo-500 focus-visible:ring-opacity-75 rounded-t-lg">
+                      <span>{section.title}</span>
+                      <ChevronUpIcon
+                        className={`${open ? 'rotate-180 transform' : ''} h-6 w-6 text-indigo-500 transition-transform duration-200`}
+                      />
+                    </Disclosure.Button>
+                    <Disclosure.Panel className="px-6 pt-4 pb-5 text-sm text-gray-700 border-t border-gray-200">
+                      {section.content.map((line, i) => {
+                        if (line.startsWith('- ') || line.match(/^\d+\.\s/)) {
+                          const isOrdered = line.match(/^\d+\.\s/);
+                          const itemContent = line.replace(/^(- |\d+\.\s)/, '');
+                          return isOrdered ? (
+                            <ol key={i} className="list-decimal list-inside ml-4 mb-1 space-y-1">
+                              <li>{itemContent}</li>
+                            </ol>
+                          ) : (
+                            <ul key={i} className="list-disc list-inside ml-4 mb-1 space-y-1">
+                              <li>{itemContent}</li>
+                            </ul>
+                          );
+                        }
+                        return (
+                          <p key={i} className="mb-2 whitespace-pre-line">
+                            {line}
+                          </p>
+                        );
+                      })}
+                    </Disclosure.Panel>
+                  </>
+                )}
+              </Disclosure>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <Search className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No results found</h3>
+            <p className="mt-1 text-sm text-gray-500">Your search for "{searchTerm}" did not match any help content in this section.</p>
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Clear search
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  </main>
+);
 
 const Help = () => {
   const [activeSection, setActiveSection] = useState('getting-started');
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const sections = [
-    { id: 'getting-started', title: 'Getting Started' },
-    { id: 'user-dashboard', title: 'User Dashboard' },
-    { id: 'interventions', title: 'Interventions Management' },
-    { id: 'actions', title: 'Actions Management' },
-    { id: 'issues', title: 'Issue Tracking' },
-    { id: 'reports', title: 'Reports' },
-    { id: 'user-management', title: 'User Management' },
-    { id: 'system-settings', title: 'System Settings' },
+  const sections: HelpSection[] = [
+    { id: 'getting-started', title: 'Getting Started', icon: BookOpen },
+    { id: 'user-dashboard', title: 'User Dashboard', icon: LayoutDashboard },
+    { id: 'interventions', title: 'Interventions Management', icon: Briefcase },
+    { id: 'actions', title: 'Actions Management', icon: Target },
+    { id: 'issues', title: 'Issue Tracking', icon: AlertTriangle },
+    { id: 'reports', title: 'Reports', icon: FileText },
+    { id: 'user-management', title: 'User Management', icon: Users },
+    { id: 'system-settings', title: 'System Settings', icon: SettingsIcon },
   ];
 
-  const userManualContent = {
-    'getting-started': [
-      {
-        title: 'User Roles',
-        content: [
-          'The system supports four user roles with different permissions:',
-          '- Super Admin: Full system access and configuration',
-          '- Leadership: Overview and approval capabilities',
-          '- Lead: Manages interventions and actions',
-          '- Supporting Staff: Assists with action implementation',
-        ],
-      },
-      {
-        title: 'Logging In',
-        content: [
-          '1. Navigate to the application URL',
-          '2. Enter your email and password',
-          '3. First-time users will be prompted to change their password',
-        ],
-      },
-    ],
-    'user-dashboard': [
-      {
-        title: 'Dashboard Overview',
-        content: [
-          'The dashboard displays:',
-          '- Your assigned interventions and actions',
-          '- Recent activities',
-          '- Upcoming deadlines',
-          '- Issues requiring attention',
-        ],
-      },
-      {
-        title: 'Filtering and Navigation',
-        content: [
-          '- Use status filters (all, in_progress, at_risk, completed)',
-          '- Filter by type (intervention, action)',
-          '- Use role filters to view specific assignments',
-        ],
-      },
-    ],
-    'interventions': [
-      {
-        title: 'Creating New Interventions',
-        content: [
-          'To create a new intervention:',
-          '1. Navigate to the Interventions page',
-          '2. Click the "New Intervention" button',
-          '3. Fill in required details:',
-          '   - Name and code',
-          '   - Description',
-          '   - Start and end dates',
-          '   - Lead person',
-          '   - Budget allocation',
-          '4. Upload any relevant documents',
-          '5. Click "Save" to create the intervention'
-        ],
-      },
-      {
-        title: 'Managing Intervention Details',
-        content: [
-          'Key features for managing interventions:',
-          '- View intervention dashboard for overview',
-          '- Edit intervention details as needed',
-          '- Track progress and status updates',
-          '- Manage related actions and tasks',
-          '- Add comments for team communication',
-          '- Upload and manage documents'
-        ],
-      },
-      {
-        title: 'Progress Tracking',
-        content: [
-          'Monitor intervention progress through:',
-          '- Status indicators (Not Started, In Progress, At Risk, Completed)',
-          '- Progress percentage tracking',
-          '- Timeline visualization',
-          '- Budget utilization tracking',
-          '- Related actions completion status'
-        ],
-      },
-      {
-        title: 'Document Management',
-        content: [
-          'Handle intervention documents:',
-          '- Upload supporting files',
-          '- View document history',
-          '- Download attachments',
-          '- Organize by categories',
-          '- Track document versions'
-        ],
-      },
-      {
-        title: 'Team Collaboration',
-        content: [
-          'Collaborate with team members:',
-          '- Assign roles and responsibilities',
-          '- Add comments and updates',
-          '- Share documents and resources',
-          '- Track team member contributions',
-          '- Coordinate with supporting staff'
-        ],
-      }
-    ],
-    'actions': [
-      {
-        title: 'Creating New Actions',
-        content: [
-          'To create a new action:',
-          '1. Navigate to the Interventions detail page',
-          '2. Click the "New Action" button',
-          '3. Fill in required details:',
-          '   - Name and description',
-          '   - Start and end dates',
-          '   - Lead person',
-          '   - Supporting staff members',
-          '   - Status and priority',
-          '4. Add related tasks and indicators',
-          '5. Click "Save" to create the action'
-        ],
-      },
-      {
-        title: 'Managing Action Details',
-        content: [
-          'Key features for managing actions:',
-          '- View action dashboard and progress',
-          '- Edit action details and assignments',
-          '- Update status and completion percentage',
-          '- Manage tasks and subtasks',
-          '- Track performance indicators',
-          '- Add comments and updates'
-        ],
-      },
-      {
-        title: 'Reporting Recent Achievements',
-        content: [
-          'Document action achievements:',
-          '- Record completed milestones, deliverables and tasks',
-          '  To add new Achievements:',
-          '- Click the "Add Achievement" button',
-          '- Fill in the required details:',
-          '  - Description',
-          '  - Date completed/achieved',
-          '  - add Evidence URL',
-          '     This can be links to online documents or other relevant resources',
-          '  - Upload supporting documents (PDF, JPG, PNG)',
-          '- Click "Save Achievement" to add the achievement',
-        ],
-      },
-      {
-        title: 'Reporting Needs',
-        content: [
-          'Report action needs and requirements:',
-          '- Identify resource gaps and requirements',
-          '- Navigate to the "Needs" tab in the Action',
-          'To add a new need:',
-          '1. Click on the "Add Need" button',
-          '- fill in the required details:',
-          '  - Description',
-          '  - Date Identified',
-          '  - Date Fulfilled',
-          '  - Resource Requirements',
-          '  - Budget Impact',
-          '- Click on "Save Need" button'
-        ],
-      },
-      {
-        title: 'Targets',
-        content: [
-          'Define and track action targets:',
-       
-        ],
-      },
-    //   {
-    //     title: 'Task Management',
-    //     content: [
-    //       'Handle action tasks effectively:',
-    //       '- Create and assign tasks to team members',
-    //       '- Set task priorities and deadlines',
-    //       '- Track task status and progress',
-    //       '- Add task descriptions and requirements',
-    //       '- Monitor task dependencies',
-    //       '- Update task completion status'
-    //     ],
-    //   },
-      {
-        title: 'Progress Monitoring',
-        content: [
-          'Track action progress through:',
-          '- Status updates (Not Started, In Progress, At Risk, Completed)',
-          '- Task completion tracking',
-          '- Performance indicator measurements',
-          '- Timeline adherence monitoring',
-          '- Team member contributions'
-        ],
-      },
-      {
-        title: 'Team Coordination',
-        content: [
-          'Coordinate action implementation:',
-          '- Assign lead and supporting staff roles',
-          '- Manage team communications',
-          '- Track individual responsibilities',
-          '- Monitor team performance',
-          '- Facilitate collaboration'
-        ],
-      }
-    ],
-    'issues': [
-      {
-        title: 'Issue Management',
-        content: [
-          'Managing issues effectively:',
-          '- Report new issues and concerns',
-          '- Assign issue priority and severity',
-          '- Track issue resolution progress',
-          '- Update issue status',
-          '- Document resolution steps'
-        ],
-      },
-      {
-        title: 'Issue Tracking',
-        content: [
-          'Monitor issues through:',
-          '- Issue dashboard overview',
-          '- Status updates and history',
-          '- Resolution timeline tracking',
-          '- Team assignments and responsibilities',
-          '- Impact assessment'
-        ],
-      }
-    ],
-    'reports': [
-      {
-        title: 'Generating Reports',
-        content: [
-          'Create various reports:',
-          '- Progress and status reports',
-          '- Performance analytics',
-          '- Resource utilization',
-          '- Timeline tracking',
-          '- Budget monitoring'
-        ],
-      },
-      {
-        title: 'Report Analysis',
-        content: [
-          'Analyze report data:',
-          '- Review key metrics and KPIs',
-          '- Track trends and patterns',
-          '- Identify areas for improvement',
-          '- Generate insights',
-          '- Make data-driven decisions'
-        ],
-      }
-    ],
-    'user-management': [
-      {
-        title: 'User Administration',
-        content: [
-          'Manage system users:',
-          '- Create and update user accounts',
-          '- Assign user roles and permissions',
-          '- Reset passwords',
-          '- Deactivate accounts',
-          '- Monitor user activity'
-        ],
-      },
-      {
-        title: 'Role Management',
-        content: [
-          'Handle user roles:',
-          '- Define role permissions',
-          '- Update role assignments',
-          '- Configure access levels',
-          '- Manage role hierarchies',
-          '- Review role activities'
-        ],
-      }
-    ],
-    'system-settings': [
-      {
-        title: 'System Configuration',
-        content: [
-          'Configure system settings:',
-          '- Update system parameters',
-          '- Manage notification settings',
-          '- Configure workflow rules',
-          '- Set up integrations',
-          '- Customize system behavior'
-        ],
-      },
-      {
-        title: 'Maintenance',
-        content: [
-          'System maintenance tasks:',
-          '- Monitor system performance',
-          '- Manage backups',
-          '- Update configurations',
-          '- Troubleshoot issues',
-          '- Optimize system operation'
-        ],
-      }
-    ]
-  };
+  const currentSectionDetails = useMemo(() => sections.find((s) => s.id === activeSection), [sections, activeSection]);
+  
+  const contentToDisplay = useMemo(() => {
+    if (!currentSectionDetails) return [];
+    const sectionContent = userManualContent[activeSection] || [];
+    if (!searchTerm) return sectionContent;
+
+    return sectionContent.map(subSection => ({
+      ...subSection,
+      content: subSection.content.filter(line => line.toLowerCase().includes(searchTerm.toLowerCase()))
+    })).filter(subSection => subSection.content.length > 0);
+  }, [currentSectionDetails, activeSection, searchTerm]);
 
   return (
     <DashboardLayout>
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="lg:grid lg:grid-cols-12 lg:gap-8">
-          {/* Sidebar */}
-          <div className="hidden lg:col-span-3 lg:block">
-            <nav className="sticky top-4 space-y-1">
-              {sections.map((section) => (
-                <button
-                  key={section.id}
-                  onClick={() => setActiveSection(section.id)}
-                  className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md ${
-                    activeSection === section.id
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  {section.title}
-                </button>
-              ))}
-            </nav>
+      <div className="min-h-screen bg-gray-100 py-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="lg:grid lg:grid-cols-12 lg:gap-x-8">
+            <HelpSidebar 
+              sections={sections}
+              activeSection={activeSection}
+              setActiveSection={setActiveSection}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+            />
+            <HelpMainContent 
+              currentSectionDetails={currentSectionDetails}
+              contentToDisplay={contentToDisplay}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+            />
           </div>
-
-          {/* Main content */}
-          <main className="lg:col-span-9">
-            <div className="bg-white shadow sm:rounded-lg">
-              <div className="px-4 py-5 sm:p-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                  {sections.find((s) => s.id === activeSection)?.title}
-                </h2>
-
-                <div className="space-y-4">
-                  {userManualContent[activeSection]?.map((section, idx) => (
-                    <Disclosure key={idx} as="div" className="mt-4">
-                      {({ open }) => (
-                        <>
-                          <Disclosure.Button className="flex w-full justify-between rounded-lg bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-900 hover:bg-gray-100 focus:outline-none focus-visible:ring focus-visible:ring-gray-500 focus-visible:ring-opacity-75">
-                            <span>{section.title}</span>
-                            <ChevronUpIcon
-                              className={`${open ? 'rotate-180 transform' : ''} h-5 w-5 text-gray-500`}
-                            />
-                          </Disclosure.Button>
-                          <Disclosure.Panel className="px-4 pt-4 pb-2 text-sm text-gray-500">
-                            {section.content.map((line, i) => (
-                              <p key={i} className="mb-2 whitespace-pre-line">
-                                {line}
-                              </p>
-                            ))}
-                          </Disclosure.Panel>
-                        </>
-                      )}
-                    </Disclosure>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </main>
         </div>
       </div>
-    </div>
     </DashboardLayout>
   );
 };

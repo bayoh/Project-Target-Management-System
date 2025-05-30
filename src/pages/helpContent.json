@@ -1,0 +1,292 @@
+{
+  "getting-started": [
+    {
+      "title": "User Roles",
+      "content": [
+        "The system supports four user roles with different permissions:",
+        "- Super Admin: Full system access and configuration",
+        "- Leadership: Overview and approval capabilities",
+        "- Lead: Manages interventions and actions",
+        "- Supporting Staff: Assists with action implementation"
+      ]
+    },
+    {
+      "title": "Logging In",
+      "content": [
+        "1. Navigate to the application URL",
+        "2. Enter your email and password",
+        "3. First-time users will be prompted to change their password"
+      ]
+    }
+  ],
+  "user-dashboard": [
+    {
+      "title": "Dashboard Overview",
+      "content": [
+        "The dashboard displays:",
+        "- Your assigned interventions and actions",
+        "- Recent activities",
+        "- Upcoming deadlines",
+        "- Issues requiring attention"
+      ]
+    },
+    {
+      "title": "Filtering and Navigation",
+      "content": [
+        "- Use status filters (all, in_progress, at_risk, completed)",
+        "- Filter by type (intervention, action)",
+        "- Use role filters to view specific assignments"
+      ]
+    }
+  ],
+  "interventions": [
+    {
+      "title": "Creating New Interventions",
+      "content": [
+        "To create a new intervention:",
+        "1. Navigate to the Interventions page",
+        "2. Click the \"New Intervention\" button",
+        "3. Fill in required details:",
+        "   - Name and code",
+        "   - Description",
+        "   - Start and end dates",
+        "   - Lead person",
+        "   - Budget allocation",
+        "4. Upload any relevant documents",
+        "5. Click \"Save\" to create the intervention"
+      ]
+    },
+    {
+      "title": "Managing Intervention Details",
+      "content": [
+        "Key features for managing interventions:",
+        "- View intervention dashboard for overview",
+        "- Edit intervention details as needed",
+        "- Track progress and status updates",
+        "- Manage related actions and tasks",
+        "- Add comments for team communication",
+        "- Upload and manage documents"
+      ]
+    },
+    {
+      "title": "Progress Tracking",
+      "content": [
+        "Monitor intervention progress through:",
+        "- Status indicators (Not Started, In Progress, At Risk, Completed)",
+        "- Progress percentage tracking",
+        "- Timeline visualization",
+        "- Budget utilization tracking",
+        "- Related actions completion status"
+      ]
+    },
+    {
+      "title": "Document Management",
+      "content": [
+        "Handle intervention documents:",
+        "- Upload supporting files",
+        "- View document history",
+        "- Download attachments",
+        "- Organize by categories",
+        "- Track document versions"
+      ]
+    },
+    {
+      "title": "Team Collaboration",
+      "content": [
+        "Collaborate with team members:",
+        "- Assign roles and responsibilities",
+        "- Add comments and updates",
+        "- Share documents and resources",
+        "- Track team member contributions",
+        "- Coordinate with supporting staff"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "title": "Creating New Actions",
+      "content": [
+        "To create a new action:",
+        "1. Navigate to the Interventions detail page",
+        "2. Click the \"New Action\" button",
+        "3. Fill in required details:",
+        "   - Name and description",
+        "   - Start and end dates",
+        "   - Lead person",
+        "   - Supporting staff members",
+        "   - Status and priority",
+        "4. Add related tasks and indicators",
+        "5. Click \"Save\" to create the action"
+      ]
+    },
+    {
+      "title": "Managing Action Details",
+      "content": [
+        "Key features for managing actions:",
+        "- View action dashboard and progress",
+        "- Edit action details and assignments",
+        "- Update status and completion percentage",
+        "- Manage tasks and subtasks",
+        "- Track performance indicators",
+        "- Add comments and updates"
+      ]
+    },
+    {
+      "title": "Reporting Recent Achievements",
+      "content": [
+        "Document action achievements:",
+        "- Record completed milestones, deliverables and tasks",
+        "  To add new Achievements:",
+        "- Click the \"Add Achievement\" button",
+        "- Fill in the required details:",
+        "  - Description",
+        "  - Date completed/achieved",
+        "  - add Evidence URL",
+        "     This can be links to online documents or other relevant resources",
+        "  - Upload supporting documents (PDF, JPG, PNG)",
+        "- Click \"Save Achievement\" to add the achievement"
+      ]
+    },
+    {
+      "title": "Reporting Needs",
+      "content": [
+        "Report action needs and requirements:",
+        "- Identify resource gaps and requirements",
+        "- Navigate to the \"Needs\" tab in the Action",
+        "To add a new need:",
+        "1. Click on the \"Add Need\" button",
+        "- fill in the required details:",
+        "  - Description",
+        "  - Date Identified",
+        "  - Date Fulfilled",
+        "  - Resource Requirements",
+        "  - Budget Impact",
+        "- Click on \"Save Need\" button"
+      ]
+    },
+    {
+      "title": "Targets",
+      "content": [
+        "Define and track action targets:"
+      ]
+    },
+    {
+      "title": "Progress Monitoring",
+      "content": [
+        "Track action progress through:",
+        "- Status updates (Not Started, In Progress, At Risk, Completed)",
+        "- Task completion tracking",
+        "- Performance indicator measurements",
+        "- Timeline adherence monitoring",
+        "- Team member contributions"
+      ]
+    },
+    {
+      "title": "Team Coordination",
+      "content": [
+        "Coordinate action implementation:",
+        "- Assign lead and supporting staff roles",
+        "- Manage team communications",
+        "- Track individual responsibilities",
+        "- Monitor team performance",
+        "- Facilitate collaboration"
+      ]
+    }
+  ],
+  "issues": [
+    {
+      "title": "Issue Management",
+      "content": [
+        "Managing issues effectively:",
+        "- Report new issues and concerns",
+        "- Assign issue priority and severity",
+        "- Track issue resolution progress",
+        "- Update issue status",
+        "- Document resolution steps"
+      ]
+    },
+    {
+      "title": "Issue Tracking",
+      "content": [
+        "Monitor issues through:",
+        "- Issue dashboard overview",
+        "- Status updates and history",
+        "- Resolution timeline tracking",
+        "- Team assignments and responsibilities",
+        "- Impact assessment"
+      ]
+    }
+  ],
+  "reports": [
+    {
+      "title": "Generating Reports",
+      "content": [
+        "Create various reports:",
+        "- Progress and status reports",
+        "- Performance analytics",
+        "- Resource utilization",
+        "- Timeline tracking",
+        "- Budget monitoring"
+      ]
+    },
+    {
+      "title": "Report Analysis",
+      "content": [
+        "Analyze report data:",
+        "- Review key metrics and KPIs",
+        "- Track trends and patterns",
+        "- Identify areas for improvement",
+        "- Generate insights",
+        "- Make data-driven decisions"
+      ]
+    }
+  ],
+  "user-management": [
+    {
+      "title": "User Administration",
+      "content": [
+        "Manage system users:",
+        "- Create and update user accounts",
+        "- Assign user roles and permissions",
+        "- Reset passwords",
+        "- Deactivate accounts",
+        "- Monitor user activity"
+      ]
+    },
+    {
+      "title": "Role Management",
+      "content": [
+        "Handle user roles:",
+        "- Define role permissions",
+        "- Update role assignments",
+        "- Configure access levels",
+        "- Manage role hierarchies",
+        "- Review role activities"
+      ]
+    }
+  ],
+  "system-settings": [
+    {
+      "title": "System Configuration",
+      "content": [
+        "Configure system settings:",
+        "- Update system parameters",
+        "- Manage notification settings",
+        "- Configure workflow rules",
+        "- Set up integrations",
+        "- Customize system behavior"
+      ]
+    },
+    {
+      "title": "Maintenance",
+      "content": [
+        "System maintenance tasks:",
+        "- Monitor system performance",
+        "- Manage backups",
+        "- Update configurations",
+        "- Troubleshoot issues",
+        "- Optimize system operation"
+      ]
+    }
+  ]
+}

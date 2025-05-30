@@ -10,6 +10,7 @@ import {
   Menu,
   Plus,
   ListChecks,
+  Briefcase,
   X,
   User,
   UserCheck2Icon,
@@ -99,8 +100,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   const navItems: NavItem[] = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership']},
-    { icon: Folders, label: 'Clusters', path: '/clusters', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership'] },
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
+    
+    { icon: Folders, label: 'Clusters', path: '/clusters', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
     { 
       icon: FileArchiveIcon, 
       label: 'Interventions', 
@@ -115,6 +117,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     },
     { icon: UserCheck2Icon, label: 'My Tasks', path: '/userdashboard', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership']},
     { icon: BarChart2, label: 'Reports', path: '/reports', roles: ['lead', 'super_admin', 'leadership'] },
+    // { icon: Briefcase, label: 'Jobs', path: '/jobs', roles: ['lead', 'super_admin', 'leadership'] },
     { 
       icon: Target,
       label: 'Targets',
