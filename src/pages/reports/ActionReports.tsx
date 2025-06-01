@@ -33,8 +33,9 @@ import {
   PDFDownloadLink,
   Image
 } from '@react-pdf/renderer';
-import { reportApi, projectApi } from '../../lib/api';
-import { userApi } from '../../lib/api';
+import { reportApi } from '../../lib/reportApi';
+import { actionApi } from '../../lib/actionApi'; // Changed from projectApi to actionApi
+import { userApi } from '../../lib/userApi';
 import toast from 'react-hot-toast';
 import { ImageSlider } from '../../components/imageSlider/index.tsx';
 import { Calendar } from '../../components/ui/Calendar.tsx';
@@ -372,7 +373,7 @@ export function ActionReports() {
 
   const loadActions = async () => {
     try {
-      const data = await projectApi.getActions();
+      const data = await actionApi.getActions(); // Changed from projectApi to actionApi
       // Filter actions for selected lead
       const filteredActions = selectedLeadId
         ? data.filter(action => action.lead_id === selectedLeadId && action.status !== 'not_started' )

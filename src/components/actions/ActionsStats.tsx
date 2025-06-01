@@ -24,7 +24,7 @@ import {
   Briefcase,
   BarChart2
 } from 'lucide-react';
-import { projectApi } from '../../lib/api';
+// import { projectApi } from '../../lib/api'; // Unused import removed
 import { supabase } from '../../lib/supabase';
 
 ChartJS.register(

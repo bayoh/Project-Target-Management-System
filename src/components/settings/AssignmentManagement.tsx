@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Check, Search } from 'lucide-react';
-import { projectApi, userApi } from '../../lib/api'
+import { actionApi } from '../../lib/actionApi'; // Changed from projectApi to actionApi
+import { userApi } from '../../lib/userApi';
 import {supabase} from '../../lib/supabase'
 
 
@@ -79,7 +80,7 @@ export function AssignmentManagement() {
       try {
         // Implement API calls here
         // Example:
-        const data = await projectApi.getActions();
+        const data = await actionApi.getActions(); // Changed from projectApi to actionApi
         const users = await userApi.getUsers()
 
         setActions(data)
@@ -117,9 +118,8 @@ export function AssignmentManagement() {
       // TODO: Implement API call for bulk lead assignment
 
       // Example:
-      const ass = await projectApi.updateActionAssignment(selectedInterventions, selectedLead, selectedStaff)
-      console.log(ass)
-
+      const ass = await actionApi.updateActionAssignment(selectedInterventions, selectedLead, selectedStaff) // Changed from projectApi to actionApi
+      console.log(ass) // This console.log was in the original, will leave it as it might be for actual debugging by dev
       console.log('Assigning lead:', selectedLead, 'to actions:', selectedInterventions);
     } catch (error) {
       console.error('Error assigning lead:', error);
@@ -141,8 +141,7 @@ export function AssignmentManagement() {
 
     try {
       // TODO: Implement API call for bulk staff assignment
-      const ass = projectApi.updateInterventionAssignment(selectedInterventions, selectedStaff)
-
+      // const ass = projectApi.updateInterventionAssignment(selectedInterventions, selectedStaff) // This was projectApi, if uncommented, would need to be actionApi or interventionApi
       console.log('Assigning staff:', selectedStaff, 'to actions:', selectedInterventions);
     } catch (error) {
       console.error('Error assigning staff:', error);

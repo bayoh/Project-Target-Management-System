@@ -1,0 +1,429 @@
+import { supabase } from './supabase';
+import type { Cluster, Pathway, Intervention, Action, Task } from '../types/project';
+// ActionStats and ClusterActionStats related to projectApi's own getActionStats might need to be re-evaluated or imported.
+// For now, we assume projectApi.getActionStats() is distinct and its types might need to be self-contained or adjusted later.
+// If it was intended to use the ActionStats from the removed jobsApi section, this will need correction.
+
+export const projectApi = {
+  // Project Stats
+  async getProjectStats() {
+    // Refactored to use Supabase RPC function
+    const { data, error } = await supabase.rpc('get_project_and_task_stats');
+
+    if (error) {
+      console.error('Failed to load project stats:', error);
+      throw error;
+    }
+    // RPC function returns data in the shape: { projects: {}, tasks: {} }
+    return data || { projects: {}, tasks: {} };
+  },
+
+  async getActionStats() {
+    try {
+      const [projectsResponse] = await Promise.all([
+        supabase
+          .from('actions')
+          .select('status')
+          .not('status', 'is', null),
+
+      ]);
+
+      if (projectsResponse.error) throw projectsResponse.error;
+      // if (tasksResponse.error) throw tasksResponse.error;
+
+      // Count projects by status
+      const action = projectsResponse.data.reduce((acc: Record<string, number>, curr) => {
+        acc[curr.status] = (acc[curr.status] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Count tasks by status
+      // const tasks = tasksResponse.data.reduce((acc: Record<string, number>, curr) => {
+      //   acc[curr.status] = (acc[curr.status] || 0) + 1;
+      //   return acc;
+      // }, {});
+
+      return { action };
+    } catch (error) {
+      console.error('Failed to load stats:', error);
+      return { action: {} };
+    }
+  },
+  // Clusters
+  async getClusters() {
+    const { data, error } = await supabase
+      .from('clusters')
+      .select(`
+        *,
+        pathways:pathways(
+          *,
+          interventions:interventions(*)
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data as Cluster[];
+  },
+
+  // Interventions
+  async getInterventions() {
+    const { data, error } = await supabase
+     .from('interventions')
+     .select(`
+              *,
+              pathway:pathways(
+                id,
+                name,
+                cluster:clusters(
+                  id,
+                  name
+                )
+              ),
+              lead:profiles!interventions_lead_id_fkey1(email, id, full_name)
+            `)
+     .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+
+  // Get intervention by ID with all related data
+  async getInterventionById(id: string) {
+    const { data, error } = await supabase
+      .from('interventions')
+      .select(`
+        *,
+        pathway:pathways(
+          id,
+          name,
+          cluster:clusters(
+            id,
+            name
+          )
+        ),
+        lead:profiles!interventions_lead_id_fkey1(id, email, full_name),
+        actions(*):
+          actions(*,
+            lead:profiles!actions_lead_id_fkey1(id, email, full_name),
+            supporting_staff:profiles(id, email, full_name),
+            achievements:action_achievements(*),
+            issues:action_issues(*),
+            targets:action_targets(*)
+          ),
+        documents:intervention_documents(*),
+        comments:intervention_comments(
+          *,
+          user:profiles!intervention_comments_created_by_fkey1(*)
+        )
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async createIntervention(intervention: Omit<Intervention, 'id' | 'created_at' | 'updated_at' | 'created_by'>) {
+    const { data, error } = await supabase
+      .from('interventions')
+      .insert([intervention])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Intervention;
+  },
+
+  async updateIntervention(id: string, updates: Partial<Intervention>) {
+    const { data, error } = await supabase
+      .from('interventions')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Intervention;
+  },
+
+// async updateActionAssignment(interventionIds: string[], leadId: string, supportingStaffIds?: string[]) {
+//   const updates: any = {  };
+
+//   if (leadId && leadId.trim() !== '') {
+//     updates.lead_id = leadId;
+//   }
+
+//   if (supportingStaffIds) {
+//     updates.supporting_staffs = supportingStaffIds;
+//   }
+//   console.log(updates)
+//   const { error } = await supabase
+//     .from('actions')
+//     .update(updates)
+//     .in('id', interventionIds);
+
+//   if (error) throw error;
+// },
+
+async updateActionAssignment(actionIds: string[], leadId: string, supportingStaffIds?: string[]) {
+  const updates: any = {  };
+  if (leadId && leadId.trim() !== '') {
+    updates.lead_id = leadId;
+  }
+
+  if (supportingStaffIds) {
+    updates.supporting_staff = supportingStaffIds;
+  }
+  // console.log(updates) // Removed debug log
+  const { error } = await supabase
+   .from('actions')
+   .update(updates)
+   .in('id', actionIds);
+
+  if (error) throw error;
+},
+
+async getActions(){
+  const { data, error } = await supabase
+   .from('actions')
+   .select(`
+          *,
+          lead:profiles!actions_lead_id_fkey1(id, email, full_name),
+          action_achievements:action_achievements(*),
+          action_issues:action_issues(*),
+          action_targets:action_targets(*),
+          intervention:interventions(
+            id,
+            name,
+            pathway:pathways(
+              id,
+              name,
+              cluster:clusters(
+                id,
+                name
+              )
+            )
+          )
+        `)
+  .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data;
+},
+
+
+// async updateInterventionAssignment(interventionIds: string[], leadId: string, supportingStaffIds?: string[]) {
+//   const updates: any = { lead_id: leadId };
+
+//   if (supportingStaffIds) {
+//     updates.supporting_staffs = supportingStaffIds;
+//   }
+//   console.log(updates)
+//   const { error } = await supabase
+//     .from('interventions')
+//     .update(updates)
+//     .in('id', interventionIds);
+
+//   if (error) throw error;
+// },
+
+
+  async deleteIntervention(id: string) {
+    try {
+      // First verify the intervention exists and we have access to it
+      const { data: intervention, error: interventionError } = await supabase
+        .from('interventions')
+        .select('id')
+        .eq('id', id)
+        .single();
+
+      if (interventionError) {
+        console.error('Error fetching intervention:', interventionError);
+        throw new Error('Access denied or intervention not found');
+      }
+
+      if (!intervention) {
+        throw new Error('Intervention not found');
+      }
+
+      // Get document URLs that need to be deleted
+      const { data: documents, error: documentsError } = await supabase
+        .from('intervention_documents')
+        .select('url')
+        .eq('intervention_id', id);
+
+      if (documentsError) {
+        console.error('Error fetching documents:', documentsError);
+        throw new Error('Failed to fetch document data');
+      }
+
+      // Get all actions for this intervention
+      const { data: actions, error: actionsError } = await supabase
+        .from('actions')
+        .select('id')
+        .eq('intervention_id', id);
+
+      if (actionsError) {
+        console.error('Error fetching actions:', actionsError);
+        throw new Error('Failed to fetch actions data');
+      }
+
+      // Collect all document URLs to delete
+      const documentUrls: string[] = [];
+
+      // Add intervention document URLs
+      if (documents) {
+        documentUrls.push(...documents.map(d => d.url).filter(Boolean));
+      }
+
+      // If there are actions, get their achievement evidence URLs
+      if (actions && actions.length > 0) {
+        const actionIds = actions.map(a => a.id);
+        const { data: achievements, error: achievementsError } = await supabase
+          .from('action_achievements')
+          .select('evidence_url')
+          .in('action_id', actionIds)
+          .filter('evidence_url', 'not.is', null);
+
+        if (achievementsError) {
+          console.error('Error fetching achievements:', achievementsError);
+          throw new Error('Failed to fetch achievement data');
+        }
+
+        if (achievements) {
+          documentUrls.push(...achievements.map(a => a.evidence_url).filter(Boolean));
+        }
+      }
+
+      // Delete files from storage if there are any
+      if (documentUrls.length > 0) {
+        const { error: storageError } = await supabase.storage
+          .from('intervention-documents')
+          .remove(documentUrls);
+
+        if (storageError) {
+          console.error('Error deleting files from storage:', storageError);
+          // Continue with deletion but log the error
+        }
+      }
+
+      // Delete the intervention (this will cascade to all related records)
+      const { error: deleteError } = await supabase
+        .from('interventions')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) {
+        console.error('Error deleting intervention:', deleteError);
+        throw new Error('Failed to delete intervention');
+      }
+
+      return true;
+    } catch (error: any) {
+      console.error('Error in deleteIntervention:', error);
+      throw error;
+    }
+  },
+
+  // Actions
+  async createAction(action: Omit<Action, 'id' | 'created_at' | 'updated_at' | 'created_by'>) {
+    const { data, error } = await supabase
+      .from('actions')
+      .insert([action])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Action;
+  },
+
+async deleteAction(id: string) {
+  try {
+    // Delete all related achievements
+    const { error: achievementsError } = await supabase
+      .from('action_achievements')
+      .delete()
+      .eq('action_id', id);
+    if (achievementsError) throw achievementsError;
+
+    // Delete all related needs
+    const { error: needsError } = await supabase
+      .from('action_needs')
+      .delete()
+      .eq('action_id', id);
+    if (needsError) throw needsError;
+
+    // Delete all related issues
+    const { error: issuesError } = await supabase
+      .from('action_issues')
+      .delete()
+      .eq('action_id', id);
+    if (issuesError) throw issuesError;
+
+    // Delete all related comments
+    const { error: commentsError } = await supabase
+      .from('action_comments')
+      .delete()
+      .eq('action_id', id);
+    if (commentsError) throw commentsError;
+
+    // Delete all related targets
+    const { error: targetsError } = await supabase
+      .from('action_targets')
+      .delete()
+      .eq('action_id', id);
+    if (targetsError) throw targetsError;
+
+    // Finally delete the action itself
+    const { error: actionError } = await supabase
+      .from('actions')
+      .delete()
+      .eq('id', id);
+    if (actionError) throw actionError;
+
+  } catch (error) {
+    console.error('Error deleting action and related data:', error);
+    throw error;
+  }
+},
+
+  async updateAction(id: string, updates: Partial<Action>) {
+    const { data, error } = await supabase
+      .from('actions')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Action;
+  },
+
+  // Tasks
+  async createTask(task: Omit<Task, 'id' | 'created_at' | 'updated_at' | 'created_by'>) {
+    const { data, error } = await supabase
+      .from('tasks')
+      .insert([task])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Task;
+  },
+
+  async updateTask(id: string, updates: Partial<Task>) {
+    const { data, error } = await supabase
+      .from('tasks')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Task;
+  },
+
+  // getUsers function removed as it's now in userApi.
+};
+// formatdate function moved to reportApi.ts
+// reportApi object moved to reportApi.ts
+// jobsApi object (at the end of the original api.ts) removed as it's duplicative of src/lib/jobsApi.ts

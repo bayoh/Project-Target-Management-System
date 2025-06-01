@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Briefcase, Users, Target, Settings } from 'lucide-react';
-import { jobsApi } from '../../lib/api'; // Use projectApi from api.ts
+import { jobsApi, type ClusterActionStats } from '../../lib/jobsApi'; // Updated import
 
 interface ClusterJobStats {
   id: string;
@@ -59,8 +59,9 @@ export function JobsDashboard() {
     return clusterActionStats.reduce((acc, stat) => {
       acc.total += stat.total;
       acc.completed += stat.completed;
-      acc.on_going_on += stat.in_progress;
-      acc.on_going_off += stat.at_risk;
+      // Adjusted to use the correct field names from jobsApi.ts's ActionStats
+      acc.on_going_on += stat.on_going_on;
+      acc.on_going_off += stat.on_going_off;
       acc.not_started += stat.not_started;
       return acc;
     }, { total: 0, completed: 0, on_going_on: 0, on_going_off: 0, not_started: 0 });

@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { projectApi } from '../../lib/api';
+import { interventionApi } from '../../lib/interventionApi'; // Changed from projectApi to interventionApi
 import type { Intervention, User, Cluster, Pathway } from '../../types/project';
 import { ConfirmationDialog } from '../../components/ui/ConfirmationDialog';
 import toast from 'react-hot-toast';
@@ -83,7 +83,7 @@ export function InterventionDashboard() {
 
   const loadInterventions = async () => {
     try{
-      const data = await projectApi.getInterventions();
+      const data = await interventionApi.getInterventions(); // Changed from projectApi to interventionApi
       setInterventions(data || []);
     } catch (err) {
       console.error('Failed to load interventions:', err);
@@ -190,7 +190,7 @@ export function InterventionDashboard() {
   const handleDelete = async () => {
     const toastId = toast.loading('Deleting intervention...');
     try {
-      await projectApi.deleteIntervention(confirmation.interventionId);
+      await interventionApi.deleteIntervention(confirmation.interventionId); // Changed from projectApi to interventionApi
       
       setConfirmation({
         isOpen: false,

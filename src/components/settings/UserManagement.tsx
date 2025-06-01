@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Plus, Search, Filter, Edit2, Trash2, AlertTriangle, DatabaseBackup } from 'lucide-react';
 import { UserForm } from './UserForm';
 import { ConfirmationDialog } from '../ui/ConfirmationDialog';
-import { userApi } from '../../lib/api'
+import { userApi } from '../../lib/userApi';
 
 interface User {
   id: string;

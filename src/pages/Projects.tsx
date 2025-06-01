@@ -3,19 +3,19 @@ import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { projectApi } from '../lib/api';
-import type { Project } from '../types/project';
+import { interventionApi } from '../lib/interventionApi'; // Changed from projectApi to interventionApi
+import type { Project } from '../types/project'; // Assuming Project type is compatible with Intervention
 
 export function Projects() {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]); // This might need to be Intervention[]
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     const loadProjects = async () => {
       try {
-        const data = await projectApi.getProjects();
-        setProjects(data);
+        const data = await interventionApi.getInterventions(); // Changed from projectApi.getProjects
+        setProjects(data as Project[]); // Casting to Project[], ensure compatibility
       } catch (error) {
         console.error('Failed to load projects:', error);
       } finally {

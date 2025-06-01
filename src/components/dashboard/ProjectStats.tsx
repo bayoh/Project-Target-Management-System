@@ -25,7 +25,7 @@ import {
   BarChart2,
   ListStartIcon
 } from 'lucide-react';
-import { projectApi } from '../../lib/api';
+import { statsApi } from '../../lib/statsApi'; // Changed from projectApi to statsApi
 import { supabase } from '../../lib/supabase';
 
 ChartJS.register(
@@ -88,7 +88,7 @@ export function ProjectStats() {
     const loadData = async () => {
       try {
         const [statsData, targetsData, jobsData] = await Promise.all([
-          projectApi.getProjectStats(),
+          statsApi.getProjectStats(), // Changed from projectApi to statsApi
           loadTargets(),
           loadJobStats()
         ]);

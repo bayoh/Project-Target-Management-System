@@ -38,77 +38,29 @@ export const jobsApi = {
   },
 
   async getActionStats(): Promise<ActionStats> {
-    const { data: actions, error } = await supabase
-      .from('actions')
-      .select('status');
+    // Refactored to use Supabase RPC function
+    const { data, error } = await supabase.rpc('get_overall_action_stats');
 
     if (error) throw error;
-
-    const stats: ActionStats = {
-      total: actions.length,
-      completed: actions.filter(a => a.status === 'completed').length,
-      on_going_on: actions.filter(a => a.status === 'on_going_on').length,
-      on_going_off: actions.filter(a => a.status === 'on_going_off').length,
-      not_started: actions.filter(a => a.status === 'not_started').length
+    // The RPC function returns an array with a single object
+    return data && data.length > 0 ? data[0] : {
+      total: 0,
+      completed: 0,
+      on_going_on: 0,
+      on_going_off: 0,
+      not_started: 0
     };
-
-    return stats;
   },
 
   async getActionStatusByCluster(): Promise<ClusterActionStats[]> {
-    try {
-      const { data: clusters, error: clustersError } = await supabase
-        .from('clusters')
-        .select(`
-          id,
-          name,
-          pathways!inner(id, interventions!inner(id, actions!inner(id, status)))
-        `);
+    // Refactored to use Supabase RPC function
+    const { data, error } = await supabase.rpc('get_cluster_action_stats');
 
-      if (clustersError) throw clustersError;
-
-      const clusterStats = clusters.map(cluster => {
-        let actionStats = {
-          id: cluster.id,
-          name: cluster.name,
-          total: 0,
-          completed: 0,
-          on_going_on: 0,
-          on_going_off: 0,
-          not_started: 0
-        };
-
-        // Aggregate action status data from all pathways and interventions in the cluster
-        cluster.pathways?.forEach(pathway => {
-          pathway.interventions?.forEach(intervention => {
-            intervention.actions?.forEach(action => {
-              actionStats.total++;
-              switch (action.status) {
-                case 'completed':
-                  actionStats.completed++;
-                  break;
-                case 'on_going_on':
-                  actionStats.on_going_on++;
-                  break;
-                case 'on_going_off':
-                  actionStats.on_going_off++;
-                  break;
-                case 'not_started':
-                  actionStats.not_started++;
-                  break;
-              }
-            });
-          });
-        });
-
-        return actionStats;
-      });
-
-      return clusterStats;
-    } catch (error) {
+    if (error) {
       console.error('Error fetching action status by cluster:', error);
       throw error;
     }
+    return data || [];
   },
 
   async updateJobStats(id: string, stats: Partial<JobStats>): Promise<JobStats> {
@@ -121,5 +73,33 @@ export const jobsApi = {
 
     if (error) throw error;
     return data;
+  },
+
+  async getJobsByCluster() {
+    // Refactored to use Supabase RPC function
+    const { data, error } = await supabase.rpc('get_cluster_job_targets');
+
+    if (error) {
+      console.error('Error fetching jobs by cluster:', error);
+      throw error;
+    }
+
+    // Map SQL results to the desired nested structure
+    return data ? data.map(item => ({
+      id: item.id,
+      name: item.name,
+      total_jobs: {
+        target: item.total_target_value,
+        current: item.total_current_value
+      },
+      women_jobs: {
+        target: item.women_target_value,
+        current: item.women_current_value
+      },
+      youth_jobs: {
+        target: item.youth_target_value,
+        current: item.youth_current_value
+      }
+    })) : [];
   }
 };

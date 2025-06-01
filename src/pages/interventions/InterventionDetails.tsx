@@ -7,7 +7,7 @@ import { ChevronLeft, Plus, MessageSquare, Upload, X, FileText, Download, Pencil
 import { ActionList } from '../../components/actions/ActionList';
 import { DocumentList, DocumentViewer} from '../../components/documents';
 import { format } from 'date-fns';
-import { projectApi } from '../../lib/api';
+// import { projectApi } from '../../lib/api'; // Unused import removed
 
 interface Comment {
   id: string;

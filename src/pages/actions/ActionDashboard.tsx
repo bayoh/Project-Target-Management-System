@@ -22,7 +22,8 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { projectApi } from '../../lib/api';
+import { actionApi } from '../../lib/actionApi'; // Changed from projectApi
+import { interventionApi } from '../../lib/interventionApi'; // Added interventionApi
 import type { Action, User, Intervention } from '../../types/project';
 import { ConfirmationDialog } from '../../components/ui/ConfirmationDialog';
 import { Select } from '../../components/ui/Select';
@@ -77,7 +78,7 @@ export function ActionDashboard() {
 
   const loadActions = async () => {
     try{
-      const data = await projectApi.getActions();
+      const data = await actionApi.getActions(); // Changed from projectApi
       setActions(data || []);
     } catch (err) {
       console.error('Failed to load actions:', err);
@@ -90,7 +91,7 @@ export function ActionDashboard() {
 
   const loadInterventions = async () => {
     try {
-      const data = await projectApi.getInterventions();
+      const data = await interventionApi.getInterventions(); // Changed from projectApi
       setInterventions(data || []);
     } catch (err) {
       console.error('Error loading interventions:', err);
@@ -122,7 +123,7 @@ export function ActionDashboard() {
   const handleDelete = async () => {
     const toastId = toast.loading('Deleting action...');
     try {
-      await projectApi.deleteAction(confirmation.actionId);
+      await actionApi.deleteAction(confirmation.actionId); // Changed from projectApi
       
       setConfirmation({
         isOpen: false,
@@ -155,7 +156,7 @@ export function ActionDashboard() {
 
     const toastId = toast.loading('Updating action status...');
     try {
-      await projectApi.updateActionStatus(confirmation.actionId, confirmation.newStatus);
+      await actionApi.updateActionStatus(confirmation.actionId, confirmation.newStatus); // Changed from projectApi
       
       setConfirmation({
         isOpen: false,
@@ -240,7 +241,7 @@ export function ActionDashboard() {
     const toastId = toast.loading(selectedAction ? 'Updating action...' : 'Creating action...');
     try {
       if (selectedAction) {
-        await projectApi.updateAction(selectedAction.id, actionData);
+        await actionApi.updateAction(selectedAction.id, actionData); // Changed from projectApi
       } else {
         // Ensure required fields are present for new action
         if (!actionData.intervention_id) {
@@ -262,7 +263,7 @@ export function ActionDashboard() {
           created_by: sessionUser?.id
         };
 
-        await projectApi.createAction(newActionData);
+        await actionApi.createAction(newActionData); // Changed from projectApi
       }
       
       setIsModalOpen(false);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { userApi } from '../../lib/api';
+import { userApi } from '../../lib/userApi';
 import {  User  } from '../../types/auth';
 
 interface Project {
