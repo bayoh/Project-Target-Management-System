@@ -106,13 +106,13 @@ export function JobsDashboard() {
       </div>
 
       {/* Job Categories by Cluster */}
-      <h2 className="text-2xl font-semibold text-gray-700">Job Creation by Cluster</h2>
+      {/* <h2 className="text-2xl font-semibold text-gray-700">Job Creation by Cluster</h2> */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {clusterJobStats.map(stat => <ClusterCard key={stat.id} stat={stat} totalCurrentJobs={getTotalJobs()} />)}
       </div>
 
       {/* Target vs Actual */}
-      <h2 className="text-2xl font-semibold text-gray-700">Overall Job Targets</h2>
+      {/* <h2 className="text-2xl font-semibold text-gray-700">Overall Job Targets</h2> */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         <div className="bg-sky-700 p-6 rounded-lg shadow-md text-white">
           <div className="flex items-center mb-2">
@@ -131,7 +131,7 @@ export function JobsDashboard() {
       </div>
 
       {/* Action Status Summary */}
-      <h2 className="text-2xl font-semibold text-gray-700">Action Status Summary</h2>
+      {/* <h2 className="text-2xl font-semibold text-gray-700">Action Status Summary</h2> */}
       <div className="bg-slate-700 p-6 rounded-lg shadow-md text-white">
         <div className="flex items-center mb-4">
           <Settings className="w-8 h-8 mr-3" />
