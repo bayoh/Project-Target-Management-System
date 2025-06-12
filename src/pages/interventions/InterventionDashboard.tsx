@@ -5,7 +5,7 @@ import {
   ChevronRight,
   Network,
   List,
-  Calendar,
+  Calendar as CalendarIcon, // Renamed to avoid conflict with Calendar component
   Clock,
   DollarSign,
   Target,
@@ -17,7 +17,9 @@ import {
   MoreVertical,
   Eye,
   Filter,
-  X
+  X,
+  LayoutGrid, // Added for grid view icon
+  ListChecks // Added for list view icon
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -25,6 +27,17 @@ import { projectApi } from '../../lib/api';
 import type { Intervention, User, Cluster, Pathway } from '../../types/project';
 import { ConfirmationDialog } from '../../components/ui/ConfirmationDialog';
 import toast from 'react-hot-toast';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '../../components/ui/table'; // Import custom table components
+import { Button } from '../../components/ui/Button'; // Assuming Button component is in ui
+import { Select } from '../../components/ui/Select'; // Assuming Select component is in ui
+import { Input } from '../../components/ui/Input'; // Assuming Input component is in ui
 
 interface ConfirmationState {
   isOpen: boolean;
@@ -42,12 +55,12 @@ export function InterventionDashboard() {
     type: 'delete',
     interventionId: '',
   });
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [pathways, setPathways] = useState<Pathway[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [sessionUser, setSessionUser] = useState(null);
+  const [sessionUser, setSessionUser] = useState<any>(null); // Changed to any to match usage
   const [filters, setFilters] = useState({
     clusterId: '',
     pathwayId: '',
@@ -55,6 +68,7 @@ export function InterventionDashboard() {
     status: ''
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
  
   useEffect(() => {
@@ -68,7 +82,6 @@ export function InterventionDashboard() {
 
   const getSessionUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    console.log(user?.user_metadata)
     setSessionUser(user);
   };
 
@@ -82,6 +95,7 @@ export function InterventionDashboard() {
   }, [filters.clusterId]);
 
   const loadInterventions = async () => {
+    setLoading(true);
     try{
       const data = await projectApi.getInterventions();
       setInterventions(data || []);
@@ -93,37 +107,6 @@ export function InterventionDashboard() {
       setLoading(false);  
     }
   }
-
-  // const loadInterventions = async () => {
-  //   try {
-  //     const { data, error } = await supabase
-  //       .from('interventions')
-  //       .select(`
-  //         *,
-  //         pathway:pathways(
-  //           id,
-  //           name,
-  //           cluster:clusters(
-  //             id,
-  //             name
-  //           )
-  //         ),
-  //         lead:profiles!interventions_lead_id_fkey1(email, id, full_name)
-  //       `)
-  //       .order('created_at', { ascending: false });
-  //       console.log(error)
-  //       // lead:profiles!interventions_lead_id_fkey1(email, id, full_name)
-  //       // lead:users_view!interventions_lead_id_fkey(email, id, full_name)
-  //     if (error) throw error;
-  //     setInterventions(data || []);
-  //   } catch (err) {
-  //     console.error('Failed to load interventions:', err);
-  //     setError('Failed to load interventions');
-  //     toast.error('Failed to load interventions');
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
 
   const loadClusters = async () => {
     try {
@@ -157,9 +140,9 @@ export function InterventionDashboard() {
   const loadUsers = async () => {
     try {
       const { data, error } = await supabase
-        .from('profiles')
+        .from('profiles') // Assuming 'profiles' is the correct table for users
         .select('*')
-        .order('email');
+        .order('full_name'); // Order by full_name or email
 
       if (error) throw error;
       setUsers(data || []);
@@ -167,6 +150,16 @@ export function InterventionDashboard() {
       console.error('Error loading users:', err);
     }
   };
+
+  const filteredInterventions = interventions.filter(intervention => {
+    return (
+      (filters.clusterId ? intervention.pathway?.cluster_id === filters.clusterId : true) &&
+      (filters.pathwayId ? intervention.pathway_id === filters.pathwayId : true) &&
+      (filters.leadId ? intervention.lead_id === filters.leadId : true) &&
+      (filters.status ? intervention.status === filters.status : true) &&
+      (searchTerm ? intervention.name.toLowerCase().includes(searchTerm.toLowerCase()) : true)
+    );
+  });
 
   const getMetrics = () => {
     const totalActions = filteredInterventions.length;
@@ -188,6 +181,7 @@ export function InterventionDashboard() {
   };
 
   const handleDelete = async () => {
+    if (confirmation.type !== 'delete') return;
     const toastId = toast.loading('Deleting intervention...');
     try {
       await projectApi.deleteIntervention(confirmation.interventionId);
@@ -197,650 +191,396 @@ export function InterventionDashboard() {
         type: 'delete',
         interventionId: '',
       });
-
-      await loadInterventions();
-      
       toast.success('Intervention deleted successfully', { id: toastId });
-    } catch (err: any) {
-      console.error('Error deleting intervention:', err);
+      loadInterventions(); // Refresh the list
+    } catch (err) {
+      console.error('Failed to delete intervention:', err);
       toast.error('Failed to delete intervention', { id: toastId });
-      
-      await loadInterventions();
     }
   };
 
-  const handleStatusClick = (id: string, status: 'completed' | 'in_progress' | 'at_risk' | 'not_started') => {
+  const handleStatusChangeClick = (id: string, newStatus: 'completed' | 'in_progress' | 'at_risk' | 'not_started') => {
     setConfirmation({
       isOpen: true,
       type: 'status',
       interventionId: id,
-      newStatus: status,
+      newStatus: newStatus,
     });
   };
 
-  const handleStatusChange = async () => {
-    if (!confirmation.newStatus) return;
-
+  const handleStatusUpdate = async () => {
+    if (confirmation.type !== 'status' || !confirmation.newStatus) return;
     const toastId = toast.loading('Updating status...');
     try {
-      const { error } = await supabase
-        .from('interventions')
-        .update({ status: confirmation.newStatus })
-        .eq('id', confirmation.interventionId);
-
-      if (error) throw error;
-      
-      setInterventions(interventions.map(intervention => 
-        intervention.id === confirmation.interventionId
-          ? { ...intervention, status: confirmation.newStatus! }
-          : intervention
-      ));
-      
+      await projectApi.updateInterventionStatus(confirmation.interventionId, confirmation.newStatus);
       setConfirmation({
         isOpen: false,
-        type: 'status',
+        type: 'delete', // Reset type
         interventionId: '',
       });
-
       toast.success('Status updated successfully', { id: toastId });
-    } catch (err: any) {
-      console.error('Error updating intervention status:', err);
+      loadInterventions(); // Refresh the list
+    } catch (err) {
+      console.error('Failed to update status:', err);
       toast.error('Failed to update status', { id: toastId });
-      
-      await loadInterventions();
     }
   };
 
-  const filteredInterventions = interventions.filter(intervention => {
-    if (filters.clusterId && intervention.pathway?.cluster?.id !== filters.clusterId) return false;
-    if (filters.pathwayId && intervention.pathway_id !== filters.pathwayId) return false;
-    if (filters.leadId && intervention.lead_id !== filters.leadId) return false;
-    if (filters.status && intervention.status !== filters.status) return false;
-    return true;
-  });
-
-  const resetFilters = () => {
-    setFilters({
-      clusterId: '',
-      pathwayId: '',
-      leadId: '',
-      status: ''
-    });
+  const handleConfirmation = () => {
+    if (confirmation.type === 'delete') {
+      handleDelete();
+    } else if (confirmation.type === 'status') {
+      handleStatusUpdate();
+    }
   };
 
-  const getActiveFiltersCount = () => {
-    return Object.values(filters).filter(Boolean).length;
+  const toggleMenu = (interventionId: string) => {
+    setActiveMenu(activeMenu === interventionId ? null : interventionId);
   };
 
-  const getStatusColor = (status: string) => {
-    const colors = {
-      not_started: 'bg-gray-100 text-gray-800',
-      in_progress: 'bg-blue-100 text-blue-800',
-      at_risk: 'bg-red-100 text-red-800',
-      completed: 'bg-green-100 text-green-800',
-    };
-    return colors[status as keyof typeof colors] || colors.not_started;
+  const { totalActions, statusCounts } = getMetrics();
+
+  const statusColors: { [key: string]: string } = {
+    completed: 'bg-green-100 text-green-700',
+    in_progress: 'bg-blue-100 text-blue-700',
+    at_risk: 'bg-yellow-100 text-yellow-700',
+    not_started: 'bg-gray-100 text-gray-700',
   };
 
-  const metrics = getMetrics();
+  const statusIcons: { [key: string]: React.ElementType } = {
+    completed: CheckCircle2,
+    in_progress: Clock,
+    at_risk: AlertTriangle,
+    not_started: List, 
+  };
 
-  const renderListView = (interventions: Intervention[]) => (
-    <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-      {/* Mobile View */}
-      <div className="md:hidden space-y-4 p-4">
-        {interventions.map((intervention) => (
-          <div key={intervention.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-            <div className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-600">{intervention.code || '-'}</span>
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(intervention.status)}`}>
-                  {intervention.status.replace('_', ' ')}
-                </span>
-              </div>
-              
-              <div className="space-y-1">
-                <h3 className="text-sm font-medium text-gray-900 line-clamp-1">{intervention.name}</h3>
-                {intervention.description && (
-                  <p className="text-sm text-gray-500 line-clamp-2">{intervention.description}</p>
-                )}
-              </div>
-
-              <div className="flex flex-col space-y-2 text-sm text-gray-500">
-                <div className="flex items-center space-x-2">
-                  <Users className="h-4 w-4 flex-shrink-0" />
-                  <span className="truncate">{intervention.lead?.full_name || 'Unassigned'}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Calendar className="h-4 w-4 flex-shrink-0" />
-                  <span className="truncate">
-                    {intervention.start_date && new Date(intervention.start_date).toLocaleDateString()}
-                    {intervention.end_date && ` - ${new Date(intervention.end_date).toLocaleDateString()}`}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end pt-2">
-                <div className="relative">
+  const renderInterventionCard = (intervention: Intervention) => {
+    const StatusIcon = statusIcons[intervention.status] || List;
+    return (
+      <div key={intervention.id} className="bg-white shadow-lg rounded-lg p-4 md:p-6 flex flex-col justify-between hover:shadow-xl transition-shadow duration-300">
+        <div>
+          <div className="flex justify-between items-start mb-2">
+            <h3 className="text-lg md:text-xl font-semibold text-gray-800 truncate" title={intervention.name}>{intervention.name}</h3>
+            <div className="relative">
+              <Button variant="ghost" size="sm" onClick={() => toggleMenu(intervention.id)}>
+                <MoreVertical size={20} />
+              </Button>
+              {activeMenu === intervention.id && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 py-1">
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveMenu(activeMenu === intervention.id ? null : intervention.id);
-                    }}
-                    className="text-gray-400 hover:text-gray-500"
+                    onClick={() => navigate(`/interventions/${intervention.id}`)}
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
                   >
-                    <MoreVertical className="h-5 w-5" />
+                    <Eye size={16} className="inline mr-2" /> View Details
                   </button>
-                  {activeMenu === intervention.id && (
-                    <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-350 overflow-visible transform -translate-x-0 sm:translate-x-0">
-                      <div className="py-1" role="menu">
-                        <button
-                          onClick={() => navigate(`/interventions/${intervention.id}`)}
-                          className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          View Details
-                        </button>
-                        {(intervention.lead_id === sessionUser?.id || intervention.created_by === sessionUser?.id || sessionUser?.user_metadata.role === 'super_admin') && (
-                          <>
-                            <button
-                              onClick={() => navigate(`/interventions/${intervention.id}/edit`)}
-                              className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                            >
-                              <Edit2 className="h-4 w-4 mr-2" />
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDeleteClick(intervention.id)}
-                              className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </button>
-                          </>
-                        )}
-                        {intervention.status !== 'completed' && intervention.lead_id === sessionUser?.id && (
-                          <button
-                            onClick={() => handleStatusClick(intervention.id, 'completed')}
-                            className="flex items-center w-full px-4 py-2 text-sm text-green-600 hover:bg-gray-100"
-                          >
-                            <CheckCircle2 className="h-4 w-4 mr-2" />
-                            Mark Complete
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Desktop View */}
-      <div className="hidden md:block">
-        <table className="w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-1/8">
-                Code
-              </th>
-              <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-1/3">
-                Name
-              </th>
-              <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-1/6">
-                Status
-              </th>
-              <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-1/6">
-                Lead
-              </th>
-              <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-1/4">
-                Timeline
-              </th>
-              <th className="relative px-4 sm:px-6 py-3 w-[100px]">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {interventions.map((intervention, index) => (
-              <tr key={intervention.id} className="hover:bg-gray-50">
-                <td className="px-4 sm:px-6 py-4">
-                  <div className="text-sm font-medium text-gray-900 text-center">
-                    {intervention.code || '-'}
-                  </div>
-                </td>
-                <td className="px-4 sm:px-6 py-4">
-                  <div className="group relative">
-                    <div className="text-sm font-medium text-gray-900 line-clamp-2 group-hover:line-clamp-none">
-                      {intervention.name}
-                    </div>
-                    {intervention.description && (
-                      <div className="text-sm text-gray-500 line-clamp-2 group-hover:line-clamp-none mt-1">
-                        {intervention.description}
-                      </div>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
-                  <span className={`text-sm font-medium rounded-full ${getStatusColor(intervention.status)}`}>
-                              {intervention.status === 'completed' ? (
-                                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                              ) : intervention.status === 'in_progress' ? (
-                                <Clock className="h-4 w-4 text-blue-600" />
-                              ) : intervention.status === 'at_risk' ? (
-                                <AlertTriangle className="h-4 w-4 text-red-600" />
-                              ) : (
-                                <X className="h-4 w-4 text-gray-600" />
-                              )}
-                  </span>
-                </td>
-                <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <div className="truncate max-w-[150px]">
-                    {intervention.lead?.full_name || 'Unassigned'}
-                  </div>
-                </td>
-                <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="h-4 w-4 flex-shrink-0" />
-                    <span className="truncate">
-                      {intervention.start_date && new Date(intervention.start_date).toLocaleDateString()}
-                      {intervention.end_date && ` - ${new Date(intervention.end_date).toLocaleDateString()}`}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <div className="relative">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveMenu(activeMenu === intervention.id ? null : intervention.id);
-                      }}
-                      className="text-gray-400 hover:text-gray-500"
-                    >
-                      <MoreVertical className="h-5 w-5" />
-                    </button>
-                    {activeMenu === intervention.id && (
-                      <div className={`absolute ${index < 2 ? 'top-0' : index >= filteredInterventions.length - 2 ? 'bottom-0' : 'top-0 -translate-y-1/2'} right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-[9999] overflow-visible transform -translate-x-0 sm:translate-x-0`}>
-                        <div className="py-1" role="menu">
-                          <button
-                            onClick={() => navigate(`/interventions/${intervention.id}`)}
-                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Details
-                          </button>
-                          {(intervention.lead_id === sessionUser?.id || intervention.created_by === sessionUser?.id || sessionUser?.user_metadata.role === 'super_admin') && (
-                            <>
-                              <button
-                                onClick={() => navigate(`/interventions/${intervention.id}/edit`)}
-                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                              >
-                                <Edit2 className="h-4 w-4 mr-2" />
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => handleDeleteClick(intervention.id)}
-                                className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </button>
-                            </>
-                          )}
-                          {intervention.status !== 'completed' && intervention.lead_id === sessionUser?.id && (
-                            <button
-                              onClick={() => handleStatusClick(intervention.id, 'completed')}
-                              className="flex items-center w-full px-4 py-2 text-sm text-green-600 hover:bg-gray-100"
-                            >
-                              <CheckCircle2 className="h-4 w-4 mr-2" />
-                              Mark Complete
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
-  const renderGridView = (interventions: Intervention[]) => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-      {interventions.map((intervention) => (
-        <div
-          key={intervention.id}
-          className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow h-full"
-        >
-          <div className="p-4 sm:p-6 flex flex-col h-full">
-            <div className="flex items-center justify-between mb-4">
-              <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(intervention.status)}`}>
-                {intervention.status.replace('_', ' ')}
-              </span>
-              <div className="relative">
-                <button
-                  onClick={() => setActiveMenu(activeMenu === intervention.id ? null : intervention.id)}
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  <MoreVertical className="h-5 w-5" />
-                </button>
-                {activeMenu === intervention.id && (
-                  <div className="fixed right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-150" style={{transform: 'translateX(-50px)'}}>
-                    <div className="py-1" role="menu">
+                  {sessionUser?.id === intervention.created_by && (
+                    <>
                       <button
-                        onClick={() => navigate(`/interventions/${intervention.id}`)}
-                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => navigate(`/interventions/edit/${intervention.id}`)}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
                       >
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Details
+                        <Edit2 size={16} className="inline mr-2" /> Edit
                       </button>
-                      <button
-                        onClick={() => navigate(`/interventions/${intervention.id}/edit`)}
-                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        <Edit2 className="h-4 w-4 mr-2" />
-                        Edit
-                      </button>
-                      { intervention.lead_id === sessionUser?.id && (
                       <button
                         onClick={() => handleDeleteClick(intervention.id)}
-                        className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                        className="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 w-full text-left"
                       >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </button>) }
-                      {intervention.status !== 'completed' && (
-                        <button
-                          onClick={() => handleStatusClick(intervention.id, 'completed')}
-                          className="flex items-center w-full px-4 py-2 text-sm text-green-600 hover:bg-gray-100"
-                        >
-                          <CheckCircle2 className="h-4 w-4 mr-2" />
-                          Mark Complete
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">{intervention.name}</h3>
-            {intervention.description && (
-              <p className="text-sm text-gray-500 mb-4 line-clamp-2">{intervention.description}</p>
-            )}
-            <div className="space-y-2">
-              <div className="flex items-center text-sm text-gray-500">
-                <Users className="h-4 w-4 mr-2" />
-                {intervention.lead?.full_name || 'Unassigned'}
-              </div>
-              <div className="flex items-center text-sm text-gray-500">
-                <Calendar className="h-4 w-4 mr-2" />
-                {intervention.start_date && new Date(intervention.start_date).toLocaleDateString()}
-                {intervention.end_date && ` - ${new Date(intervention.end_date).toLocaleDateString()}`}
-              </div>
+                        <Trash2 size={16} className="inline mr-2" /> Delete
+                      </button>
+                    </>
+                  )}
+                  <div className="border-t my-1"></div>
+                  <p className="px-4 py-2 text-xs text-gray-500">Change Status:</p>
+                  {['not_started', 'in_progress', 'at_risk', 'completed'].map(status => (
+                    <button
+                      key={status}
+                      onClick={() => handleStatusChangeClick(intervention.id, status as any)}
+                      className={`block px-4 py-2 text-sm w-full text-left ${intervention.status === status ? 'bg-gray-100 font-semibold' : 'hover:bg-gray-100'}`}
+                    >
+                      {status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
+          <p className="text-sm text-gray-500 mb-1 flex items-center">
+            <Network size={16} className="mr-2 text-purple-600" /> 
+            {intervention.pathway?.cluster?.name || 'N/A'} <ChevronRight size={16} className="mx-1 text-gray-400" /> {intervention.pathway?.name || 'N/A'}
+          </p>
+          <p className="text-sm text-gray-500 mb-1 flex items-center">
+            <Users size={16} className="mr-2 text-indigo-600" /> Lead: {intervention.lead?.full_name || intervention.lead?.email || 'N/A'}
+          </p>
+          <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[intervention.status] || statusColors.not_started} mb-3`}>
+            <StatusIcon size={14} className="mr-1.5" />
+            {intervention.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+          </div>
         </div>
-      ))}
-    </div>
-  );
-
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-[calc(100vh-64px)]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        <div className="mt-auto">
+          <div className="flex justify-between items-center text-xs text-gray-500 mb-2">
+            <span className="flex items-center"><CalendarIcon size={14} className="mr-1 text-green-600" /> {new Date(intervention.start_date).toLocaleDateString()}</span>
+            <span className="flex items-center"><CalendarIcon size={14} className="mr-1 text-red-600" /> {new Date(intervention.end_date).toLocaleDateString()}</span>
+          </div>
+          <Button 
+            variant="outline"
+            size="sm"
+            className="w-full mt-2"
+            onClick={() => navigate(`/interventions/${intervention.id}`)}
+          >
+            View Details
+          </Button>
         </div>
-      </DashboardLayout>
+      </div>
     );
-  }
+  };
+
+  if (loading) return <DashboardLayout><div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-purple-500"></div></div></DashboardLayout>;
+  if (error) return <DashboardLayout><div className="text-red-500 text-center p-4">Error: {error}. Please try refreshing the page.</div></DashboardLayout>;
 
   return (
     <DashboardLayout>
-      <div className="h-[calc(100vh-64px)] flex flex-col space-y-6 p-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between flex-shrink-0 space-y-4 sm:space-y-0">
-          <h1 className="text-2xl font-bold text-gray-900">Interventions</h1>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`inline-flex items-center justify-center px-3 py-2 border rounded-md text-sm font-medium w-full sm:w-auto ${
-                showFilters || getActiveFiltersCount() > 0
-                  ? 'bg-blue-50 text-blue-700 border-blue-200'
-                  : 'text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filters
-              {getActiveFiltersCount() > 0 && (
-                <span className="ml-2 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs">
-                  {getActiveFiltersCount()}
-                </span>
-              )}
-            </button>
-
-            <div className="flex items-center justify-center space-x-2 bg-white rounded-lg shadow-sm p-1 w-full sm:w-auto">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`flex-1 sm:flex-none inline-flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium ${
-                  viewMode === 'list'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <List className="h-4 w-4 mr-2" />
-                List View
-              </button>
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`flex-1 sm:flex-none inline-flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium ${
-                  viewMode === 'grid'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <Network className="h-4 w-4 mr-2" />
-                Grid View
-              </button>
-            </div>
-            <button
+      <div className="p-4 md:p-6 lg:p-8">
+        <header className="mb-6 md:mb-8">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Intervention Dashboard</h1>
+            <Button 
               onClick={() => navigate('/interventions/new')}
-              className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+              className="mt-3 md:mt-0"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              New Intervention
-            </button>
+              <Plus size={20} className="mr-2" /> New Intervention
+            </Button>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="bg-white shadow-sm rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Target className="h-6 w-6 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Total Interventions</p>
-                <h3 className="text-xl font-semibold text-gray-900">{metrics.totalActions}</h3>
-              </div>
+          {/* Metrics Section */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <div className="bg-white p-4 shadow rounded-lg">
+              <h3 className="text-sm font-medium text-gray-500">Total Interventions</h3>
+              <p className="text-2xl font-semibold text-gray-800">{totalActions}</p>
             </div>
+            {Object.entries(statusCounts).map(([status, count]) => {
+              const StatusIcon = statusIcons[status] || List;
+              return (
+                <div key={status} className="bg-white p-4 shadow rounded-lg">
+                  <h3 className={`text-sm font-medium flex items-center ${statusColors[status]?.replace('bg-', 'text-').replace('-100', '-700')}`}>
+                    <StatusIcon size={16} className="mr-2" /> 
+                    {status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </h3>
+                  <p className="text-2xl font-semibold text-gray-800">{count}</p>
+                </div>
+              );
+            })}
           </div>
-          <div className="bg-white shadow-sm rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <CheckCircle2 className="h-6 w-6 text-green-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Completed</p>
-                <h3 className="text-xl font-semibold text-gray-900">{metrics.statusCounts.completed}</h3>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white shadow-sm rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Clock className="h-6 w-6 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">On Going/On Track</p>
-                <h3 className="text-xl font-semibold text-gray-900">{metrics.statusCounts.in_progress}</h3>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white shadow-sm rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-amber-100 rounded-lg">
-                <AlertTriangle className="h-6 w-6 text-amber-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">On Going/Off Track</p>
-                <h3 className="text-xl font-semibold text-gray-900">{metrics.statusCounts.at_risk}</h3>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white shadow-sm rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-gray-100 rounded-lg">
-                <X className="h-6 w-6 text-gray-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Not Started</p>
-                <h3 className="text-xl font-semibold text-gray-900">{metrics.statusCounts.not_started}</h3>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {showFilters && (
-          <div className="bg-white shadow-sm rounded-lg p-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">
-                <Filter className="h-5 w-5 text-gray-400" />
-                <h2 className="text-sm font-medium text-gray-700">Filters</h2>
-              </div>
-              <div className="flex items-center space-x-4">
-                {getActiveFiltersCount() > 0 && (
-                  <button
-                    onClick={resetFilters}
-                    className="text-sm text-gray-500 hover:text-gray-700"
-                  >
-                    Reset filters
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowFilters(false)}
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+          {/* Filters and View Toggle Section */}
+          <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
+                <Filter size={18} className="mr-2" /> {showFilters ? 'Hide' : 'Show'} Filters
+              </Button>
+              <Input 
+                type="text"
+                placeholder="Search interventions..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="max-w-xs"
+              />
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Cluster
-                </label>
-                <select
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">View:</span>
+              <Button 
+                variant={viewMode === 'list' ? 'default' : 'outline'} 
+                size="icon" 
+                onClick={() => setViewMode('list')}
+                aria-label="List view"
+              >
+                <ListChecks size={20} />
+              </Button>
+              <Button 
+                variant={viewMode === 'grid' ? 'default' : 'outline'} 
+                size="icon" 
+                onClick={() => setViewMode('grid')}
+                aria-label="Grid view"
+              >
+                <LayoutGrid size={20} />
+              </Button>
+            </div>
+          </div>
+
+          {showFilters && (
+            <div className="bg-gray-50 p-4 rounded-lg mb-6 shadow">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Select
                   value={filters.clusterId}
-                  onChange={(e) => setFilters(prev => ({ ...prev, clusterId: e.target.value }))}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  onChange={(e) => setFilters(prev => ({ ...prev, clusterId: e.target.value, pathwayId: ''}))}
+                  className="w-full"
                 >
                   <option value="">All Clusters</option>
-                  {clusters.map((cluster) => (
-                    <option key={cluster.id} value={cluster.id}>
-                      {cluster.name}
-                    </option>
+                  {clusters.map(cluster => (
+                    <option key={cluster.id} value={cluster.id}>{cluster.name}</option>
                   ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Pathway
-                </label>
-                <select
+                </Select>
+                <Select
                   value={filters.pathwayId}
-                  onChange={(e) => setFilters(prev => ({ ...prev, pathwayId: e.target.value }))}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  disabled={!filters.clusterId}
+                  onChange={(e) => setFilters(prev => ({ ...prev, pathwayId: e.target.value}))}
+                  disabled={!filters.clusterId || pathways.length === 0}
+                  className="w-full"
                 >
                   <option value="">All Pathways</option>
-                  {pathways.map((pathway) => (
-                    <option key={pathway.id} value={pathway.id}>
-                      {pathway.name}
-                    </option>
+                  {pathways.map(pathway => (
+                    <option key={pathway.id} value={pathway.id}>{pathway.name}</option>
                   ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Lead
-                </label>
-                <select
+                </Select>
+                <Select
                   value={filters.leadId}
-                  onChange={(e) => setFilters(prev => ({ ...prev, leadId: e.target.value }))}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  onChange={(e) => setFilters(prev => ({ ...prev, leadId: e.target.value}))}
+                  className="w-full"
                 >
                   <option value="">All Leads</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.full_name}
-                    </option>
+                  {users.map(user => (
+                    <option key={user.id} value={user.id}>{user.full_name || user.email}</option>
                   ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Status
-                </label>
-                <select
+                </Select>
+                <Select
                   value={filters.status}
-                  onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value}))}
+                  className="w-full"
                 >
                   <option value="">All Statuses</option>
-                  <option value="not_started">Not Started</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="at_risk">At Risk</option>
-                  <option value="completed">Completed</option>
-                </select>
+                  {['not_started', 'in_progress', 'at_risk', 'completed'].map(s => (
+                    <option key={s} value={s}>{s.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
+                  ))}
+                </Select>
               </div>
+              <Button 
+                variant="ghost"
+                onClick={() => {
+                  setFilters({ clusterId: '', pathwayId: '', leadId: '', status: '' });
+                  setSearchTerm('');
+                }}
+                className="mt-4 text-sm text-gray-600 hover:text-gray-800"
+              >
+                <X size={16} className="mr-1" /> Clear Filters
+              </Button>
             </div>
+          )}
+        </header>
+
+        {filteredInterventions.length === 0 && !loading && (
+          <div className="text-center py-10">
+            <List size={48} className="mx-auto text-gray-400 mb-4" />
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">No Interventions Found</h3>
+            <p className="text-gray-500">Try adjusting your filters or create a new intervention.</p>
           </div>
         )}
 
-        <div className="flex-1 overflow-auto">
-          {viewMode === 'list' ? renderListView(filteredInterventions) : renderGridView(filteredInterventions)}
-        </div>
+        {viewMode === 'list' && filteredInterventions.length > 0 && (
+          <div className="bg-white shadow-md rounded-lg overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[25%] min-w-[200px]">Name</TableHead>
+                  <TableHead className="w-[20%] min-w-[180px]">Cluster & Pathway</TableHead>
+                  <TableHead className="w-[15%] min-w-[150px]">Lead</TableHead>
+                  <TableHead className="w-[15%] min-w-[120px]">Dates (Start/End)</TableHead>
+                  <TableHead className="w-[10%] min-w-[100px]">Status</TableHead>
+                  <TableHead className="w-[15%] min-w-[120px] text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredInterventions.map((intervention) => {
+                  const StatusIcon = statusIcons[intervention.status] || List;
+                  return (
+                    <TableRow key={intervention.id} className="hover:bg-gray-50 transition-colors duration-150">
+                      <TableCell className="font-medium text-gray-800 py-3 px-4">
+                        <span className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 max-w-xs truncate" title={intervention.name}>{intervention.name}</span>
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600 py-3 px-4">
+                        {intervention.pathway?.cluster?.name || 'N/A'} <ChevronRight size={14} className="inline mx-1 text-gray-400" /> {intervention.pathway?.name || 'N/A'}
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600 py-3 px-4">
+                        {intervention.lead?.full_name || intervention.lead?.email || 'N/A'}
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600 py-3 px-4">
+                        {new Date(intervention.start_date).toLocaleDateString()} - {new Date(intervention.end_date).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="py-3 px-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[intervention.status] || statusColors.not_started}`}>
+                          <StatusIcon size={14} className="mr-1.5" />
+                          {intervention.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right py-3 px-4">
+                        <div className="relative flex justify-end items-center">
+                          <Button variant="ghost" size="icon-sm" onClick={() => toggleMenu(intervention.id)}>
+                            <MoreVertical size={18} />
+                          </Button>
+                          {activeMenu === intervention.id && (
+                            <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-md shadow-lg z-20 py-1 border border-gray-200">
+                              <button
+                                onClick={() => navigate(`/interventions/${intervention.id}`)}
+                                className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                              >
+                                <Eye size={16} className="mr-2" /> View Details
+                              </button>
+                              {sessionUser?.id === intervention.created_by && (
+                                <>
+                                  <button
+                                    onClick={() => navigate(`/interventions/edit/${intervention.id}`)}
+                                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                                  >
+                                    <Edit2 size={16} className="mr-2" /> Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteClick(intervention.id)}
+                                    className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100 w-full text-left"
+                                  >
+                                    <Trash2 size={16} className="mr-2" /> Delete
+                                  </button>
+                                </> 
+                              )}
+                              <div className="border-t my-1 mx-2"></div>
+                              <p className="px-4 pt-2 pb-1 text-xs text-gray-500">Change Status:</p>
+                              {['not_started', 'in_progress', 'at_risk', 'completed'].map(status => (
+                                <button
+                                  key={status}
+                                  onClick={() => { handleStatusChangeClick(intervention.id, status as any); setActiveMenu(null); }}
+                                  className={`flex items-center px-4 py-2 text-sm w-full text-left rounded-md mx-1 hover:bg-gray-100 ${intervention.status === status ? 'bg-gray-100 font-semibold' : ''}`}
+                                >
+                                  {status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
 
-        <ConfirmationDialog
-          isOpen={confirmation.isOpen && confirmation.type === 'delete'}
-          onClose={() => setConfirmation({ ...confirmation, isOpen: false })}
-          onConfirm={handleDelete}
-          title="Delete Intervention"
-          message="Are you sure you want to delete this intervention? This action cannot be undone and will delete all related data including actions, tasks, and documents."
-          confirmLabel="Delete"
-          cancelLabel="Cancel"
-          type="danger"
-        />
-
-        <ConfirmationDialog
-          isOpen={confirmation.isOpen && confirmation.type === 'status'}
-          onClose={() => setConfirmation({ ...confirmation, isOpen: false })}
-          onConfirm={handleStatusChange}
-          title={`Change Status to ${confirmation.newStatus?.replace('_', ' ')}`}
-          message={`Are you sure you want to mark this intervention as ${confirmation.newStatus?.replace('_', ' ')}?`}
-          confirmLabel="Change Status"
-          cancelLabel="Cancel"
-          type={confirmation.newStatus === 'completed' ? 'success' : confirmation.newStatus === 'at_risk' ? 'danger' : 'warning'}
-        />
+        {viewMode === 'grid' && filteredInterventions.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+            {filteredInterventions.map(intervention => renderInterventionCard(intervention))}
+          </div>
+        )}
       </div>
+
+      <ConfirmationDialog
+        isOpen={confirmation.isOpen}
+        onClose={() => setConfirmation({ ...confirmation, isOpen: false })}
+        onConfirm={handleConfirmation}
+        title={confirmation.type === 'delete' ? 'Confirm Deletion' : 'Confirm Status Change'}
+        description={
+          confirmation.type === 'delete'
+            ? 'Are you sure you want to delete this intervention? This action cannot be undone.'
+            : `Are you sure you want to change the status to ${confirmation.newStatus?.replace('_', ' ')}?`
+        }
+        confirmText={confirmation.type === 'delete' ? 'Delete' : 'Confirm'}
+        confirmButtonVariant={confirmation.type === 'delete' ? 'destructive' : 'default'}
+      />
     </DashboardLayout>
   );
 }
