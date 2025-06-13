@@ -11,7 +11,8 @@ import {
   ArrowUpDown,
   Filter,
   Edit2,
-  Check
+  Check,
+  Trash2 // Added Trash2 icon for delete
 } from 'lucide-react';
 import type { Action, User } from '../../types/project';
 import { DocumentList } from '../documents/DocumentList';
@@ -23,6 +24,8 @@ import { TargetForm } from './forms/TargetForm';
 import { format } from 'date-fns';
 import { useNavigate, useLocation} from 'react-router-dom'
 import { AchievementViewModal } from './AchievementViewModal';
+import { Button } from '../../components/ui/button'; // Corrected import path
+import { projectApi } from '../../lib/api';
 
 interface Partner {
   id: string;
@@ -95,6 +98,15 @@ interface Target {
   youth_current?: number;
 }
 
+interface DeleteConfirmationDialogProps {
+  isOpen: boolean;
+  itemName: string;
+  itemType: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+
 export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -121,6 +133,43 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
   const [formType, setFormType] = useState<'achievement' | 'issue' | 'need' | 'target' | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [showEdit, setShowEdit] = useState(false);
+
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ isOpen: boolean; item: any; itemType: string | null }>({ 
+    isOpen: false, 
+    item: null, 
+    itemType: null 
+  });
+
+  const deleteConfirmationDialog = ({ isOpen, itemName, itemType, onConfirm, onCancel }: DeleteConfirmationDialogProps) => {
+    if (!isOpen) return null;
+  
+    return (
+      <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Confirm Delete</h3>
+          <p className="text-sm text-gray-500 mb-4">
+            Are you sure you want to delete this {itemType}: "{itemName}"? This action cannot be undone.
+          </p>
+          <div className="flex justify-end space-x-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={onConfirm}
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     loadData();
@@ -413,7 +462,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
             {formType === 'need' && 'Need'}
             {formType === 'target' && 'Target'}
           </h3>
-          {formType === 'achievement' && <AchievementForm {...commonProps} achievement={editingItem} showEdit/>}
+          {formType === 'achievement' && <AchievementForm {...commonProps} achievement={editingItem} action={action.id} showEdit/>}
           {formType === 'issue' && <IssueForm {...commonProps} issue={editingItem} showEdit />}
           {formType === 'need' && <NeedForm {...commonProps} need={editingItem} showEdit />}
           {formType === 'target' && <TargetForm {...commonProps} target={editingItem} showEdit />}
@@ -681,20 +730,33 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                     key={achievement.id}
                     className="bg-gray-50 shadow-sm rounded-lg p-4 border border-gray-100 hover:border-gray-300 transition-colors"
                   >
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-center">
                       <div className="flex-1 cursor-pointer" onClick={() => setViewingAchievement(achievement)}>
                         <h4 className="text-sm font-medium text-gray-900">{achievement.description}</h4>
                         <p className="mt-1 text-sm text-gray-500">
                           Achieved on {new Date(achievement.date_achieved).toLocaleDateString()}
                         </p>
                       </div>
-                      { showEdit && <button
-                        type="button"
-                        onClick={() => handleEdit(achievement, 'achievement')}
-                        className="ml-4 text-sm text-blue-600 hover:text-blue-500"
-                      >
-                        Edit
-                      </button>}
+                      { showEdit && (
+                        <div className="flex items-center space-x-2 ml-4">
+                          <button
+                            type="button"
+                            onClick={() => handleEdit(achievement, 'achievement')}
+                            className="text-sm text-blue-600 hover:text-blue-500 p-1 rounded hover:bg-blue-50"
+                            title="Edit Achievement"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirmation({ isOpen: true, item: achievement, itemType: 'achievement' })}
+                            className="text-sm text-red-600 hover:text-red-500 p-1 rounded hover:bg-red-50"
+                            title="Delete Achievement"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -931,6 +993,12 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>
+                      <button
+                        onClick={() => setDeleteConfirmation({ isOpen: true, item: target, itemType: 'target' })}
+                        className="text-red-600 hover:text-blue-800"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
 
@@ -1003,5 +1071,48 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
 
       {/* Forms */}
       {renderForm()}
+      {deleteConfirmation.isOpen && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Confirm Delete</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Are you sure you want to delete this {deleteConfirmation.itemType}: "{deleteConfirmation.item?.description || deleteConfirmation.item?.name}"? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDeleteConfirmation({ isOpen: false, item: null, itemType: null })}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={async () => {
+                  if (deleteConfirmation.item && deleteConfirmation.itemType) {
+                    try {
+                      if (deleteConfirmation.itemType === 'target') {
+                        await projectApi.deleteTarget(deleteConfirmation.item.id);
+                      } else if (deleteConfirmation.itemType === 'achievement') {
+                        await projectApi.deleteAchievement(deleteConfirmation.item.id);
+                      }
+                      // update the achievement list
+                      setAchievements(achievements.filter((a) => a.id !== deleteConfirmation.item.id));
+                      setTargets(targets.filter((t) => t.id !== deleteConfirmation.item.id));
+                    } catch (error) {
+                      console.error('Error deleting achievement:', error);
+                      // Handle error appropriately
+                    }
+                  }
+                  setDeleteConfirmation({ isOpen: false, item: null, itemType: null });
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     )};

@@ -223,12 +223,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   </div>
                   {isSidebarOpen && (
                     <div>
-                      <h1 className="text-[12px] font-semibold text-gray-800">
+                      <h1 className="text-[16px] font-bold text-gray-800">
                         {settings.app_name}
                       </h1>
-                      {settings.tagline && (
+                      {/* {settings.tagline && (
                         <p className="col-span-2 text-[8px] text-gray-500">{settings.tagline}</p>
-                      )}
+                      )} */}
                     </div>
                   )}
                 </div>

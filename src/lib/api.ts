@@ -249,6 +249,166 @@ export const projectApi = {
     }
   },
 
+async deleteAchievementFile(achievementId: string, fileUrl: string) {
+  try {
+    // Delete the file from storage
+    const { error: storageError } = await supabase.storage
+      .from('achievements')
+      .remove([fileUrl]);
+
+    if (storageError) {
+      console.error('Error deleting file from storage:', storageError);
+      throw storageError;
+    }
+
+    // Update the achievement record to remove the file URL
+    const { data: currentFiles, error: fetchError } = await supabase
+      .from('action_achievements')
+      .select('evidence_file')
+      .eq('id', achievementId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    const updatedFiles = currentFiles.evidence_file.filter((file: string) => !file.includes(fileUrl));
+
+    const { error: dbError } = await supabase
+      .from('action_achievements')
+      .update({ evidence_file: updatedFiles })
+      .eq('id', achievementId);
+    if (dbError) {
+      console.error('Error updating achievement record:', dbError);
+      throw dbError;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in deleteAchievementFile:', error);
+    throw error;
+  }
+},
+
+async deleteTarget(targetId: string) {
+  try {
+    // 1. Check if there is any history to delete
+    const { data: historyData, error: fetchHistoryError } = await supabase
+      .from('target_history')
+      .select('id')
+      .eq('target_id', targetId)
+      .limit(1);
+
+    if (fetchHistoryError) {
+      console.error('Error fetching target history for deletion:', fetchHistoryError);
+      throw fetchHistoryError;
+    }
+
+    // If history exists, delete it
+    if (historyData && historyData.length > 0) {
+      const { error: historyError } = await supabase
+        .from('target_history')
+        .delete()
+        .eq('target_id', targetId);
+
+      if (historyError) {
+        console.error('Error deleting target history:', historyError);
+        throw historyError;
+      }
+    }
+
+    // 2. Delete the target record from action_targets
+    const { error: targetError } = await supabase
+      .from('action_targets')
+      .delete()
+      .eq('id', targetId);
+
+    if (targetError) {
+      console.error('Error deleting target:', targetError);
+      throw targetError;
+    }
+
+    return true; // Successfully deleted
+  } catch (error) {
+    console.error('Error in deleteTarget:', error);
+    throw error;
+  }
+},
+
+async deleteAchievement(achievementId: string) {
+  try {
+    // 1. Fetch the achievement to get file URLs
+    const { data: achievement, error: fetchError } = await supabase
+      .from('action_achievements')
+      .select('evidence_file')
+      .eq('id', achievementId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching achievement for deletion:', fetchError);
+      throw fetchError;
+    }
+
+    if (achievement && achievement.evidence_file && achievement.evidence_file.length > 0) {
+      // 2. Delete files from storage
+      // Assuming evidence_file contains an array of file paths/names as stored in the bucket
+      // or full URLs that supabase storage can handle for removal.
+      // The existing deleteAchievementFile uses the passed fileUrl directly.
+      // If evidence_file stores full URLs, we might need to parse them to get the path.
+      // For now, let's assume they are paths or that remove() handles them.
+      const filePaths = achievement.evidence_file.map((file: string) => {
+        // Attempt to extract path if it's a full URL, similar to AchievementForm
+        try {
+          const url = new URL(file);
+          // Pathname usually starts with /bucket-name/actual-path
+          // We need to remove the bucket name part if storage.remove expects just the path
+          // e.g., if URL is https://<project-ref>.supabase.co/storage/v1/object/public/achievements/path/to/file.png
+          // path is /storage/v1/object/public/achievements/path/to/file.png
+          // We need 'path/to/file.png' for .remove(['path/to/file.png'])
+          const pathParts = url.pathname.split('/');
+          // Find 'achievements' and take everything after it
+          const bucketNameInPath = 'achievements'; // Or whatever the bucket name is in the URL structure
+          const bucketIndex = pathParts.indexOf(bucketNameInPath);
+          if (bucketIndex !== -1 && bucketIndex < pathParts.length -1) {
+            return pathParts.slice(bucketIndex + 1).join('/');
+          }
+          // Fallback if parsing is not as expected, use the raw file string
+          // This might be an issue if it's a full URL and remove() expects a path
+          return file; 
+        } catch (e) {
+          // Not a valid URL, assume it's already a path
+          return file;
+        }
+      });
+
+      const { error: storageError } = await supabase.storage
+        .from('achievements') // Bucket name
+        .remove(filePaths);
+
+      if (storageError) {
+        console.error('Error deleting achievement files from storage:', storageError);
+        // Decide if to proceed with DB deletion or throw error
+        // For now, let's throw, to ensure data consistency or manual check
+        throw storageError;
+      }
+    }
+
+    // 3. Delete the achievement record from the database
+    const { error: dbError } = await supabase
+      .from('action_achievements')
+      .delete()
+      .eq('id', achievementId);
+
+    if (dbError) {
+      console.error('Error deleting achievement record from database:', dbError);
+      throw dbError;
+    }
+
+    return true; // Successfully deleted
+  } catch (error) {
+    console.error('Error in deleteAchievement:', error);
+    throw error;
+  }
+},
+
   async getActionStats() {
     try {
       const [projectsResponse] = await Promise.all([
