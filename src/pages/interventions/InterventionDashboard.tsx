@@ -35,7 +35,7 @@ import {
   TableHead,
   TableCell,
 } from '../../components/ui/table'; // Import custom table components
-import { Button } from '../../components/ui/Button'; // Assuming Button component is in ui
+import { Button } from '../../components/ui/button'; // Assuming Button component is in ui
 import { Select } from '../../components/ui/Select'; // Assuming Select component is in ui
 import { Input } from '../../components/ui/Input'; // Assuming Input component is in ui
 
