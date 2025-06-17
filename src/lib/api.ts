@@ -460,20 +460,13 @@ async deleteAchievement(achievementId: string) {
   // Interventions
   async getInterventions() {
     const { data, error } = await supabase
-     .from('interventions')
-     .select(`
-              *,
-              pathway:pathways(
-                id,
-                name,
-                cluster:clusters(
-                  id,
-                  name
-                )
-              ),
-              lead:profiles!interventions_lead_id_fkey1(email, id, full_name)
-            `)
-     .order('created_at', { ascending: false });
+      .from('interventions')
+      .select(`
+        *,
+        pathway:pathways(*, cluster:clusters(id, name)),
+        lead:profiles(*)
+      `)
+      .order('created_at', { ascending: false });
     if (error) throw error;
     return data;
   },

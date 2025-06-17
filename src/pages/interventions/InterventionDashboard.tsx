@@ -7,8 +7,6 @@ import {
   List,
   Calendar as CalendarIcon, // Renamed to avoid conflict with Calendar component
   Clock,
-  DollarSign,
-  Target,
   Users,
   AlertTriangle,
   Edit2,
@@ -90,7 +88,10 @@ export function InterventionDashboard() {
       loadPathways(filters.clusterId);
     } else {
       setPathways([]);
-      setFilters(prev => ({ ...prev, pathwayId: '' }));
+      setFilters(prev => {
+        if (prev.pathwayId === '') return prev; // Avoid re-render if pathwayId is already empty
+        return { ...prev, pathwayId: '' };
+      });
     }
   }, [filters.clusterId]);
 
@@ -99,6 +100,10 @@ export function InterventionDashboard() {
     try{
       const data = await projectApi.getInterventions();
       setInterventions(data || []);
+      // if (data && data.length > 0 && data[0].pathway) {
+      //   console.log('Sample intervention pathway data on load:', JSON.stringify(data[0].pathway, null, 2));
+      //   console.log('Sample intervention pathway.cluster_id on load:', data[0].pathway.cluster_id);
+      // }
     } catch (err) {
       console.error('Failed to load interventions:', err);
       setError('Failed to load interventions');
@@ -152,13 +157,18 @@ export function InterventionDashboard() {
   };
 
   const filteredInterventions = interventions.filter(intervention => {
-    return (
-      (filters.clusterId ? intervention.pathway?.cluster_id === filters.clusterId : true) &&
-      (filters.pathwayId ? intervention.pathway_id === filters.pathwayId : true) &&
-      (filters.leadId ? intervention.lead_id === filters.leadId : true) &&
-      (filters.status ? intervention.status === filters.status : true) &&
-      (searchTerm ? intervention.name.toLowerCase().includes(searchTerm.toLowerCase()) : true)
-    );
+    const clusterMatch = (filters.clusterId ? intervention.pathway?.cluster_id === filters.clusterId : true);
+    if (filters.clusterId && intervention.pathway) {
+      // Log details for the first few interventions when a cluster filter is active
+      if (interventions.indexOf(intervention) < 3) { 
+        console.log(`Filtering Intervention: "${intervention.name}", PathwayClusterID: "${intervention.pathway.cluster_id}", FilterClusterID: "${filters.clusterId}", Match: ${clusterMatch}`);
+      }
+    }
+    const pathwayMatch = (filters.pathwayId ? intervention.pathway_id === filters.pathwayId : true);
+    const leadMatch = (filters.leadId ? intervention.lead_id === filters.leadId : true);
+    const statusMatch = (filters.status ? intervention.status === filters.status : true);
+    const searchTermMatch = (searchTerm ? intervention.name.toLowerCase().includes(searchTerm.toLowerCase()) : true);
+    return clusterMatch && pathwayMatch && leadMatch && statusMatch && searchTermMatch;
   });
 
   const getMetrics = () => {
@@ -411,44 +421,57 @@ export function InterventionDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Select
                   value={filters.clusterId}
-                  onChange={(e) => setFilters(prev => ({ ...prev, clusterId: e.target.value, pathwayId: ''}))}
+                  onChange={(value) => {
+                    console.log('Cluster Select onChange - raw value:', value);
+                    const newClusterId = typeof value === 'string' ? value : ''; // Ensure it's a string or empty string
+                    console.log('Cluster Select onChange - setting clusterId to:', newClusterId);
+                    setFilters(prev => ({ ...prev, clusterId: newClusterId, pathwayId: ''}));
+                  }}
+                  options={clusters.map(cluster => ({ value: cluster.id, label: cluster.name }))}
                   className="w-full"
+                  placeholder="All Clusters"
                 >
-                  <option value="">All Clusters</option>
+                  {/* <option value="">All Clusters</option>
                   {clusters.map(cluster => (
                     <option key={cluster.id} value={cluster.id}>{cluster.name}</option>
-                  ))}
+                  ))} */}
                 </Select>
                 <Select
                   value={filters.pathwayId}
-                  onChange={(e) => setFilters(prev => ({ ...prev, pathwayId: e.target.value}))}
+                  onChange={(value) => setFilters(prev => ({ ...prev, pathwayId: value as string}))} // Corrected onChange
                   disabled={!filters.clusterId || pathways.length === 0}
                   className="w-full"
+                  options={pathways.map(pathway => ({ value: pathway.id, label: pathway.name }))}
+                  placeholder="All Pathways" // Added placeholder
                 >
-                  <option value="">All Pathways</option>
-                  {pathways.map(pathway => (
+                  {/* <option value="">All Pathways</option> */}
+                  {/* {pathways.map(pathway => (
                     <option key={pathway.id} value={pathway.id}>{pathway.name}</option>
-                  ))}
+                  ))} */}
                 </Select>
                 <Select
                   value={filters.leadId}
-                  onChange={(e) => setFilters(prev => ({ ...prev, leadId: e.target.value}))}
+                  onChange={(value) => setFilters(prev => ({ ...prev, leadId: value as string}))} // Corrected onChange
+                  options={users.map(user => ({ value: user.id, label: user.full_name || user.email || '' }))} // Added fallback for label
                   className="w-full"
+                  placeholder="All Leads" // Added placeholder
                 >
-                  <option value="">All Leads</option>
-                  {users.map(user => (
+                  {/* <option value="">All Leads</option> */}
+                  {/* {users.map(user => (
                     <option key={user.id} value={user.id}>{user.full_name || user.email}</option>
-                  ))}
+                  ))} */}
                 </Select>
                 <Select
                   value={filters.status}
-                  onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value}))}
+                  onChange={(value) => setFilters(prev => ({ ...prev, status: value as string}))} // Corrected onChange
                   className="w-full"
+                  options={Object.keys(statusCounts).map(s => ({ value: s, label: s.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) }))}
+                  placeholder="All Statuses" // Added placeholder
                 >
-                  <option value="">All Statuses</option>
+                  {/* <option value="">All Statuses</option>
                   {['not_started', 'in_progress', 'at_risk', 'completed'].map(s => (
                     <option key={s} value={s}>{s.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
-                  ))}
+                  ))} */}
                 </Select>
               </div>
               <Button 
