@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Target, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
+import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
+import { Button } from '../../components/ui/button';
 
 export default function NewTarget() {
   const [formData, setFormData] = useState({
@@ -54,12 +57,19 @@ export default function NewTarget() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> | string, fieldName?: string) => {
+    if (typeof e === 'string' && fieldName) {
+      setFormData(prev => ({
+        ...prev,
+        [fieldName]: e
+      }));
+    } else if (typeof e === 'object') {
+      const { name, value } = e.target;
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -123,111 +133,81 @@ export default function NewTarget() {
 
         <div className="grid grid-cols-1 gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Action <span className="text-red-500">*</span>
-            </label>
-            <select
-              name="action_id"
+            <Select
+              options={actions.map(action => ({
+                value: action.id,
+                label: `${action.name}`
+              }))}
               value={formData.action_id}
-              onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              required
-            >
-              <option value="">Select an action</option>
-              {actions.map(action => (
-                <option key={action.id} value={action.id}>
-                  {action.name} ({action.intervention_name})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category
-            </label>
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            >
-              <option value="">Select a category</option>
-              <option value="jobs">Jobs</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleInputChange}
-              rows={3}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              onChange={(value) => handleInputChange(value, 'action_id')}
+              placeholder="Select an action"
+              searchable
+              label="Action"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Metric <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
+            <Select
+              options={[
+                { value: 'jobs', label: 'Jobs' },
+                { value: 'other', label: 'Other' }
+              ]}
+              value={formData.category}
+              onChange={(value) => handleInputChange(value, 'category')}
+              placeholder="Select a category"
+              label="Category"
+            />
+          </div>
+
+          <div>
+            <Input
+              label="Description"
+              name="description"
+              value={formData.description}
+              onChange={handleInputChange}
+              type="textarea"
+              required
+            />
+          </div>
+
+          <div>
+            <Input
+              label="Metric"
               name="metric"
               value={formData.metric}
               onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Baseline Value <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="baseline_value"
-                value={formData.baseline_value}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
-              />
-            </div>
+            <Input
+              label="Baseline Value"
+              name="baseline_value"
+              value={formData.baseline_value}
+              onChange={handleInputChange}
+              type="number"
+              required
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Target Value <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="target_value"
-                value={formData.target_value}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
-              />
-            </div>
+            <Input
+              label="Target Value"
+              name="target_value"
+              value={formData.target_value}
+              onChange={handleInputChange}
+              type="number"
+              required
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Current Value <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="current_value"
-                value={formData.current_value}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
-              />
-            </div>
+            <Input
+              label="Current Value"
+              name="current_value"
+              value={formData.current_value}
+              onChange={handleInputChange}
+              type="number"
+              required
+            />
           </div>
 
           {isJobTarget && (
@@ -235,77 +215,56 @@ export default function NewTarget() {
               <h3 className="text-lg font-medium">Job Target Details</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Women Target
-                  </label>
-                  <input
-                    type="number"
-                    name="women_target"
-                    value={formData.women_target}
-                    onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </div>
+                <Input
+                  label="Women Target"
+                  name="women_target"
+                  value={formData.women_target}
+                  onChange={handleInputChange}
+                  type="number"
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Current Women
-                  </label>
-                  <input
-                    type="number"
-                    name="women_current"
-                    value={formData.women_current}
-                    onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </div>
+                <Input
+                  label="Current Women"
+                  name="women_current"
+                  value={formData.women_current}
+                  onChange={handleInputChange}
+                  type="number"
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Youth Target
-                  </label>
-                  <input
-                    type="number"
-                    name="youth_target"
-                    value={formData.youth_target}
-                    onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </div>
+                <Input
+                  label="Youth Target"
+                  name="youth_target"
+                  value={formData.youth_target}
+                  onChange={handleInputChange}
+                  type="number"
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Current Youth
-                  </label>
-                  <input
-                    type="number"
-                    name="youth_current"
-                    value={formData.youth_current}
-                    onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </div>
+                <Input
+                  label="Current Youth"
+                  name="youth_current"
+                  value={formData.youth_current}
+                  onChange={handleInputChange}
+                  type="number"
+                />
               </div>
             </div>
           )}
         </div>
 
         <div className="flex justify-end gap-4">
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => navigate('/targets/tracking')}
-            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
             disabled={loading}
-            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
           >
             {loading ? 'Creating...' : 'Create Target'}
-          </button>
+          </Button>
         </div>
       </form>
     </div>
