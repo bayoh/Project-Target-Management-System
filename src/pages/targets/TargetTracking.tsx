@@ -302,7 +302,7 @@ export default function TargetTracking() {
   };
 
   const handleDeleteTarget = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this target?')) return;
+    if (!window.confirm('Are you sure you want to delete this metric?')) return;
     
     try {
       const { error } = await supabase
@@ -375,7 +375,7 @@ export default function TargetTracking() {
   {showQuickUpdateModal && updatingTarget && (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Update Target Progress</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Update Metric Progress</h3>
         <form onSubmit={handleUpdateSubmit}>
           <div className="space-y-4">
             <div>
@@ -493,7 +493,7 @@ export default function TargetTracking() {
       <DashboardLayout>
         <div className="container mx-auto px-4 py-8 text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-red-700 mb-2">Error Loading Targets</h2>
+          <h2 className="text-xl font-semibold text-red-700 mb-2">Error Loading Metrics</h2>
           <p className="text-gray-600 mb-4">{error}</p>
           <Button onClick={loadInitialData} variant="outline">Try Again</Button>
         </div>
@@ -507,12 +507,12 @@ export default function TargetTracking() {
     <TooltipProvider>
     <div className="container mx-auto px-4 py-8">
       <PageHeader
-        title="Target Tracking"
-        description="Monitor, filter, and update targets across all actions and interventions."
+        title="Metric Tracking"
+        description="Monitor, filter, and update metrics across all actions and interventions."
         icon={<Target className="h-8 w-8 text-blue-600" />}
         actions={[
           {
-            label: 'Add New Target',
+            label: 'Add New Metric',
             icon: Plus,
             onClick: handleCreateTarget,
           }
@@ -539,7 +539,7 @@ export default function TargetTracking() {
               </div>
               <Input
                 type="text"
-                placeholder="Search targets..."
+                placeholder="Search metrics..."
                 value={filters.searchTerm}
                 onChange={(e) => setFilters(prev => ({ ...prev, searchTerm: e.target.value }))}
                 className="pl-10 w-full"
@@ -746,7 +746,7 @@ export default function TargetTracking() {
                               <FileEdit className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent><p>Edit Target</p></TooltipContent>
+                          <TooltipContent><p>Edit Metric</p></TooltipContent>
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -754,7 +754,7 @@ export default function TargetTracking() {
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent><p>Delete Target</p></TooltipContent>
+                          <TooltipContent><p>Delete Metric</p></TooltipContent>
                         </Tooltip>
                       </div>
                     </TableCell>
@@ -769,7 +769,7 @@ export default function TargetTracking() {
                   <p className="mt-1 text-sm text-gray-500">
                     {filters.searchTerm || filters.clusterId || filters.pathwayId || filters.interventionId || filters.actionId || filters.category 
                       ? 'Try adjusting your search or filter criteria.' 
-                      : 'Get started by creating a new target.'}
+                      : 'Get started by creating a new metric.'}
                   </p>
                   {(filters.searchTerm || filters.clusterId || filters.pathwayId || filters.interventionId || filters.actionId || filters.category) && (
                      <Button 

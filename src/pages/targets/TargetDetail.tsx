@@ -213,7 +213,7 @@ export default function TargetDetail() {
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
           <div className="flex items-center">
             <AlertCircle className="h-5 w-5 mr-2" />
-            <span className="block sm:inline">{error || 'Target not found'}</span>
+            <span className="block sm:inline">{error || 'Metric not found'}</span>
           </div>
           <button 
             onClick={() => navigate('/targets/tracking')} 
@@ -240,7 +240,7 @@ export default function TargetDetail() {
           className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
-          Back to Targets
+          Back to Metrics
         </button>
       </div>
       
@@ -254,7 +254,7 @@ export default function TargetDetail() {
         {/* Target Information */}
         <div className="bg-white rounded-lg shadow-sm p-6 col-span-2">
           <div className="flex justify-between items-start mb-6">
-            <h3 className="text-lg font-medium text-gray-900">Target Information</h3>
+            <h3 className="text-lg font-medium text-gray-900">Metric Information</h3>
             <div className="flex space-x-2">
               {/* <button
                 onClick={handleEdit}
@@ -266,7 +266,7 @@ export default function TargetDetail() {
               <button
                 onClick={handleDelete}
                 className="p-2 text-red-600 hover:text-red-800 rounded-full hover:bg-red-50"
-                title="Delete Target"
+                title="Delete Metric"
               >
                 <Trash2 className="h-5 w-5" />
               </button>
