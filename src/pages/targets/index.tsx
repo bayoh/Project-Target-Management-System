@@ -209,18 +209,18 @@ export default function TargetsIndex() {
     <DashboardLayout>
       <div className="container mx-auto px-4 py-8">
         <PageHeader
-          title="Targets Dashboard"
+          title="Cluster Metrics Dashboard"
           description="High-level overview of target performance and status."
           icon={<BarChart3 className="h-8 w-8" />}
           actions={[
             {
-              label: 'Track All Targets',
+              label: 'Track All Metric',
               icon: ListChecks,
               onClick: () => navigate('/targets/tracking'),
               variant: 'outline',
             },
             {
-              label: 'Add New Target',
+              label: 'Add New Metric',
               icon: Plus,
               onClick: () => navigate('/targets/new'),
             },
@@ -291,7 +291,7 @@ export default function TargetsIndex() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           <div className="lg:col-span-2 bg-white rounded-xl shadow-lg p-6 ring-1 ring-gray-200">
             <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-800">Recent Target Updates</h2>
+                <h2 className="text-xl font-semibold text-gray-800">Recent Metric Updates</h2>
                 <button 
                     onClick={() => navigate('/targets/tracking')}
                     className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center"
@@ -336,7 +336,7 @@ export default function TargetsIndex() {
               <div className="text-center py-10">
                 <Target className="h-12 w-12 text-gray-400 mx-auto mb-3" />
                 <p className="text-md text-gray-500">
-                  No targets match the current filters.
+                  No metrics match the current filters.
                 </p>
                 { (filterStatus || filterCategory) && 
                     <button 
@@ -352,7 +352,7 @@ export default function TargetsIndex() {
 
           <div className="bg-white rounded-xl shadow-lg p-6 ring-1 ring-gray-200">
             <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-800">Target Categories</h2>
+                <h2 className="text-xl font-semibold text-gray-800">Metric Categories</h2>
                 <PieChart className="h-6 w-6 text-gray-500" />
             </div>
             {Object.keys(summary.categories).length > 0 ? (

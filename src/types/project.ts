@@ -85,3 +85,9 @@ export interface IndicatorReport extends BaseEntity {
   qualitative_value: string | null;
   supporting_documents: Record<string, any> | null;
 }
+
+export interface User extends BaseEntity {
+  name: string;
+  email: string;
+  role: string;
+}
