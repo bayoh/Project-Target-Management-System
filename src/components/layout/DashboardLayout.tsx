@@ -189,23 +189,53 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   // Update the navigation section
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
-        <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 rounded-md bg-white shadow-md"
-        >
-          {isMobileMenuOpen ? (
-            <X className="h-6 w-6 text-gray-600" />
-          ) : (
-            <Menu className="h-6 w-6 text-gray-600" />
-          )}
-        </button>
-      </div>
+      {/* Navbar */}
+      <nav className="fixed top-0 right-0 left-0 bg-white shadow-sm z-50 h-16">
+        <div className="h-full px-4 flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="lg:hidden p-2 rounded-md hover:bg-gray-100"
+            >
+              {isMobileMenuOpen ? (
+                <X className="h-6 w-6 text-gray-600" />
+              ) : (
+                <Menu className="h-6 w-6 text-gray-600" />
+              )}
+            </button>
+
+            {/* App name */}
+            {settings?.app_name && (
+              <h1 className="text-xl font-bold text-gray-800">
+                {settings.app_name}
+              </h1>
+            )}
+          </div>
+
+          {/* User actions */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => navigate('/settings/profile')}
+              className="p-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors flex items-center space-x-2"
+            >
+              <User className="h-5 w-5" />
+              <span className="hidden sm:inline">Profile</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="p-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors flex items-center space-x-2"
+            >
+              <LogOut className="h-5 w-5" />
+              <span className="hidden sm:inline">Sign out</span>
+            </button>
+          </div>
+        </div>
+      </nav>
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 bg-white shadow-lg transition-all duration-300 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-40 bg-white shadow-lg transition-all duration-300 ease-in-out mt-16 ${
           isSidebarOpen ? 'w-64' : 'w-24'
         } ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
@@ -213,28 +243,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="px-4 py-2 border-b">
             <div className="flex items-center justify-between">
               {settings?.logo_url ? (
-                <div className={`flex items-center ${isSidebarOpen ? 'space-x-3' : 'justify-center w-full'}`}>
-                  <div className='row-span-3'>
+                <div className={`flex ${isSidebarOpen ? 'flex-col items-center' : 'justify-center w-full'}`}>
                   <img 
                     src={settings.logo_url} 
                     alt={settings.app_name}
-                    className="h-62 w-62 object-contain" 
+                    className="w-full h-full object-contain transition-all duration-200" 
                   />
-                  </div>
-                  {isSidebarOpen && (
-                    <div>
-                      <h1 className="text-[16px] font-bold text-gray-800">
-                        {settings.app_name}
-                      </h1>
-                      {/* {settings.tagline && (
-                        <p className="col-span-2 text-[8px] text-gray-500">{settings.tagline}</p>
-                      )} */}
-                    </div>
-                  )}
                 </div>
               ) : loading ? (
                 <div className={`${isSidebarOpen ? 'w-full' : 'mx-auto'}`}>
-                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  <Loader2 className="h-16 w-16 animate-spin text-gray-400" />
                 </div>
               ) : null}
               {/* Toggle button - only show on desktop */}
@@ -297,38 +315,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </div>
             ))}
           </nav>
-
-          <div className={`p-4 border-t space-y-2 ${isSidebarOpen ? '' : 'px-2'}`}>
-            <button
-              onClick={() => navigate('/settings/profile')}
-              className={`flex items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors`}
-              title={!isSidebarOpen ? 'Profile' : undefined}
-            >
-              <User className={`h-5 w-5 ${isSidebarOpen ? 'mr-3' : 'mx-auto'}`} />
-              <span className={`transition-opacity duration-300 ${
-                isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'
-              }`}>
-                Profile
-              </span>
-            </button>
-            <button
-              onClick={handleLogout}
-              className={`flex items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors`}
-              title={!isSidebarOpen ? 'Sign out' : undefined}
-            >
-              <LogOut className={`h-5 w-5 ${isSidebarOpen ? 'mr-3' : 'mx-auto'}`} />
-              <span className={`transition-opacity duration-300 ${
-                isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'
-              }`}>
-                Sign out
-              </span>
-            </button>
-          </div>
         </div>
       </aside>
 
       {/* Main content */}
-      <main className={`transition-all duration-300 ${
+      <main className={`transition-all duration-300 pt-16 ${
         isSidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
       }`}>
         <div className="p-6">{children}</div>

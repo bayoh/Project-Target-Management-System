@@ -147,7 +147,7 @@ export function IssueDashboard() {
               className="flex items-center text-gray-600 hover:text-gray-800 transition-colors font-medium px-3 py-1.5 rounded-md hover:bg-gray-100"
               title="Edit"
             >
-              <Eye className="h-4 w-4 mr-1.5" />  View & <Edit className="ml-2 h-4 w-4 mr-1.5" /> Edit
+              <Eye className="h-4 w-4 mr-1.5" /> View
             </button>
           </div>
         </div>

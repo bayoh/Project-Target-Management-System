@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import type { Action, User } from '../../types/project';
-import { AlertTriangle, Plus } from 'lucide-react';
+import { AlertTriangle, Plus, Clock } from 'lucide-react';
+import { Input } from '../ui/Input';
+import { Select } from '../ui/Select';
+import { Calendar } from '../ui/Calendar'; // Added import for Calendar
+import { format, formatDate, formatDistance, formatRelative, subDays } from 'date-fns'
 
 interface Partner {
   id: string;
@@ -48,12 +52,13 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
   const [showNewProjectForm, setShowNewProjectForm] = useState(false);
   const [newPartner, setNewPartner] = useState({ name: '', description: '' });
   const [newProject, setNewProject] = useState({ name: '', description: '' });
-
+  const [isCalendarOpen, setCalendarOpen] = useState(false);
+  const [date, setDate] = useState<{ date: Date | null; }>({ date: null, });
   React.useEffect(() => {
     loadUsers();
     loadPartners();
     loadProjects();
-  }, []);
+  }, [users]);
 
   const loadUsers = async () => {
     try {
@@ -112,10 +117,10 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
         code: formData.code,
         description: formData.description,
         status: formData.status,
-        start_date: formData.start_date || null,
-        end_date: formData.end_date || null,
-        actual_startDate: formData.actual_startDate || null,
-        actual_endDate: formData.actual_endDate || null,
+        start_date: formData.start_date === '' ? null : formData.start_date,
+        end_date: formData.end_date === '' ? null : formData.end_date,
+        actual_startDate: formData.actual_startDate === '' ? null : formData.actual_startDate,
+        actual_endDate: formData.actual_endDate === '' ? null : formData.actual_endDate,
         lead_id: formData.lead_id || null,
         supporting_staff: formData.supporting_staff,
         budget: formData.budget ? parseFloat(formData.budget) : null,
@@ -214,7 +219,15 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
         </div>
       )}
       <div>
-        <label htmlFor="lead_id" className="block text-sm font-medium text-gray-700">
+        <Input 
+        label='Code'
+        value={formData.code}
+        onChange={(e) => setFormData({...formData, code: e.target.value })}
+        placeholder='Code'
+        required
+        />
+
+        {/* <label htmlFor="lead_id" className="block text-sm font-medium text-gray-700">
           Code
         </label>
         <input
@@ -223,10 +236,18 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
           value={formData.code}
           onChange={(e) => setFormData({...formData, code: e.target.value })}
           className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-        />
+        /> */}
       </div>
       <div>
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+        <Input
+        label='Name'
+        value={formData.name}
+        onChange={(e) => setFormData({...formData, name: e.target.value })}
+        placeholder='Name'
+        required
+        type='text'
+        />
+        {/* <label htmlFor="name" className="block text-sm font-medium text-gray-700">
           Name *
         </label>
         <input
@@ -236,11 +257,19 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           className="mt-1 p-2 block w-full rounded-md border-gray-500 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-        />
+        /> */}
       </div>
 
       <div>
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+        <Input
+        label='Description'
+        value={formData.description}
+        onChange={(e) => setFormData({...formData, description: e.target.value })}
+        placeholder='Description'
+        required
+        type='textarea'
+        />
+        {/* <label htmlFor="description" className="block text-sm font-medium text-gray-700">
           Description
         </label>
         <textarea
@@ -249,7 +278,7 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-        />
+        /> */}
       </div>
 
       <div className="grid grid-cols-1 mt-4 md:grid-cols-2 gap-6">
@@ -257,12 +286,12 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
           <label htmlFor="start_date" className="block text-sm font-medium text-gray-700">
             Planned Start Date
           </label>
-          <input
-            type="date"
-            id="start_date"
-            value={formData.start_date}
-            onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-            className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          <Calendar
+            selectionType='single'
+            // value={formData.start_date ? new Date(formData.start_date) : undefined}
+            onSelect={(date) => setFormData({ ...formData, start_date: date ? date.toISOString().split('T')[0] : '' })}
+           isOpen={isCalendarOpen}
+           onClose={() => setCalendarOpen(false)}
           />
         </div>
 
@@ -270,12 +299,11 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
           <label htmlFor="end_date" className="block text-sm font-medium text-gray-700">
             Planned End Date
           </label>
-          <input
-            type="date"
-            id="end_date"
-            value={formData.end_date}
-            onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-            className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          <Calendar
+            mode="single"
+            selected={formData.end_date ? new Date(formData.end_date) : undefined}
+            onSelect={(date) => setFormData({ ...formData, end_date: date ? date.toISOString().split('T')[0] : '' })}
+            className="rounded-md border"
           />
         </div>
       </div>
@@ -284,12 +312,26 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
           <label htmlFor="actual_start_date" className="block text-sm font-medium text-gray-700">
             Actual Start Date
           </label>
-          <input
-            type="date"
-            id="actual_start_date"
-            value={formData.actual_startDate}
-            onChange={(e) => setFormData({ ...formData, actual_startDate: e.target.value })}
-            className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          <button
+            onClick={() => setCalendarOpen(true)}
+            className="w-full px-4 py-2 text-left rounded-lg border border-gray-200 shadow-sm hover:border-blue-300 focus:border-blue-500 focus:ring-blue-500 text-sm transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-gray-500" />
+              {(formData.actual_startDate && formData.actual_endDate) ? (
+                <span className="text-gray-900 truncate">
+                  {format(formData.actual_startDate, 'dd/MM/yyyy')} - {format(formData.actual_endDate, 'dd/MM/yyyy')}
+                </span>
+              ) : (
+                <span className="text-gray-500">Select a date range</span>
+              )}
+            </div>
+          </button>
+          <Calendar
+            mode="single"
+            selected={formData.actual_startDate ? new Date(formData.actual_startDate) : undefined}
+            onSelect={(date) => setFormData({ ...formData, actual_startDate: date ? date.toISOString().split('T')[0] : '' })}
+            className="rounded-md border"
           />
         </div>
 
@@ -297,12 +339,11 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
           <label htmlFor="actual_end_date" className="block text-sm font-medium text-gray-700">
             Actual End Date
           </label>
-          <input
-            type="date"
-            id="actual_end_date"
-            value={formData.actual_endDate}
-            onChange={(e) => setFormData({ ...formData, actual_endDate: e.target.value })}
-            className="mt-1 p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          <Calendar
+            mode="single"
+            selected={formData.actual_endDate ? new Date(formData.actual_endDate) : undefined}
+            onSelect={(date) => setFormData({ ...formData, actual_endDate: date ? date.toISOString().split('T')[0] : '' })}
+            className="rounded-md border"
           />
         </div>
       </div>
@@ -313,7 +354,18 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
         <label htmlFor="status" className="block text-sm font-medium text-gray-700">
           Status
         </label>
-        <select
+        <Select
+          value={formData.status}
+          onChange={(e) => setFormData({...formData, status: e.target.value })}
+          placeholder='Status'
+          options={[
+            { label: 'Not Started', value: 'not_started' },
+            { label: 'On Going/On Track', value: 'in_progress' },
+            { label: 'On Going/Off Track', value: 'at_risk' },
+            { label: 'Completed', value: 'completed' },     
+          ]}
+        />
+        {/* <select
           id="status"
           value={formData.status}
           onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
@@ -323,7 +375,7 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
           <option value="in_progress">On Going/On Track</option>
           <option value="at_risk">On Going/Off Track</option>
           <option value="completed">Completed</option>
-        </select>
+        </select> */}
       </div>
 
       <div>
@@ -412,7 +464,13 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
         <label htmlFor="lead" className="block text-sm font-medium text-gray-700">
           Lead
         </label>
-        <select
+        <Select
+          value={formData.lead_id}
+          onChange={(e) => setFormData({...formData, lead_id: e.target.value })}
+          placeholder='Select Lead'
+          options={users.map((user) => ({ label: user.full_name, value: user.id }))}
+        />
+        {/* <select
           id="lead"
           value={formData.lead_id}
           onChange={(e) => setFormData({ ...formData, lead_id: e.target.value })}
@@ -424,7 +482,7 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
               {user.full_name}
             </option>
           ))}
-        </select>
+        </select> */}
       </div>
 
       <div>

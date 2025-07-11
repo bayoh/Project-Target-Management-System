@@ -12,7 +12,8 @@ import {
   Filter,
   Edit2,
   Check,
-  Trash2 // Added Trash2 icon for delete
+  Trash2,
+  ShieldAlert // Added ShieldAlert icon for risk assessment
 } from 'lucide-react';
 import type { Action, User } from '../../types/project';
 import { DocumentList } from '../documents/DocumentList';
@@ -140,6 +141,8 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
     itemType: null 
   });
 
+  const [showRiskAssessmentDialog, setShowRiskAssessmentDialog] = useState(false);
+
   const deleteConfirmationDialog = ({ isOpen, itemName, itemType, onConfirm, onCancel }: DeleteConfirmationDialogProps) => {
     if (!isOpen) return null;
   
@@ -169,7 +172,33 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
         </div>
       </div>
     );
-  }
+  };
+
+  const handleIssueResolved = () => {
+    setShowRiskAssessmentDialog(true);
+  };
+
+  const handleConfirmRiskAssessment = async (isNoLongerAtRisk: boolean) => {
+    if (isNoLongerAtRisk) {
+      setLoading(true);
+      setError(null);
+      try {
+        const { error: updateError } = await supabase
+          .from('actions')
+          .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+          .eq('id', action.id);
+
+        if (updateError) throw updateError;
+        onUpdate(); // Refresh action details
+      } catch (err: any) {
+        console.error('Error updating action status:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    setShowRiskAssessmentDialog(false);
+  };
 
   useEffect(() => {
     loadData();
@@ -372,6 +401,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
       if (updateError) throw updateError;
       await loadData();
       onUpdate();
+      handleIssueResolved(); // Call the risk assessment dialog
     } catch (err: any) {
       console.error('Error resolving issue:', err);
       setError(err.message);
@@ -463,7 +493,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
             {formType === 'target' && 'Target'}
           </h3>
           {formType === 'achievement' && <AchievementForm {...commonProps} achievement={editingItem} action={action.id} showEdit/>}
-          {formType === 'issue' && <IssueForm {...commonProps} issue={editingItem} showEdit />}
+          {formType === 'issue' && <IssueForm {...commonProps} issue={editingItem} onIssueResolved={handleIssueResolved} showEdit />}
           {formType === 'need' && <NeedForm {...commonProps} need={editingItem} showEdit />}
           {formType === 'target' && <TargetForm {...commonProps} target={editingItem} showEdit />}
         </div>
@@ -570,6 +600,33 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
           />
         </div>
       </div> */}
+
+      {/* Risk Assessment Dialog */}
+      {showRiskAssessmentDialog && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Issue Resolved</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Is the action no longer at risk? If yes, the action status will be updated to 'In Progress'.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleConfirmRiskAssessment(false)}
+              >
+                No
+              </Button>
+              <Button
+                type="button"
+                onClick={() => handleConfirmRiskAssessment(true)}
+              >
+                Yes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Navigation Tabs */}
       <div className="border-b border-gray-200">
@@ -830,6 +887,12 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>}
+                      {showEdit && <button
+                        onClick={() => setDeleteConfirmation({ isOpen: true, item: issue, itemType: 'issue' })}
+                        className="text-red-600 hover:text-blue-800"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>}
                     </div>
                   </div>
 
@@ -865,11 +928,14 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                   setShowForm(true);
                   setEditingItem(null);
                 }}
+                
                 className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Need
-              </button>}
+              </button>
+              }
+
             </div>
 
             <div className="space-y-4">
@@ -903,6 +969,12 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>}
+                       <button
+                        onClick={() => setDeleteConfirmation({ isOpen: true, item: need, itemType: 'need' })}
+                        className="text-red-600 hover:text-blue-800"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
 
@@ -1056,6 +1128,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                   <p className="text-sm text-gray-600 whitespace-pre-wrap">
                     {comment.content}
                   </p>
+                  
                 </div>
               ))}
 
@@ -1094,12 +1167,28 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                     try {
                       if (deleteConfirmation.itemType === 'target') {
                         await projectApi.deleteTarget(deleteConfirmation.item.id);
-                      } else if (deleteConfirmation.itemType === 'achievement') {
+                      } 
+                      
+                      if (deleteConfirmation.itemType === 'achievement') {
                         await projectApi.deleteAchievement(deleteConfirmation.item.id);
                       }
+
+                      if (deleteConfirmation.itemType === 'issue') {
+                        await projectApi.deleteIssue(deleteConfirmation.item.id);
+                      }
+
+                      if (deleteConfirmation.itemType ===  'need'){
+                        await projectApi.deleteNeeeds(deleteConfirmation.item.id)
+                      }
+
+                      // if (deleteConfirmation.itemType === 'comment'){
+                      //   await projectApi.deleteComment(deleteConfirmation.item.id)
+                      // }
                       // update the achievement list
                       setAchievements(achievements.filter((a) => a.id !== deleteConfirmation.item.id));
                       setTargets(targets.filter((t) => t.id !== deleteConfirmation.item.id));
+                      setIssues(issues.filter((i) => i.id !== deleteConfirmation.item.id));
+                      setNeeds(needs.filter((n) => n.id !== deleteConfirmation.item.id)); 
                     } catch (error) {
                       console.error('Error deleting achievement:', error);
                       // Handle error appropriately

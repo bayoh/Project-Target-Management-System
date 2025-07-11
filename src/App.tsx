@@ -4,7 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { LoginForm } from './components/auth/LoginForm';
 import { PasswordReset } from './components/auth/PasswordReset';
 import { UpdatePassword } from './components/auth/UpdatePassword';
-import { Dashboard } from './pages/Dashboard';
+
 import { Clusters } from './pages/Clusters';
 import { NewCluster } from './pages/NewCluster';
 import { ViewCluster } from './pages/ViewCluster';
@@ -14,7 +14,6 @@ import { NewIntervention } from './pages/interventions/NewIntervention';
 import { InterventionDetails } from './pages/interventions/InterventionDetails';
 import { EditIntervention } from './pages/interventions/EditIntervention';
 import { ActionDetails } from './pages/actions/ActionDetails';
-import { Reports } from "./pages/reports/Reports";
 import { ActionReports } from "./pages/reports/ActionReports";
 import { ReportTemplates } from './pages/reports/ReportTemplates';
 import { Settings } from './pages/settings/Settings';
@@ -27,9 +26,7 @@ import { Roles } from './pages/settings/Role';
 import { System } from './pages/settings/System';
 import { Security } from './pages/settings/Security';
 import { Users } from './pages/settings/Users'
-import { useEffect, useState } from 'react';
-import { supabase } from './lib/supabase';
-import type { User } from './types/auth';
+import { useAuth } from './lib/auth.tsx';
 import { MyDashboard } from './pages/UserDashboard';
 import { PojectsPartners } from './pages/settings/PojectsPartners';
 import { Issue } from './pages/issues';
@@ -38,31 +35,11 @@ import TargetTracking from './pages/targets/TargetTracking';
 import NewTarget from './pages/targets/NewTarget';
 import TargetDetail from './pages/targets/TargetDetail';
 import TargetsIndex from './pages/targets/index';
-import Actions, { ActionDashboard } from './pages/actions/ActionDashboard';
+import { ActionDashboard } from './pages/actions/ActionDashboard';
 import { Jobs } from './pages/jobs';
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user as User || null);
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log(event);
-      if (event === 'PASSWORD_RECOVERY') {
-        // Don't update user state for password recovery
-        return;
-      }
-      setUser(session?.user as User || null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -194,7 +171,7 @@ export default function App() {
           path="/settings/import"
           element={user ? <Import /> : <Navigate to="/login" replace />}
         />
-        <Route
+        <Route 
           path="/settings/assignment"
           element={user ? <Assignments /> : <Navigate to="/login" replace />}
         />

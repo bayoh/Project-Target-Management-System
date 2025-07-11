@@ -333,6 +333,32 @@ async deleteTarget(targetId: string) {
   }
 },
 
+async deleteIssue(issueId: string){
+  const {error } = await supabase
+  .from('action_issues')
+  .delete()
+  .eq('id', issueId)
+
+  if(error) {
+    console.error('Error deleting Issues: ', error)
+    throw error
+  }
+  
+
+},
+
+async deleteNeeeds(needId: string) {
+  const {error} = await supabase
+  .from('action_needs')
+  .delete()
+  .eq('id', needId)
+
+  if(error) {
+    console.error('Error deleting needs: ', error)
+    throw error
+  }
+},
+
 async deleteAchievement(achievementId: string) {
   try {
     // 1. Fetch the achievement to get file URLs

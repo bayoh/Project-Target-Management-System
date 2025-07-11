@@ -95,6 +95,7 @@ export default function NewTarget() {
             target_value: parseFloat(formData.target_value),
             current_value: parseFloat(formData.current_value),
             category: formData.category || null,
+            created_by: (await supabase.auth.getUser()).data.user?.id,
             women_target: formData.women_target ? parseFloat(formData.women_target) : null,
             women_current: formData.women_current ? parseFloat(formData.women_current) : null,
             youth_target: formData.youth_target ? parseFloat(formData.youth_target) : null,

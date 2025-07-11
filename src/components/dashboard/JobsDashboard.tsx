@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Briefcase, Users, Target, Settings, LucideProps } from 'lucide-react';
+import { Briefcase, Users, Target, Settings, LucideProps,  } from 'lucide-react';
 import { jobsApi } from '../../lib/api'; 
 
 interface JobData { target: number; current: number };
@@ -50,7 +50,8 @@ interface ClusterCardProps {
 }
 
 const ClusterCard: React.FC<ClusterCardProps> = ({ stat, totalCurrentJobsForDataType }) => {
-  const { current, target } = stat.displayData;
+  const current = stat.displayData.current || 0;
+  const target = stat.displayData.target || 0;
   const calculatedPercentage = totalCurrentJobsForDataType > 0 ? Math.round((current / totalCurrentJobsForDataType) * 100) : 0;
   
   let titlePrefix = '';
@@ -67,7 +68,7 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ stat, totalCurrentJobsForData
       <div className="text-3xl font-bold mb-1">{calculatedPercentage}%</div>
       <div className="text-5xl font-extrabold mb-2">{current.toLocaleString()}</div>
       <div className="text-sm font-semibold">Target: {target.toLocaleString()}</div>
-      <div className="text-xl font-semibold truncate mt-1" title={`${titlePrefix}Jobs in ${stat.name}`}>{`${titlePrefix}${stat.name}`}</div>
+      <div className="text-xl font-semibold truncate mt-1" title={`${titlePrefix}Jobs in ${stat.name}`}>{`${stat.name}`}</div>
     </div>
   );
 };
@@ -131,7 +132,7 @@ export function JobsDashboard() {
           break;
       }
       return { ...stat, displayData, dataType: activeFilter as 'total' | 'women' | 'youth' };
-    }).filter(stat => stat.displayData.current > 0); 
+    }); 
   }, [clusterJobStats, activeFilter]);
 
   const aggregateActionStats = useCallback(() => {
@@ -217,7 +218,7 @@ export function JobsDashboard() {
             <Target className="w-8 h-8 mr-3" />
             <span className="text-2xl font-bold">Target Jobs</span>
           </div>
-          <div className="text-4xl font-extrabold">{getTotalTargetJobs().toLocaleString()}</div>
+          <div className="text-4xl font-extrabold">120,000</div>
         </div>
         <div className="bg-[#4cafea] p-6 rounded-lg shadow-md text-white">
           <div className="flex items-center mb-2">

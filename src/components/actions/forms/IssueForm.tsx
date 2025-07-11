@@ -7,6 +7,7 @@ import { Button } from '../../ui/button'; // Added import
 interface IssueFormProps {
   onSubmit: (data: any) => Promise<void>;
   onCancel: () => void;
+  onIssueResolved?: () => void; // New prop for handling issue resolution
   issue?: {
     description: string;
     status: 'open' | 'in_progress' | 'resolved';
@@ -18,7 +19,7 @@ interface IssueFormProps {
   };
 }
 
-export function IssueForm({ onSubmit, onCancel, issue }: IssueFormProps) {
+export function IssueForm({ onSubmit, onCancel, issue, onIssueResolved }: IssueFormProps) {
   const [formData, setFormData] = useState({
     description: issue?.description || '',
     status: issue?.status || 'open',
@@ -45,6 +46,12 @@ export function IssueForm({ onSubmit, onCancel, issue }: IssueFormProps) {
       };
 
       await onSubmit(cleanData);
+
+      // If the issue is being resolved, call the onIssueResolved callback
+      if (cleanData.status === 'resolved' && onIssueResolved) {
+        onIssueResolved();
+      }
+
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -76,7 +83,7 @@ export function IssueForm({ onSubmit, onCancel, issue }: IssueFormProps) {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
         <Select
-          label="Status *"
+          aria-label="Status *"
           options={[
             { value: 'open', label: 'Open' },
             { value: 'in_progress', label: 'In Progress' },
@@ -88,7 +95,7 @@ export function IssueForm({ onSubmit, onCancel, issue }: IssueFormProps) {
         />
 
         <Select
-          label="Severity *"
+          aria-label="Severity *"
           options={[
             { value: 'low', label: 'Low' },
             { value: 'medium', label: 'Medium' },
