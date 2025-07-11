@@ -217,6 +217,34 @@ export function InterventionDetails() {
     }
   };
 
+  const handleDeleteDocument = async (documentId: string, documentUrl: string) => {
+    if (!window.confirm('Are you sure you want to delete this document?')) {
+      return;
+    }
+
+    try {
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from('intervention-documents')
+        .remove([documentUrl]);
+
+      if (storageError) throw storageError;
+
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from('intervention_documents')
+        .delete()
+        .eq('id', documentId);
+
+      if (dbError) throw dbError;
+
+      await loadData(); // Reload documents after deletion
+    } catch (err: any) {
+      console.error('Error deleting document:', err);
+      setError('Failed to delete document: ' + err.message);
+    }
+  };
+
   const handleDownload = async (document: Document) => {
     try {
       const { data, error } = await supabase.storage
@@ -401,7 +429,15 @@ export function InterventionDetails() {
           </div>
 
           <div className="space-y-4">
-            <DocumentList documents={documents} />
+            <DocumentList
+              documents={documents}
+              onDelete={(documentId) => {
+                const docToDelete = documents.find(doc => doc.id === documentId);
+                if (docToDelete) {
+                  handleDeleteDocument(documentId, docToDelete.url);
+                }
+              }}
+            />
             {/* {documents.map((doc) => (
               <div
                 key={doc.id}

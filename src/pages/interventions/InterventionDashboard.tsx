@@ -352,7 +352,7 @@ export function InterventionDashboard() {
       <div className="p-4 md:p-6 lg:p-8">
         <header className="mb-6 md:mb-8">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Intervention Dashboard</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Intervention</h1>
             <Button 
               onClick={() => navigate('/interventions/new')}
               className="mt-3 md:mt-0"

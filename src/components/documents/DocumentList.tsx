@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, Image, Download, Eye } from 'lucide-react';
+import { FileText, Image, Download, Eye, Trash2 } from 'lucide-react';
 import { DocumentViewer } from './DocumentViewer';
 
 interface Document {
@@ -63,6 +63,15 @@ export function DocumentList({ documents, onDelete }: DocumentListProps) {
             >
               <Download className="h-5 w-5" />
             </a>
+           
+              <button
+                onClick={() => onDelete(doc.id)}
+                className="text-red-600 hover:text-red-800"
+                title="Delete"
+              >
+                <Trash2 className="h-5 w-5" />
+              </button>
+           
           </div>
         </div>
       ))}
