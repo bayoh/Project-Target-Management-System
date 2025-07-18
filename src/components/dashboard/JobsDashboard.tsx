@@ -39,7 +39,7 @@ const StatCard: React.FC<StatCardProps> = ({ icon: Icon, title, value, bgColor, 
   >
     <Icon className="w-10 h-10 mb-2" />
     <div className="text-sm font-medium">{title}</div>
-    <div className="text-2xl font-bold">{typeof value === 'number' ? value.toLocaleString() : value}</div>
+    <div className="text-xl sm:text-2xl font-bold">{typeof value === 'number' ? value.toLocaleString() : value}</div>
   </div>
 );
 
@@ -65,8 +65,8 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ stat, totalCurrentJobsForData
       stat.name.toLowerCase().includes('digital') ? 'bg-[#68389a] hover:bg-purple-700' :
       'bg-[#07225c] hover:bg-blue-800'
     } transition-colors duration-300 min-h-[180px]`}>
-      <div className="text-3xl font-bold mb-1">{calculatedPercentage}%</div>
-      <div className="text-5xl font-extrabold mb-2">{current.toLocaleString()}</div>
+      <div className="text-2xl sm:text-3xl font-bold mb-1">{calculatedPercentage}%</div>
+      <div className="text-4xl sm:text-5xl font-extrabold mb-2">{current.toLocaleString()}</div>
       <div className="text-sm font-semibold">Target: {target.toLocaleString()}</div>
       <div className="text-xl font-semibold truncate mt-1" title={`${titlePrefix}Jobs in ${stat.name}`}>{`${stat.name}`}</div>
     </div>
@@ -216,16 +216,16 @@ export function JobsDashboard() {
         <div className="bg-[#07225c] p-6 rounded-lg shadow-md text-white">
           <div className="flex items-center mb-2">
             <Target className="w-8 h-8 mr-3" />
-            <span className="text-2xl font-bold">Target Jobs</span>
+            <span className="text-xl sm:text-2xl font-bold">Target Jobs</span>
           </div>
-          <div className="text-4xl font-extrabold">120,000</div>
+          <div className="text-3xl sm:text-4xl font-extrabold">120,000</div>
         </div>
         <div className="bg-[#4cafea] p-6 rounded-lg shadow-md text-white">
           <div className="flex items-center mb-2">
             <Briefcase className="w-8 h-8 mr-3" />
-            <span className="text-2xl font-bold">Actual Jobs Created</span>
+            <span className="text-xl sm:text-2xl font-bold">Actual Jobs Created</span>
           </div>
-          <div className="text-4xl font-extrabold">{getTotalJobs().toLocaleString()}</div>
+          <div className="text-3xl sm:text-4xl font-extrabold">{getTotalJobs().toLocaleString()}</div>
         </div>
       </div>
 
@@ -233,27 +233,27 @@ export function JobsDashboard() {
       <div className="bg-slate-700 p-6 rounded-lg shadow-md text-white">
         <div className="flex items-center mb-4">
           <Settings className="w-8 h-8 mr-3" />
-          <span className="text-2xl font-bold">Overall Action Progress</span>
+          <span className="text-xl sm:text-2xl font-bold">Overall Action Progress</span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 text-center">
           <div>
-            <div className="text-3xl font-bold">{overallActionStats.total.toLocaleString()}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{overallActionStats.total.toLocaleString()}</div>
             <div className="text-sm text-slate-300">Total Actions</div>
           </div>
           <div>
-            <div className="text-3xl font-bold text-green-400">{overallActionStats.completed.toLocaleString()}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-green-400">{overallActionStats.completed.toLocaleString()}</div>
             <div className="text-sm text-slate-300">Completed</div>
           </div>
           <div>
-            <div className="text-3xl font-bold text-yellow-400">{overallActionStats.on_going_on.toLocaleString()}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-yellow-400">{overallActionStats.on_going_on.toLocaleString()}</div>
             <div className="text-sm text-slate-300">On Track</div>
           </div>
           <div>
-            <div className="text-3xl font-bold text-orange-400">{overallActionStats.on_going_off.toLocaleString()}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-orange-400">{overallActionStats.on_going_off.toLocaleString()}</div>
             <div className="text-sm text-slate-300">Off Track</div>
           </div>
           <div>
-            <div className="text-3xl font-bold text-red-400">{overallActionStats.not_started.toLocaleString()}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-red-400">{overallActionStats.not_started.toLocaleString()}</div>
             <div className="text-sm text-slate-300">Not Started</div>
           </div>
         </div>

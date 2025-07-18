@@ -97,6 +97,7 @@ interface Target {
   women_current?: number;
   youth_target?: number;
   youth_current?: number;
+  job_subcategory?: string;
 }
 
 interface DeleteConfirmationDialogProps {
@@ -528,6 +529,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
           {/* Job-specific progress tracking */}
           {target.category === 'jobs' && (
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              
               {/* Women Jobs Progress */}
               {(target.women_target || target.women_current) && (
                 <div className="bg-blue-50 p-4 rounded-lg">
@@ -1038,9 +1040,12 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="text-sm font-medium text-gray-900">
-                      {target.description}
+                      {target.description}ß
                     </h4>
                     <div className="flex items-center space-x-4">
+                      {target.category === 'jobs' &&(<div className="text-sm text-gray-800">
+                        Type: {target.job_subcategory ? target.job_subcategory.charAt(0).toUpperCase() + target.job_subcategory.slice(1) : 'N/A'} Jobs
+                      </div>)}
                       <div className="text-sm text-gray-500">
                         Last updated: {new Date(target.last_updated).toLocaleDateString()}
                       </div>

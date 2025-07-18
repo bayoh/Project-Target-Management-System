@@ -19,7 +19,8 @@ export default function NewTarget() {
     women_target: '',
     women_current: '',
     youth_target: '',
-    youth_current: ''
+    youth_current: '',
+    job_subcategory: ''
   });
 
   const [loading, setLoading] = useState(false);
@@ -99,7 +100,8 @@ export default function NewTarget() {
             women_target: formData.women_target ? parseFloat(formData.women_target) : null,
             women_current: formData.women_current ? parseFloat(formData.women_current) : null,
             youth_target: formData.youth_target ? parseFloat(formData.youth_target) : null,
-            youth_current: formData.youth_current ? parseFloat(formData.youth_current) : null
+            youth_current: formData.youth_current ? parseFloat(formData.youth_current) : null,
+            job_subcategory: formData.job_subcategory || null
           }
         ])
         .select();
@@ -214,6 +216,18 @@ export default function NewTarget() {
           {isJobTarget && (
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Job Target Details</h3>
+
+              <Select
+                label="Job Type"
+                options={[
+                  { value: '', label: 'Select a job type' },
+                  { value: 'direct', label: 'Direct' },
+                  { value: 'indirect', label: 'Indirect' },
+                ]}
+                value={formData.job_subcategory}
+                onChange={(value) => handleInputChange(value, 'job_subcategory')}
+                placeholder="Select job subcategory"
+              />
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input

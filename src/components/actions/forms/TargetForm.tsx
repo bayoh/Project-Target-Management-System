@@ -18,6 +18,7 @@ interface TargetFormProps {
     women_current?: number;
     youth_target?: number;
     youth_current?: number;
+    job_subcategory?: string;
   };
 }
 
@@ -32,7 +33,8 @@ export function TargetForm({ onSubmit, onCancel, target }: TargetFormProps) {
     women_target: target?.women_target?.toString() || '',
     women_current: target?.women_current?.toString() || '',
     youth_target: target?.youth_target?.toString() || '',
-    youth_current: target?.youth_current?.toString() || ''
+    youth_current: target?.youth_current?.toString() || '',
+    job_subcategory: target?.job_subcategory || ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +53,8 @@ export function TargetForm({ onSubmit, onCancel, target }: TargetFormProps) {
         women_target: formData.women_target ? parseFloat(formData.women_target) : null,
         women_current: formData.women_current ? parseFloat(formData.women_current) : null,
         youth_target: formData.youth_target ? parseFloat(formData.youth_target) : null,
-        youth_current: formData.youth_current ? parseFloat(formData.youth_current) : null
+        youth_current: formData.youth_current ? parseFloat(formData.youth_current) : null,
+        job_subcategory: formData.job_subcategory
       });
     } catch (err: any) {
       setError(err.message);
@@ -149,6 +152,19 @@ export function TargetForm({ onSubmit, onCancel, target }: TargetFormProps) {
         <div className="space-y-4 md:space-y-6 border-t border-gray-200 pt-4 md:pt-6 mt-4 md:mt-6">
           <h4 className="text-base font-semibold text-gray-800">Job Target Details</h4>
           
+          <Select
+            label="Job Type"
+            options={[
+              { value: '', label: 'Select a job type' },
+              { value: 'direct', label: 'Direct' },
+              { value: 'indirect', label: 'Indirect' },
+            ]}
+            value={formData.job_subcategory}
+            onChange={(value) => setFormData({ ...formData, job_subcategory: value as string })}            
+            placeholder="Select job subcategory"
+            className="w-full"
+          />
+
           {/* Women Jobs Section */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
             <Input
