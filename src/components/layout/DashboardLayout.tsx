@@ -271,7 +271,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           <nav className="flex-1 px-2 py-4 space-y-1">
             {filteredNavItems.map((item) => (
-              <div key={item.path}>
+              <div key={item.path} className="relative group">
                 <button
                   onClick={() => item.subItems ? toggleSubmenu(item.path) : navigate(item.path)}
                   className={`flex items-center w-full px-4 py-2 text-gray-700 rounded-md transition-colors ${
@@ -294,8 +294,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   )}
                 </button>
                 
-                {item.subItems && expandedItems.includes(item.path) && isSidebarOpen && (
-                  <div className="ml-4 mt-1 space-y-1">
+                {item.subItems && (
+                  <div className={`ml-4 mt-1 space-y-1 ${expandedItems.includes(item.path) ? 'block' : 'hidden'} ${!isSidebarOpen ? 'absolute left-full top-0 w-48 bg-white border rounded-md shadow-lg group-hover:block z-50' : ''}`}>
                     {item.subItems.map((subItem) => (
                       <button
                         key={subItem.path}
@@ -312,6 +312,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     ))}
                   </div>
                 )}
+
               </div>
             ))}
           </nav>

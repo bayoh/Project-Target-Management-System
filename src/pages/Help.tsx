@@ -1,16 +1,20 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useAuth } from '../lib/auth';
 import { Disclosure, Transition, Dialog } from '@headlessui/react';
-import { ChevronUpIcon, BookOpen, LayoutDashboard, Briefcase, Target, AlertTriangle, FileText, Users, Settings as SettingsIcon, Search, Icon as LucideIcon, Edit } from 'lucide-react'; 
+import { ChevronUpIcon, BookOpen, LayoutDashboard, Briefcase, Target, AlertTriangle, FileText, Users, Settings as SettingsIcon, Search, Edit, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react'; 
 import { DashboardLayout } from '../components/layout/DashboardLayout';
-import { supabase } from '../lib/supabase'; 
+import { supabase } from '../lib/supabase';
+import { getIconComponent } from '../lib/iconMapping'; 
 
 
 
 interface HelpSection {
   id: string;
   title: string;
-  icon: LucideIcon;
+  icon_name: string;
+  display_order: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface HelpContentItem {
@@ -29,6 +33,11 @@ interface HelpSidebarProps {
   setSearchTerm: (term: string) => void;
   isMobileSidebarOpen: boolean;
   setIsMobileSidebarOpen: (isOpen: boolean) => void;
+  isAdmin?: boolean;
+  onEditSection?: (section: HelpSection) => void;
+  onDeleteSection?: (sectionId: string) => void;
+  onAddSection?: () => void;
+  onMoveSection?: (sectionId: string, direction: 'up' | 'down') => void;
 }
 
 
@@ -58,7 +67,10 @@ const HelpMainContent: React.FC<HelpMainContentProps> = ({
       )}
       {!searchTerm && (
         <h1 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-          {currentSectionDetails?.icon && <currentSectionDetails.icon className="h-7 w-7 mr-3 text-indigo-600" />}
+          {currentSectionDetails?.icon_name && (() => {
+            const Icon = getIconComponent(currentSectionDetails.icon_name);
+            return <Icon className="h-7 w-7 mr-3 text-indigo-600" />;
+          })()}
           {currentSectionDetails?.title}
         </h1>
       )}
@@ -125,7 +137,20 @@ const HelpMainContent: React.FC<HelpMainContentProps> = ({
   </main>
 );
 
-const HelpSidebar: React.FC<HelpSidebarProps> = ({ sections, activeSection, setActiveSection, searchTerm, setSearchTerm, isMobileSidebarOpen, setIsMobileSidebarOpen }) => {
+const HelpSidebar: React.FC<HelpSidebarProps> = ({ 
+  sections, 
+  activeSection, 
+  setActiveSection, 
+  searchTerm, 
+  setSearchTerm, 
+  isMobileSidebarOpen, 
+  setIsMobileSidebarOpen,
+  isAdmin,
+  onEditSection,
+  onDeleteSection,
+  onAddSection,
+  onMoveSection
+}) => {
 
   return (
   <aside className={`lg:col-span-3 py-6 lg:py-0 ${isMobileSidebarOpen ? 'block' : 'hidden lg:block'}`}>
@@ -155,24 +180,85 @@ const HelpSidebar: React.FC<HelpSidebarProps> = ({ sections, activeSection, setA
           />
         </div>
       </div>
-      {sections.map((section) => {
-        const Icon = section.icon;
-        return (
+      
+      {isAdmin && (
+        <div className="mb-4 pb-4 border-b border-gray-200">
           <button
-            key={section.id}
-            onClick={() => {
-              setActiveSection(section.id);
-              setSearchTerm(''); // Reset search on section change
-            }}
-            className={`group flex items-center w-full text-left px-3 py-2.5 text-sm font-medium rounded-md transition-colors duration-150 ease-in-out ${
-              activeSection === section.id
-                ? 'bg-indigo-500 text-white shadow-md'
-                : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'
-            }`}
+            onClick={onAddSection}
+            className="w-full flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
           >
-            <Icon className={`mr-3 h-5 w-5 ${activeSection === section.id ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'}`} />
-            {section.title}
+            <Plus className="h-4 w-4 mr-2" />
+            Add Section
           </button>
+        </div>
+      )}
+      
+      {sections.map((section, index) => {
+        const Icon = getIconComponent(section.icon_name);
+        return (
+          <div key={section.id} className="relative group">
+            <button
+              onClick={() => {
+                setActiveSection(section.id);
+                setSearchTerm(''); // Reset search on section change
+              }}
+              className={`group flex items-center w-full text-left px-3 py-2.5 text-sm font-medium rounded-md transition-colors duration-150 ease-in-out ${
+                activeSection === section.id
+                  ? 'bg-indigo-500 text-white shadow-md'
+                  : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'
+              }`}
+            >
+              <Icon className={`mr-3 h-5 w-5 ${activeSection === section.id ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'}`} />
+              {section.title}
+            </button>
+            
+            {isAdmin && (
+              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex space-x-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMoveSection && onMoveSection(section.id, 'up');
+                  }}
+                  disabled={index === 0}
+                  className="p-1 rounded text-gray-400 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Move up"
+                >
+                  <ArrowUp className="h-3 w-3" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMoveSection && onMoveSection(section.id, 'down');
+                  }}
+                  disabled={index === sections.length - 1}
+                  className="p-1 rounded text-gray-400 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Move down"
+                >
+                  <ArrowDown className="h-3 w-3" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditSection && onEditSection(section);
+                  }}
+                  className="p-1 rounded text-gray-400 hover:text-indigo-800"
+                  title="Edit section"
+                >
+                  <Edit className="h-3 w-3" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteSection && onDeleteSection(section.id);
+                  }}
+                  className="p-1 rounded text-gray-400 hover:text-red-800"
+                  title="Delete section"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+          </div>
         );
       })}
     </nav>
@@ -181,76 +267,179 @@ const HelpSidebar: React.FC<HelpSidebarProps> = ({ sections, activeSection, setA
 };
  
  
- interface EditHelpContentFormProps {
-   isOpen: boolean;
-   onClose: () => void;
-   item: HelpContentItem | null;
-   onSave: (item: HelpContentItem) => void;
-   onCancel: () => void;
- }
+interface EditHelpContentFormProps {
+  isOpen: boolean;
+  onClose: () => void;
+  item: HelpContentItem | null;
+  onSave: (item: HelpContentItem) => void;
+  onCancel: () => void;
+}
 
- const EditHelpContentForm: React.FC<EditHelpContentFormProps> = ({ item, onSave, onCancel }) => {
-   const [title, setTitle] = useState(item?.title || '');
-   const [content, setContent] = useState(item?.content.join('\n') || '');
+interface EditHelpSectionFormProps {
+  isOpen: boolean;
+  onClose: () => void;
+  section: HelpSection | null;
+  onSave: (section: HelpSection) => void;
+  onCancel: () => void;
+  availableIcons: string[];
+}
 
-   useEffect(() => {
-     setTitle(item?.title || '');
-     setContent(item?.content.join('\n') || '');
-   }, [item]);
 
-   const handleSubmit = (e: React.FormEvent) => {
-     e.preventDefault();
-     if (item) {
-       onSave({
-         ...item,
-         title,
-         content: content.split('\n').map(line => line.trim())
-       });
-     }
-   };
 
-   return (
-     <form onSubmit={handleSubmit} className="space-y-4">
-       <div>
-         <label htmlFor="edit-title" className="block text-sm font-medium text-gray-700">Title</label>
-         <input
-           type="text"
-           id="edit-title"
-           value={title}
-           onChange={(e) => setTitle(e.target.value)}
-           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-           required
-         />
-       </div>
-       <div>
-         <label htmlFor="edit-content" className="block text-sm font-medium text-gray-700">Content (one line per paragraph/list item)</label>
-         <textarea
-           id="edit-content"
-           value={content}
-           onChange={(e) => setContent(e.target.value)}
-           rows={10}
-           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-           required
-         />
-       </div>
-       <div className="flex justify-end space-x-3">
-         <button
-           type="button"
-           onClick={onCancel}
-           className="inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-         >
-           Cancel
-         </button>
-         <button
-           type="submit"
-           className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-         >
-           Save Changes
-         </button>
-       </div>
-     </form>
-   );
- };
+const EditHelpSectionForm: React.FC<EditHelpSectionFormProps> = ({ section, onSave, onCancel, availableIcons }) => {
+  const [title, setTitle] = useState(section?.title || '');
+  const [iconName, setIconName] = useState(section?.icon_name || 'BookOpen');
+  const [displayOrder, setDisplayOrder] = useState(section?.display_order || 1);
+
+  useEffect(() => {
+    setTitle(section?.title || '');
+    setIconName(section?.icon_name || 'BookOpen');
+    setDisplayOrder(section?.display_order || 1);
+  }, [section]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (section) {
+      onSave({
+        ...section,
+        title,
+        icon_name: iconName,
+        display_order: displayOrder
+      });
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label htmlFor="section-title" className="block text-sm font-medium text-gray-700">Section Title</label>
+        <input
+          type="text"
+          id="section-title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          required
+        />
+      </div>
+      <div>
+        <label htmlFor="section-icon" className="block text-sm font-medium text-gray-700">Icon</label>
+        <select
+          id="section-icon"
+          value={iconName}
+          onChange={(e) => setIconName(e.target.value)}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+        >
+          {availableIcons.map((icon) => {
+            const IconComponent = getIconComponent(icon);
+            return (
+              <option key={icon} value={icon}>
+                {icon}
+              </option>
+            );
+          })}
+        </select>
+        <div className="mt-2 flex items-center">
+          <span className="text-sm text-gray-500 mr-2">Preview:</span>
+          {(() => {
+            const IconComponent = getIconComponent(iconName);
+            return <IconComponent className="h-5 w-5 text-indigo-600" />;
+          })()}
+        </div>
+      </div>
+      <div>
+        <label htmlFor="section-order" className="block text-sm font-medium text-gray-700">Display Order</label>
+        <input
+          type="number"
+          id="section-order"
+          value={displayOrder}
+          onChange={(e) => setDisplayOrder(parseInt(e.target.value) || 1)}
+          min="1"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          required
+        />
+      </div>
+      <div className="flex justify-end space-x-3">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+        >
+          Save Section
+        </button>
+      </div>
+    </form>
+  );
+};
+
+const EditHelpContentForm: React.FC<EditHelpContentFormProps> = ({ item, onSave, onCancel }) => {
+  const [title, setTitle] = useState(item?.title || '');
+  const [content, setContent] = useState(item?.content.join('\n') || '');
+
+  useEffect(() => {
+    setTitle(item?.title || '');
+    setContent(item?.content.join('\n') || '');
+  }, [item]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (item) {
+      onSave({
+        ...item,
+        title,
+        content: content.split('\n').filter(line => line.trim() !== '')
+      });
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label htmlFor="edit-title" className="block text-sm font-medium text-gray-700">Title</label>
+        <input
+          type="text"
+          id="edit-title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          required
+        />
+      </div>
+      <div>
+        <label htmlFor="edit-content" className="block text-sm font-medium text-gray-700">Content (one line per paragraph/list item)</label>
+        <textarea
+          id="edit-content"
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          rows={10}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          required
+        />
+      </div>
+      <div className="flex justify-end space-x-3">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+        >
+          Save Changes
+        </button>
+      </div>
+    </form>
+  );
+};
 
 interface HelpMainContentProps {
   currentSectionDetails?: HelpSection;
@@ -338,27 +527,47 @@ const Help = () => {
   const [activeSection, setActiveSection] = useState('getting-started');
   const [searchTerm, setSearchTerm] = useState('');
   const [helpContent, setHelpContent] = useState<HelpContentItem[]>([]);
+  const [sections, setSections] = useState<HelpSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<HelpContentItem | null>(null);
+  const [isSectionEditModalOpen, setIsSectionEditModalOpen] = useState(false);
+  const [editingSection, setEditingSection] = useState<HelpSection | null>(null);
 
   useEffect(() => {
-    const fetchHelpContent = async () => {
+    const fetchData = async () => {
       setLoading(true);
       setError(null);
       try {
-        const { data, error } = await supabase
+        // Fetch help sections
+        const { data: sectionsData, error: sectionsError } = await supabase
+          .from('help_sections')
+          .select('*')
+          .order('display_order', { ascending: true });
+
+        if (sectionsError) {
+          throw sectionsError;
+        }
+
+        // Fetch help content
+        const { data: contentData, error: contentError } = await supabase
           .from('help_content')
           .select('*')
           .order('order', { ascending: true });
 
-        if (error) {
-          throw error;
+        if (contentError) {
+          throw contentError;
         }
-        console.log(data)
-        setHelpContent(data || []);
+
+        setSections(sectionsData || []);
+        setHelpContent(contentData || []);
+        
+        // Set the first section as active if sections exist
+        if (sectionsData && sectionsData.length > 0) {
+          setActiveSection(sectionsData[0].id);
+        }
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -366,19 +575,142 @@ const Help = () => {
       }
     };
 
-    fetchHelpContent();
+    fetchData();
   }, []);
 
-  const sections: HelpSection[] = [
-    { id: 'getting-started', title: 'Getting Started', icon: BookOpen },
-    { id: 'user-dashboard', title: 'User Dashboard', icon: LayoutDashboard },
-    { id: 'interventions', title: 'Interventions Management', icon: Briefcase },
-    { id: 'actions', title: 'Actions Management', icon: Target },
-    { id: 'issues', title: 'Issue Tracking', icon: AlertTriangle },
-    { id: 'reports', title: 'Reports', icon: FileText },
-    { id: 'user-management', title: 'User Management', icon: Users },
-    { id: 'system-settings', title: 'System Settings', icon: SettingsIcon },
+  // Available icons for section selection
+  const availableIcons = [
+    'BookOpen', 'LayoutDashboard', 'Briefcase', 'Target', 'AlertTriangle', 
+    'FileText', 'Users', 'Settings', 'Search', 'Edit', 'Plus', 'Trash2',
+    'ArrowUp', 'ArrowDown', 'ChevronUpIcon'
   ];
+
+  // Section management functions
+  const openSectionEditModal = (section: HelpSection) => {
+    setEditingSection(section);
+    setIsSectionEditModalOpen(true);
+  };
+
+  const closeSectionEditModal = () => {
+    setIsSectionEditModalOpen(false);
+    setEditingSection(null);
+  };
+
+  const handleAddSection = () => {
+    const newSection: HelpSection = {
+      id: 'new',
+      title: '',
+      icon_name: 'BookOpen',
+      display_order: sections.length + 1
+    };
+    openSectionEditModal(newSection);
+  };
+
+  const handleSaveSection = async (updatedSection: HelpSection) => {
+    try {
+      if (updatedSection.id === 'new') {
+        // Insert new section
+        const { data, error } = await supabase
+          .from('help_sections')
+          .insert({
+            id: updatedSection.title.toLowerCase().replace(/\s+/g, '-'),
+            title: updatedSection.title,
+            icon_name: updatedSection.icon_name,
+            display_order: updatedSection.display_order
+          })
+          .select();
+
+        if (error) {
+          throw error;
+        }
+        setSections(prevSections => [...prevSections, data[0]].sort((a, b) => a.display_order - b.display_order));
+      } else {
+        // Update existing section
+        const { error } = await supabase
+          .from('help_sections')
+          .update({
+            title: updatedSection.title,
+            icon_name: updatedSection.icon_name,
+            display_order: updatedSection.display_order
+          })
+          .eq('id', updatedSection.id);
+
+        if (error) {
+          throw error;
+        }
+        setSections(prevSections =>
+          prevSections.map(section => 
+            section.id === updatedSection.id ? updatedSection : section
+          ).sort((a, b) => a.display_order - b.display_order)
+        );
+      }
+      closeSectionEditModal();
+    } catch (err: any) {
+      console.error('Error saving help section:', err.message);
+    }
+  };
+
+  const handleDeleteSection = async (sectionId: string) => {
+    if (!window.confirm('Are you sure you want to delete this section? All content in this section will also be deleted.')) {
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('help_sections')
+        .delete()
+        .eq('id', sectionId);
+
+      if (error) {
+        throw error;
+      }
+      setSections(prevSections => prevSections.filter(section => section.id !== sectionId));
+      // If the deleted section was active, switch to the first available section
+      if (activeSection === sectionId && sections.length > 1) {
+        const remainingSections = sections.filter(section => section.id !== sectionId);
+        if (remainingSections.length > 0) {
+          setActiveSection(remainingSections[0].id);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error deleting help section:', err.message);
+    }
+  };
+
+  const handleMoveSection = async (sectionId: string, direction: 'up' | 'down') => {
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return;
+
+    const targetIndex = direction === 'up' ? sectionIndex - 1 : sectionIndex + 1;
+    if (targetIndex < 0 || targetIndex >= sections.length) return;
+
+    const updatedSections = [...sections];
+    const currentSection = updatedSections[sectionIndex];
+    const targetSection = updatedSections[targetIndex];
+
+    // Swap display orders
+    const tempOrder = currentSection.display_order;
+    currentSection.display_order = targetSection.display_order;
+    targetSection.display_order = tempOrder;
+
+    try {
+      // Update both sections in the database
+      await Promise.all([
+        supabase
+          .from('help_sections')
+          .update({ display_order: currentSection.display_order })
+          .eq('id', currentSection.id),
+        supabase
+          .from('help_sections')
+          .update({ display_order: targetSection.display_order })
+          .eq('id', targetSection.id)
+      ]);
+
+      // Update local state
+      setSections(updatedSections.sort((a, b) => a.display_order - b.display_order));
+    } catch (err: any) {
+      console.error('Error moving section:', err.message);
+    }
+  };
 
   const currentSectionDetails = useMemo(() => sections.find((s) => s.id === activeSection), [sections, activeSection]);
   
@@ -435,6 +767,11 @@ const Help = () => {
               setSearchTerm={setSearchTerm}
               isMobileSidebarOpen={isMobileSidebarOpen}
               setIsMobileSidebarOpen={setIsMobileSidebarOpen}
+              isAdmin={isAdmin}
+              onEditSection={openSectionEditModal}
+              onDeleteSection={handleDeleteSection}
+              onAddSection={handleAddSection}
+              onMoveSection={handleMoveSection}
             />
             <HelpMainContent
             currentSectionDetails={currentSectionDetails}
@@ -489,6 +826,57 @@ const Help = () => {
                         item={editingItem}
                         onSave={handleSaveEdit}
                         onCancel={closeEditModal}
+                      />
+                    </div>
+                  </Dialog.Panel>
+                </Transition.Child>
+              </div>
+            </div>
+          </Dialog>
+        </Transition>
+      )}
+
+      {isSectionEditModalOpen && (
+        <Transition appear show={isSectionEditModalOpen} as={Fragment}>
+          <Dialog as="div" className="relative z-10" onClose={closeSectionEditModal}>
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0"
+              enterTo="opacity-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
+            >
+              <div className="fixed inset-0 bg-black bg-opacity-25" />
+            </Transition.Child>
+
+            <div className="fixed inset-0 overflow-y-auto">
+              <div className="flex min-h-full items-center justify-center p-4 text-center">
+                <Transition.Child
+                  as={Fragment}
+                  enter="ease-out duration-300"
+                  enterFrom="opacity-0 scale-95"
+                  enterTo="opacity-100 scale-100"
+                  leave="ease-in duration-200"
+                  leaveFrom="opacity-100 scale-100"
+                  leaveTo="opacity-0 scale-95"
+                >
+                  <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                    <Dialog.Title
+                      as="h3"
+                      className="text-lg font-medium leading-6 text-gray-900"
+                    >
+                      {editingSection ? 'Edit Section' : 'Add New Section'}
+                    </Dialog.Title>
+                    <div className="mt-4">
+                      <EditHelpSectionForm
+                        isOpen={isSectionEditModalOpen}
+                        onClose={closeSectionEditModal}
+                        section={editingSection}
+                        onSave={handleSaveSection}
+                        onCancel={closeSectionEditModal}
+                        availableIcons={availableIcons}
                       />
                     </div>
                   </Dialog.Panel>
