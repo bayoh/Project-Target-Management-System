@@ -37,6 +37,9 @@ import TargetDetail from './pages/targets/TargetDetail';
 import TargetsIndex from './pages/targets/index';
 import { ActionDashboard } from './pages/actions/ActionDashboard';
 import { Jobs } from './pages/jobs';
+import UserActivity from './pages/admin/UserActivity';
+import Reports from './pages/admin/Reports';
+import { IframePage } from './pages/IframePage';
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -196,6 +199,14 @@ export default function App() {
           path="/settings/projectspartners"
           element={user ? <PojectsPartners /> : <Navigate to="/login" replace />}
         />
+        <Route
+          path="/settings/user-activity"
+          element={user ? <UserActivity /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/settings/reports"
+          element={user ? <Reports /> : <Navigate to="/login" replace />}
+        />
 
         <Route
           path="/404"
@@ -237,6 +248,10 @@ export default function App() {
         <Route
           path="/targets/edit/:id"
           element={user ? <TargetDetail /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/iframe"
+          element={user ? <IframePage /> : <Navigate to="/login" replace />}
         />
 
         <Route 

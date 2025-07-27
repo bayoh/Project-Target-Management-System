@@ -10,7 +10,6 @@ import {
   Menu,
   Plus,
   ListChecks,
-  Briefcase,
   X,
   User,
   UserCheck2Icon,
@@ -25,6 +24,7 @@ import {
   Settings2Icon,
   AmbulanceIcon,
   ActivityIcon,
+  UserCheck2,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
@@ -117,6 +117,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     },
     { icon: UserCheck2Icon, label: 'My Tasks', path: '/userdashboard', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership']},
     { icon: BarChart2, label: 'Reports', path: '/reports', roles: ['lead', 'super_admin', 'leadership'] },
+    { icon: BarChart2, label: 'Metrics Dashboard', path: '/iframe', roles: ['lead', 'super_admin', 'leadership'] },
     // { icon: Briefcase, label: 'Jobs', path: '/jobs', roles: ['lead', 'super_admin', 'leadership'] },
     { 
       icon: Target,
@@ -139,6 +140,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       subItems: [
         { icon: User, label: 'User Management', path: '/settings/users', roles: ['super_admin'] },
         { icon: UserCog, label: 'Role Management', path: '/settings/roles', roles: ['super_admin'] },
+        {icon: UserCheck2, label: 'User Activity', path: '/settings/user-activity', roles: ['super_admin']},
         { icon: UserCheck2Icon, label: 'Batch Assignment', path: '/settings/assignment', roles: ['super_admin'] },
         { icon: Link, label: 'Projects/partners', path: '/settings/projectspartners', roles: ['super_admin', 'lead'] },
         { icon: ShieldAlert, label: 'Security Settings', path: '/settings/security', roles: ['super_admin'] },
