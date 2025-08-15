@@ -1,68 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { ReportGenerator } from '../../components/reports/ReportGenerator';
-import { ChevronLeft, Download } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { ChevronLeft } from 'lucide-react';
 import type { ReportTemplate } from '../../types/reports';
 import type { Intervention } from '../../types/project';
+import { useReportTemplate } from '../../hooks/useReportTemplateQueries';
+import { useInterventionDetail } from '../../hooks/useInterventionQueries';
 
 export function GenerateReport() {
   const { templateId, interventionId } = useParams();
   const navigate = useNavigate();
-  const [template, setTemplate] = useState<ReportTemplate | null>(null);
-  const [intervention, setIntervention] = useState<Intervention | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, [templateId, interventionId]);
+  // Fetch template via hook
+  const { data: template, isLoading: templateLoading } = useReportTemplate(templateId);
 
-  const loadData = async () => {
-    try {
-      const [templateData, interventionData] = await Promise.all([
-        supabase
-          .from('report_templates')
-          .select('*')
-          .eq('id', templateId)
-          .single(),
-        supabase
-          .from('interventions')
-          .select(`
-            *,
-            pathway:pathways(name),
-            lead:users_view!interventions_lead_id_fkey(email),
-            objectives:intervention_objectives(id, description),
-            resources:intervention_resources(id, name, quantity, unit, acquired),
-            success_criteria:intervention_success_criteria(
-              id, description, target_value, target_unit, current_value
-            ),
-            actions(
-              *,
-              tasks(*),
-              indicators(
-                *,
-                reports:indicator_reports(*)
-              )
-            )
-          `)
-          .eq('id', interventionId)
-          .single(),
-      ]);
+  // Fetch intervention details via new hook
+  const {
+    data: intervention,
+    isLoading: interventionLoading,
+    error: interventionError,
+  } = useInterventionDetail(interventionId);
 
-      if (templateData.error) throw templateData.error;
-      if (interventionData.error) throw interventionData.error;
-
-      setTemplate(templateData.data);
-      setIntervention(interventionData.data);
-    } catch (err) {
-      console.error('Error loading data:', err);
-      setError('Failed to load template or intervention data');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = templateLoading || interventionLoading;
+  const error = interventionError ? (interventionError instanceof Error ? interventionError.message : 'Failed to load data') : null;
 
   const handleSave = () => {
     navigate('/reports');
@@ -78,12 +39,12 @@ export function GenerateReport() {
     );
   }
 
-  if (!template || !intervention) {
+  if (error || !template || !intervention) {
     return (
       <DashboardLayout>
         <div className="text-center py-12">
           <h3 className="mt-2 text-sm font-medium text-gray-900">
-            Template or intervention not found
+            {error || 'Template or intervention not found'}
           </h3>
           <div className="mt-6">
             <button
@@ -111,14 +72,15 @@ export function GenerateReport() {
               Back
             </button>
             <h1 className="text-2xl font-bold text-gray-900">
-              {template.name} - {intervention.name}
+              {(template as ReportTemplate).name} - {(intervention as Intervention).name
+              }
             </h1>
           </div>
         </div>
 
         <div className="flex-1 bg-gray-100 rounded-lg overflow-hidden">
           <ReportGenerator
-            template={template}
+            template={template as ReportTemplate}
             data={intervention}
             interventionId={interventionId!}
             onSave={handleSave}

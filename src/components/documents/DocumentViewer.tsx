@@ -13,7 +13,7 @@ export function DocumentViewer({ url, name, type, onClose }: DocumentViewerProps
 
   const isImage = type.startsWith('image/');
   const isPDF = type === 'application/pdf';
-  const urlPath = `https://yoltenqbpcdwshfehuwm.supabase.co/storage/v1/object/public/intervention-documents/${url}`
+  const urlPath = `https://yoltenqbpcdwshfehuwm.supabase.co/storage/v1/object/public/intervention-documents/${url}`;
 
   const renderContent = () => {
     if (isImage) {

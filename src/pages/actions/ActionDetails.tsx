@@ -5,8 +5,10 @@ import { supabase } from '../../lib/supabase';
 import type { Action, User } from '../../types/project';
 import { ActionDetails as ActionDetailsComponent } from '../../components/actions/ActionDetails';
 import { ChevronLeft } from 'lucide-react';
+import { useActivityTracking } from '../../hooks/useActivityTracking';
 
 export function ActionDetails() {
+  const { trackPageView } = useActivityTracking();
   const { id } = useParams();
   const navigate = useNavigate();
   const [action, setAction] = useState<Action | null>(null);
@@ -15,6 +17,7 @@ export function ActionDetails() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    trackPageView('Action Details');
     loadAction();
     loadUsers();
   }, [id]);
@@ -94,17 +97,22 @@ export function ActionDetails() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-          >
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Back
-          </button>
-          <h1 className="text-2xl font-bold text-gray-900">{action.name}</h1>
+        <div className="bg-white shadow-sm rounded-lg p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+            <button
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center px-3 py-2 border border-gray-200 shadow-sm text-sm font-medium rounded-lg text-gray-600 bg-white hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 w-fit"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">Back</span>
+            </button>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{action.name}</h1>
+              <p className="text-sm text-gray-500 mt-1">Action Details</p>
+            </div>
+          </div>
         </div>
 
         {/* Content */}

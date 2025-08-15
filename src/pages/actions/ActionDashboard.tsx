@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { 
   Plus,
@@ -18,16 +18,22 @@ import {
   Eye,
   Filter,
   X,
-  Loader2
+  Loader2,
+  Search
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { projectApi } from '../../lib/api';
+import { projectApi, userApi } from '../../lib/api';
 import type { Action, User, Intervention } from '../../types/project';
 import { ConfirmationDialog } from '../../components/ui/ConfirmationDialog';
 import { Select } from '../../components/ui/Select';
 import toast from 'react-hot-toast';
 import { ActionModal } from '../../components/ui/ActionModal';
+import { useActivityTracking } from '../../hooks/useActivityTracking';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../lib/queryKeys';
+import { executeQuery } from '../../lib/queries';
+import { useAuth } from '../../lib/auth';
 
 interface ConfirmationState {
   isOpen: boolean;
@@ -37,9 +43,9 @@ interface ConfirmationState {
 }
 
 export function ActionDashboard() {
-  const [actions, setActions] = useState<Action[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { trackPageView } = useActivityTracking();
+  const { user: sessionUser } = useAuth();
+  const queryClient = useQueryClient();
   const [confirmation, setConfirmation] = useState<ConfirmationState>({
     isOpen: false,
     type: 'delete',
@@ -47,69 +53,117 @@ export function ActionDashboard() {
   });
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const [interventions, setInterventions] = useState<Intervention[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [sessionUser, setSessionUser] = useState(null);
   const [filters, setFilters] = useState({
     interventionId: '',
     leadId: '',
     status: '',
-    search: ''
+    search: '',
+    intervention: '',
+    lead: '',
+    supportingStaff: [],
+    implementingPartners: [],
+    associatedProjects: []
   });
   const [showFilters, setShowFilters] = useState(false);
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAction, setSelectedAction] = useState<Action | null>(null);
- 
-  useEffect(() => {
-    Promise.all([
-      getSessionUser(),
-      loadActions(),
-      loadInterventions(),
-      loadUsers()
-    ]);
-  }, []);
 
-  const getSessionUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setSessionUser(user);
-  };
+  // Fetch actions using TanStack Query
+  const { data: actions = [], isLoading: loading, error } = useQuery({
+    queryKey: queryKeys.projects.actions(),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('actions')
+        .select(`
+          *,
+          intervention:interventions(*),
+          lead:profiles!actions_lead_id_fkey1(*)
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return (data || []).map((action: any) => ({
+        ...action,
+        intervention: action.intervention || { id: '', name: 'Unknown Intervention', code: '' },
+        lead: action.lead || { id: '', email: 'Unassigned', full_name: 'Unassigned' },
+        supporting_staff: action.supporting_staff ? (typeof action.supporting_staff === 'string' ? action.supporting_staff.split(',').map((s: string) => s.trim()) : action.supporting_staff) : [],
+        implementing_partners: action.implementing_partners ? (typeof action.implementing_partners === 'string' ? action.implementing_partners.split(',').map((s: string) => s.trim()) : action.implementing_partners) : [],
+        associated_projects: action.associated_projects ? (typeof action.associated_projects === 'string' ? action.associated_projects.split(',').map((s: string) => s.trim()) : action.associated_projects) : [],
+        confirmText: `Are you sure you want to delete "${action.name || 'this action'}"?`
+      }));
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
-  const loadActions = async () => {
-    try{
-      const data = await projectApi.getActions();
-      setActions(data || []);
-    } catch (err) {
-      console.error('Failed to load actions:', err);
-      setError('Failed to load actions');
-      toast.error('Failed to load actions');
-    } finally {
-      setLoading(false);  
-    }
-  }
+  // Fetch interventions using TanStack Query
+  const { data: interventions = [] } = useQuery({
+    queryKey: queryKeys.projects.interventions(),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('interventions')
+        .select('*')
+        .order('name');
+      
+      if (error) throw error;
+      return (data || []).map((intervention: any) => ({
+        ...intervention,
+        name: intervention.name || 'Unknown Intervention',
+        code: intervention.code || ''
+      }));
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
-  const loadInterventions = async () => {
-    try {
-      const data = await projectApi.getInterventions();
-      setInterventions(data || []);
-    } catch (err) {
-      console.error('Error loading interventions:', err);
-    }
-  };
-
-  const loadUsers = async () => {
-    try {
+  // Fetch users using TanStack Query
+  const { data: users = [] } = useQuery({
+    queryKey: queryKeys.users.list(),
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .order('email');
-
+        .order('full_name');
+      
       if (error) throw error;
-      setUsers(data || []);
-    } catch (err) {
-      console.error('Error loading users:', err);
-    }
-  };
+      return (data || []).map((user: any) => ({
+        ...user,
+        full_name: user.full_name || user.email || 'Unknown User'
+      }));
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Fetch projects for associated projects filter
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name, code')
+        .order('name');
+      
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+
+  // Delete action mutation
+  const deleteActionMutation = useMutation({
+    mutationFn: (actionId: string) => projectApi.deleteAction(actionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.actions() });
+      toast.success('Action deleted successfully');
+    },
+    onError: (error) => {
+      console.error('Error deleting action:', error);
+      toast.error('Failed to delete action');
+    },
+  });
+ 
+  useEffect(() => {
+    trackPageView('Action Dashboard');
+  }, []);
 
   const handleDeleteClick = (id: string) => {
     setConfirmation({
@@ -122,22 +176,18 @@ export function ActionDashboard() {
   const handleDelete = async () => {
     const toastId = toast.loading('Deleting action...');
     try {
-      await projectApi.deleteAction(confirmation.actionId);
+      await deleteActionMutation.mutateAsync(confirmation.actionId);
       
       setConfirmation({
         isOpen: false,
         type: 'delete',
         actionId: '',
       });
-
-      await loadActions();
       
-      toast.success('Action deleted successfully', { id: toastId });
+      toast.dismiss(toastId);
     } catch (err: any) {
       console.error('Error deleting action:', err);
-      toast.error('Failed to delete action', { id: toastId });
-      
-      await loadActions();
+      toast.dismiss(toastId);
     }
   };
 
@@ -155,7 +205,7 @@ export function ActionDashboard() {
 
     const toastId = toast.loading('Updating action status...');
     try {
-      await projectApi.updateActionStatus(confirmation.actionId, confirmation.newStatus);
+      await projectApi.updateAction(confirmation.actionId, { status: confirmation.newStatus });
       
       setConfirmation({
         isOpen: false,
@@ -163,14 +213,14 @@ export function ActionDashboard() {
         actionId: '',
       });
 
-      await loadActions();
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.actions() });
       
       toast.success('Action status updated successfully', { id: toastId });
     } catch (err: any) {
       console.error('Error updating action status:', err);
       toast.error('Failed to update action status', { id: toastId });
       
-      await loadActions();
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.actions() });
     }
   };
 
@@ -189,26 +239,53 @@ export function ActionDashboard() {
     }
   };
 
-  const filteredActions = actions.filter(action => {
+  const filteredActions = (actions || []).filter((action: any) => {
     if (filters.interventionId && action.intervention_id !== filters.interventionId) return false;
+    if (filters.intervention && action.intervention_id !== filters.intervention) return false;
     if (filters.leadId && action.lead_id !== filters.leadId) return false;
+    if (filters.lead && action.lead_id !== filters.lead) return false;
     if (filters.status && action.status !== filters.status) return false;
     if (filters.search) {
       const searchTerm = filters.search.toLowerCase();
-      const matchesName = action.name.toLowerCase().includes(searchTerm);
-      const matchesDescription = action.description?.toLowerCase().includes(searchTerm) || false;
+      const actionName = action.name || '';
+      const actionDescription = action.description || '';
+      const matchesName = actionName.toLowerCase().includes(searchTerm);
+      const matchesDescription = actionDescription.toLowerCase().includes(searchTerm);
       if (!matchesName && !matchesDescription) return false;
     }
-    return true;
+    
+    const matchesSupportingStaff = filters.supportingStaff.length === 0 || 
+      filters.supportingStaff.some(staff => 
+        action.supporting_staff?.some((actionStaff: string) => 
+          actionStaff.toLowerCase().includes(staff.toLowerCase())
+        )
+      );
+    
+    const matchesImplementingPartners = filters.implementingPartners.length === 0 || 
+      filters.implementingPartners.some(partner => 
+        action.implementing_partners?.some((actionPartner: string) => 
+          actionPartner.toLowerCase().includes(partner.toLowerCase())
+        )
+      );
+    
+    const matchesAssociatedProjects = filters.associatedProjects.length === 0 || 
+      filters.associatedProjects.some(projectId => 
+        action.associated_projects?.some((actionProject: string) => 
+          actionProject === projectId
+        )
+      );
+    
+    return matchesSupportingStaff && matchesImplementingPartners && matchesAssociatedProjects;
   });
 
   const getMetrics = () => {
-    const totalActions = filteredActions.length;
+    const safeActions = Array.isArray(filteredActions) ? filteredActions : [];
+    const totalActions = safeActions.length;
     const statusCounts = {
-      completed: filteredActions.filter(a => a.status === 'completed').length,
-      in_progress: filteredActions.filter(a => a.status === 'in_progress').length,
-      at_risk: filteredActions.filter(a => a.status === 'at_risk').length,
-      not_started: filteredActions.filter(a => a.status === 'not_started').length
+      completed: safeActions.filter((a: any) => a.status === 'completed').length,
+      in_progress: safeActions.filter((a: any) => a.status === 'in_progress').length,
+      at_risk: safeActions.filter((a: any) => a.status === 'at_risk').length,
+      not_started: safeActions.filter((a: any) => a.status === 'not_started').length
     };
     return { totalActions, statusCounts };
   };
@@ -267,7 +344,7 @@ export function ActionDashboard() {
       
       setIsModalOpen(false);
       setSelectedAction(null);
-      await loadActions();
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.actions() });
       
       toast.success(selectedAction ? 'Action updated successfully' : 'Action created successfully', { id: toastId });
     } catch (err: any) {
@@ -278,20 +355,27 @@ export function ActionDashboard() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Actions</h1>
-          <div className="flex items-center gap-4">
+      <div className="space-y-5 lg:space-y-6">
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6 lg:mb-8">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-1">Actions Dashboard</h1>
+            <p className="text-sm lg:text-base text-gray-600">Manage and track all actions across interventions</p>
+          </div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              className={`inline-flex items-center justify-center px-4 py-2.5 border border-gray-200 rounded-lg shadow-sm text-sm font-medium transition-all duration-200 ${
+                showFilters 
+                  ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-md' 
+                  : 'bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300'
+              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
             >
               <Filter className="h-4 w-4 mr-2" />
-              Filters
+              {showFilters ? 'Hide Filters' : 'Show Filters'}
             </button>
             <button
               onClick={() => handlenewActionClick()}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+              className="inline-flex items-center justify-center px-4 py-2.5 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
             >
               <Plus className="h-4 w-4 mr-2" />
               New Action
@@ -299,254 +383,320 @@ export function ActionDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 lg:gap-4 mb-5 lg:mb-6">
           <div 
-            className="bg-white shadow-sm rounded-lg p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+            className="bg-white shadow-md rounded-xl p-4 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-300 border border-gray-100 group"
             onClick={() => {
               setShowFilters(true);
-              setFilters(prev => ({ ...prev, status: '' }));
+              setFilters(prev => ({ ...prev, status: '', intervention: '', lead: '' }));
             }}
           >
             <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Target className="h-6 w-6 text-blue-600" />
+              <div className="p-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-sm group-hover:shadow-md transition-shadow">
+                <Target className="h-5 w-5 text-white" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Total Actions</p>
-                <h3 className="text-xl font-semibold text-gray-900">{metrics.totalActions}</h3>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Actions</p>
+                <h3 className="text-lg font-bold text-gray-900">{metrics.totalActions}</h3>
               </div>
             </div>
           </div>
           <div 
-            className="bg-white shadow-sm rounded-lg p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+            className="bg-white shadow-md rounded-xl p-4 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-300 border border-gray-100 group"
             onClick={() => {
               setShowFilters(true);
-              setFilters(prev => ({ ...prev, status: 'completed' }));
+              setFilters(prev => ({ ...prev, status: 'completed', intervention: '', lead: '' }));
             }}
           >
             <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <CheckCircle2 className="h-6 w-6 text-green-600" />
+              <div className="p-2.5 bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-sm group-hover:shadow-md transition-shadow">
+                <CheckCircle2 className="h-5 w-5 text-white" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Completed</p>
-                <h3 className="text-xl font-semibold text-gray-900">{metrics.statusCounts.completed}</h3>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Completed</p>
+                <h3 className="text-lg font-bold text-gray-900">{metrics.statusCounts.completed}</h3>
               </div>
             </div>
           </div>
           <div 
-            className="bg-white shadow-sm rounded-lg p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+            className="bg-white shadow-md rounded-xl p-4 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-300 border border-gray-100 group"
             onClick={() => {
               setShowFilters(true);
-              setFilters(prev => ({ ...prev, status: 'in_progress' }));
+              setFilters(prev => ({ ...prev, status: 'in_progress', intervention: '', lead: '' }));
             }}
           >
             <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Clock className="h-6 w-6 text-blue-600" />
+              <div className="p-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-sm group-hover:shadow-md transition-shadow">
+                <Clock className="h-5 w-5 text-white" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">On Going/On Track</p>
-                <h3 className="text-xl font-semibold text-gray-900">{metrics.statusCounts.in_progress}</h3>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">On Track</p>
+                <h3 className="text-lg font-bold text-gray-900">{metrics.statusCounts.in_progress}</h3>
               </div>
             </div>
           </div>
           <div 
-            className="bg-white shadow-sm rounded-lg p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+            className="bg-white shadow-md rounded-xl p-4 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-300 border border-gray-100 group"
             onClick={() => {
               setShowFilters(true);
-              setFilters(prev => ({ ...prev, status: 'at_risk' }));
+              setFilters(prev => ({ ...prev, status: 'at_risk', intervention: '', lead: '' }));
             }}
           >
             <div className="flex items-center">
-              <div className="p-2 bg-amber-100 rounded-lg">
-                <AlertTriangle className="h-6 w-6 text-amber-600" />
+              <div className="p-2.5 bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg shadow-sm group-hover:shadow-md transition-shadow">
+                <AlertTriangle className="h-5 w-5 text-white" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">On Going/Off Track</p>
-                <h3 className="text-xl font-semibold text-gray-900">{metrics.statusCounts.at_risk}</h3>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Off Track</p>
+                <h3 className="text-lg font-bold text-gray-900">{metrics.statusCounts.at_risk}</h3>
               </div>
             </div>
           </div>
           <div 
-            className="bg-white shadow-sm rounded-lg p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+            className="bg-white shadow-md rounded-xl p-4 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-300 border border-gray-100 group"
             onClick={() => {
               setShowFilters(true);
-              setFilters(prev => ({ ...prev, status: 'not_started' }));
+              setFilters(prev => ({ ...prev, status: 'not_started', intervention: '', lead: '' }));
             }}
           >
             <div className="flex items-center">
-              <div className="p-2 bg-gray-100 rounded-lg">
-                <X className="h-6 w-6 text-gray-600" />
+              <div className="p-2.5 bg-gradient-to-br from-gray-500 to-gray-600 rounded-lg shadow-sm group-hover:shadow-md transition-shadow">
+                <X className="h-5 w-5 text-white" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Not Started</p>
-                <h3 className="text-xl font-semibold text-gray-900">{metrics.statusCounts.not_started}</h3>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Not Started</p>
+                <h3 className="text-lg font-bold text-gray-900">{metrics.statusCounts.not_started}</h3>
               </div>
             </div>
           </div>
         </div>
 
         {showFilters && (
-          <div className="bg-white shadow-sm rounded-lg p-6 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-3">
-                <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
-                  Search
-                </label>
-                <input
-                  type="text"
-                  id="search"
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                  placeholder="Search by name or description"
-                  value={filters.search}
-                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                />
+          <div className="bg-white shadow-lg rounded-xl p-5 border border-gray-100">
+            <div className="space-y-4">
+              {/* Search Bar */}
+              <div className="w-full">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search actions..."
+                    value={filters.search}
+                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                  />
+                </div>
               </div>
-              <div>
-                <label htmlFor="intervention" className="block text-sm font-medium text-gray-700 mb-1">
-                  Intervention
-                </label>
-                <Select
-                  options={interventions.map(intervention => ({ 
-                    value: intervention.id, 
-                    label: intervention.name,
-                    prefix: intervention.code
-                  }))}
+              
+              {/* Primary Filters */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <select
                   value={filters.interventionId}
-                  onChange={(value) => setFilters(prev => ({ ...prev, interventionId: value }))}
-                  placeholder="Select Intervention"
-                  allowClear
-                  searchable
-                  sortable
-                />
-              </div>
-              <div>
-                <label htmlFor="lead" className="block text-sm font-medium text-gray-700 mb-1">
-                  Lead
-                </label>
-                <Select
-                  options={users.map(user => ({ 
-                    value: user.id, 
-                    label: user.full_name || user.email || ''
-                  }))}
+                  onChange={(e) => setFilters(prev => ({ ...prev, interventionId: e.target.value }))}
+                  className="px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                >
+                  <option value="">All Interventions</option>
+                  {interventions?.map((intervention) => (
+                    <option key={intervention.id} value={intervention.id}>
+                      {intervention.name}
+                    </option>
+                  ))}
+                </select>
+                <select
                   value={filters.leadId}
-                  onChange={(value) => setFilters(prev => ({ ...prev, leadId: value }))}
-                  placeholder="Select Lead"
-                  allowClear
+                  onChange={(e) => setFilters(prev => ({ ...prev, leadId: e.target.value }))}
+                  className="px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                >
+                  <option value="">All Leads</option>
+                  {users?.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.full_name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={filters.status}
+                  onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                  className="px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                >
+                  <option value="">All Status</option>
+                  <option value="not_started">Not Started</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="completed">Completed</option>
+                  <option value="at_risk">At Risk</option>
+                </select>
+                <Select
+                  options={projects.map(project => ({ value: project.id, label: project.name }))}
+                  value={filters.associatedProjects}
+                  onChange={(value) => setFilters(prev => ({ ...prev, associatedProjects: value }))}
+                  placeholder="Associated Projects"
+                  multiple
                   searchable
-                  sortable
+                  allowClear
+                  className="min-w-0"
                 />
               </div>
-              <div>
-                <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-                  Status
-                </label>
+              
+              {/* Secondary Filters */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Select
                   options={[
-                    { value: 'not_started', label: 'Not Started' },
-                    { value: 'in_progress', label: 'In Progress' },
-                    { value: 'at_risk', label: 'At Risk' },
-                    { value: 'completed', label: 'Completed' }
-                  ]}
-                  value={filters.status}
-                  onChange={(value) => setFilters(prev => ({ ...prev, status: value }))}
-                  placeholder="Select Status"
+                    ...new Set(
+                      actions.flatMap(action => action.supporting_staff || [])
+                    )
+                  ].filter(Boolean).map(staff => ({ value: staff, label: staff }))}
+                  value={filters.supportingStaff}
+                  onChange={(value) => setFilters(prev => ({ ...prev, supportingStaff: value }))}
+                  placeholder="Supporting Staff"
+                  multiple
+                  searchable
+                  allowClear
+                  className="min-w-0"
+                />
+                <Select
+                  options={[
+                    ...new Set(
+                      actions.flatMap(action => action.implementing_partners || [])
+                    )
+                  ].filter(Boolean).map(partner => ({ value: partner, label: partner }))}
+                  value={filters.implementingPartners}
+                  onChange={(value) => setFilters(prev => ({ ...prev, implementingPartners: value }))}
+                  placeholder="Implementing Partners"
+                  multiple
+                  searchable
+                  allowClear
+                  className="min-w-0"
                 />
               </div>
+              
+              {/* Clear All Filters */}
+              {(filters.search || filters.interventionId || filters.leadId || filters.status || 
+                filters.supportingStaff.length > 0 || filters.implementingPartners.length > 0 || 
+                filters.associatedProjects.length > 0) && (
+                <div className="flex justify-end pt-2 border-t border-gray-100">
+                  <button
+                    onClick={() => setFilters({
+                      interventionId: '',
+                      leadId: '',
+                      status: '',
+                      search: '',
+                      intervention: '',
+                      lead: '',
+                      supportingStaff: [],
+                      implementingPartners: [],
+                      associatedProjects: []
+                    })}
+                    className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Clear All Filters
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-          <div className="divide-y divide-gray-200">
-            {filteredActions.map((action) => {
-              const intervention = interventions.find(i => i.id === action.intervention_id);
-              const lead = users.find(u => u.id === action.lead_id);
+        <div className="space-y-3">
+          {filteredActions.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-100">
+              <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <Target className="h-8 w-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No actions found</h3>
+              <p className="text-sm text-gray-500 max-w-sm mx-auto">
+                {filters.search || filters.interventionId || filters.leadId || filters.status ||
+                 filters.supportingStaff.length > 0 || filters.implementingPartners.length > 0 ||
+                 filters.associatedProjects.length > 0
+                  ? 'Try adjusting your filters to see more results'
+                  : 'Get started by creating your first action'}
+              </p>
+            </div>
+          ) : (
+            filteredActions.map((action: any) => {
+              const intervention = (interventions || []).find((i: any) => i.id === action.intervention_id) || action.intervention;
+              const lead = (users || []).find((u: any) => u.id === action.lead_id) || action.lead;
               
               return (
-                <div
-                  key={action.id}
-                  className="p-6 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2">
+                <div key={action.id} className="bg-white shadow-md rounded-xl p-5 hover:shadow-lg transition-all duration-300 border border-gray-100 group">
+                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-start space-x-3">
+                        <div className="flex-shrink-0 mt-1">
                           {getStatusIcon(action.status)}
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${action.status === 'completed' ? 'bg-green-100 text-green-800' : action.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : action.status === 'at_risk' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
-                            {action.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                          </span>
                         </div>
-                        <p className="text-sm font-medium text-gray-500">{action.code}</p>
-                        <h2 className="text-lg font-medium text-gray-900 truncate">{action.name}</h2>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">{action.name || 'Untitled Action'}</h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                            <div className="flex items-center text-sm text-gray-600">
+                              <span className="font-medium text-gray-700 mr-1">Intervention:</span>
+                              <span className="truncate">{intervention?.name || 'N/A'}</span>
+                            </div>
+                            <div className="flex items-center text-sm text-gray-600">
+                              <span className="font-medium text-gray-700 mr-1">Lead:</span>
+                              <span className="truncate">{lead?.full_name || lead?.email || 'N/A'}</span>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                            <div className="flex items-center text-sm text-gray-600">
+                              <Calendar className="h-4 w-4 mr-1.5 text-gray-400" />
+                              <span className="font-medium text-gray-700 mr-1">Start:</span>
+                              <span>{action.start_date ? (() => {
+                                try {
+                                  const date = typeof action.start_date === 'string' ? new Date(action.start_date) : action.start_date;
+                                  return date.toLocaleDateString();
+                                } catch {
+                                  return 'Invalid date';
+                                }
+                              })() : 'N/A'}</span>
+                            </div>
+                            <div className="flex items-center text-sm text-gray-600">
+                              <Calendar className="h-4 w-4 mr-1.5 text-gray-400" />
+                              <span className="font-medium text-gray-700 mr-1">End:</span>
+                              <span>{action.end_date ? (() => {
+                                try {
+                                  const date = typeof action.end_date === 'string' ? new Date(action.end_date) : action.end_date;
+                                  return date.toLocaleDateString();
+                                } catch {
+                                  return 'Invalid date';
+                                }
+                              })() : 'N/A'}</span>
+                            </div>
+                          </div>
+                          {action.description && (
+                            <p className="text-sm text-gray-600 leading-relaxed line-clamp-2">{action.description}</p>
+                          )}
+                        </div>
                       </div>
-                      {intervention && (
-                        <p className="mt-1 text-sm text-gray-500">Intervention: {intervention.name}</p>
-                      )}
-                      {lead && (
-                        <p className="mt-1 text-sm text-gray-500">Lead: {lead.full_name || lead.email}</p>
-                      )}
-                      <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          <span>Start: {action.start_date ? new Date(action.start_date).toLocaleDateString() : 'Not set'}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          <span>End: {action.end_date ? new Date(action.end_date).toLocaleDateString() : 'Not set'}</span>
-                        </div>
-                      </div>
-                      {action.description && (
-                        <p className="mt-2 text-sm text-gray-700">{action.description}</p>
-                      )}
                     </div>
-                    <div className="ml-6 flex items-center gap-4">
+                    <div className="flex flex-row lg:flex-col xl:flex-row items-center gap-2 lg:ml-4">
                       <button
                         onClick={() => navigate(`/interventions/${action.intervention_id}/actions/${action.id}`)}
-                        className="text-gray-400 hover:text-gray-500"
+                        className="flex-1 lg:flex-none inline-flex items-center justify-center px-3 py-2 border border-gray-200 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
                       >
-                        <Eye className="h-5 w-5" />
+                        <Eye className="h-4 w-4 mr-1.5" />
+                        View
                       </button>
                       <button
                         onClick={() => handleEditClick(action)}
-                        className="text-gray-400 hover:text-gray-500"
+                        className="flex-1 lg:flex-none inline-flex items-center justify-center px-3 py-2 border border-blue-200 shadow-sm text-sm font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
                       >
-                        <Edit2 className="h-5 w-5" />
+                        <Edit2 className="h-4 w-4 mr-1.5" />
+                        Edit
                       </button>
                       <button
                         onClick={() => handleDeleteClick(action.id)}
-                        className="text-gray-400 hover:text-gray-500"
+                        className="flex-1 lg:flex-none inline-flex items-center justify-center px-3 py-2 border border-red-200 shadow-sm text-sm font-medium rounded-lg text-red-700 bg-red-50 hover:bg-red-100 hover:border-red-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200"
                       >
-                        <Trash2 className="h-5 w-5" />
+                        <Trash2 className="h-4 w-4 mr-1.5" />
+                        Delete
                       </button>
                     </div>
                   </div>
                 </div>
               );
-            })}
-
-            {filteredActions.length === 0 && (
-              <div className="p-6 text-center">
-                <Network className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">
-                  No actions found
-                </h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  Get started by creating a new action
-                </p>
-                <div className="mt-6">
-                  <button
-                    onClick={() => handlenewActionClick()}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    New Action
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+            })
+          )}
         </div>
       </div>
 

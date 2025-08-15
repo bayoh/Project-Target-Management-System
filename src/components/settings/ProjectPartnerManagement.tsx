@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { userApi } from '../../lib/api';
 import {  User  } from '../../types/auth';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../lib/queryKeys';
+import { executeQuery } from '../../lib/queries';
+import { useAuth } from '../../lib/auth';
 
 interface Project {
   id: string;
@@ -18,9 +22,29 @@ interface Partner {
 
 }
 
+// Query functions
+const fetchProjects = async (): Promise<Project[]> => {
+  const result = await executeQuery(
+    supabase.from('associated_projects').select('*')
+  );
+  return result.data || [];
+};
+
+const fetchPartners = async (): Promise<Partner[]> => {
+  const result = await executeQuery(
+    supabase.from('implementing_partners').select('*')
+  );
+  return result.data || [];
+};
+
+const fetchUsers = async (): Promise<User[]> => {
+  const data = await userApi.getUsers();
+  return (data as User[]) || [];
+};
+
 export function ProjectPartnerManagement() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [partners, setPartners] = useState<Partner[]>([]);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalType, setModalType] = useState<'project' | 'partner'>('project');
   const [editingItem, setEditingItem] = useState<Project | Partner | null>(null);
@@ -31,78 +55,66 @@ export function ProjectPartnerManagement() {
     created_by: '',
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
-  const [user, setUser] = useState<User | null>(null);
 
-  useEffect(() => {
-    fetchProjects();
-    fetchPartners();
-    fetchUsers();
-    fetchUser(); // Fetch the user on component mount or when the user changes her
-  }, []);
+  // Use TanStack Query for data fetching
+  const { data: projects = [], isLoading: projectsLoading } = useQuery({
+    queryKey: ['associated_projects'],
+    queryFn: fetchProjects,
+    staleTime: 5 * 60 * 1000,
+  });
 
-const fetchUsers = async () => {
-  const data  = await userApi.getUsers();
-  setUsers(data as User[] || null);
-  if (!data) {
-    console.error('Error fetching users:');
-    return [];
-  }
-}
+  const { data: partners = [], isLoading: partnersLoading } = useQuery({
+    queryKey: ['implementing_partners'],
+    queryFn: fetchPartners,
+    staleTime: 5 * 60 * 1000,
+  });
 
-const fetchUser = async () => {
-  const { data, error } = await supabase.auth.getUser();
-  console.log(data);
-  setUser(data.user as User || null);
-  if (error) {
-    console.error('Error fetching user:', error);
-    return null;
-  }
-  return data.user;
-}
+  const { data: users = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: fetchUsers,
+    staleTime: 10 * 60 * 1000,
+  });
 
-const fetchProjects = async () => {
-  setIsLoading(true);
-  try {
-    const { data, error } = await supabase
-      .from('associated_projects')
-      .select('*');
+  const isLoading = projectsLoading || partnersLoading;
 
-    if (error) {
-      throw error;
-    }
+  // Mutations for CRUD operations
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('associated_projects')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['associated_projects'] });
+      showSuccess('Project deleted successfully');
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Failed to delete project';
+      showError(message);
+    },
+  });
 
-    setProjects(data);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to fetch projects';
-    showError(message);
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-const fetchPartners = async () => {
-  setIsLoading(true);
-  try {
-    const { data, error } = await supabase
-      .from('implementing_partners')
-      .select('*');
-
-    if (error) {
-      throw error;
-    }
-
-    setPartners(data);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to fetch partners';
-    showError(message);
-  } finally {
-    setIsLoading(false);
-  }
-};
+  const deletePartnerMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('implementing_partners')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['implementing_partners'] });
+      showSuccess('Partner deleted successfully');
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Failed to delete partner';
+      showError(message);
+    },
+  });
 
   const showError = (message: string) => {
     const notification = document.createElement('div');
@@ -144,23 +156,11 @@ const fetchPartners = async () => {
   const handleDelete = async (id: string, type: 'project' | 'partner') => {
     setIsDeleting(id);
     try {
-      const { error } = await supabase
-        .from(type === 'project' ? 'associated_projects' : 'implementing_partners')
-        .delete()
-        .eq('id', id);
-        
-      if (error) {
-        throw error;
-      }
-      showSuccess(`${type} deleted successfully`);
       if (type === 'project') {
-        fetchProjects();
+        await deleteProjectMutation.mutateAsync(id);
       } else {
-        fetchPartners();
+        await deletePartnerMutation.mutateAsync(id);
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : `Failed to delete ${type}`;
-      showError(message);
     } finally {
       setIsDeleting(null);
     }

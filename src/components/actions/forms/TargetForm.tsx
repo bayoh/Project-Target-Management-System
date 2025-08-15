@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
-import { Input } from '../../ui/Input'; // Added import
-import { Select } from '../../ui/Select'; // Added import
-import { Button } from '../../ui/button'; // Added import
+import { AlertCircle, Target, TrendingUp, Users, Briefcase } from 'lucide-react';
+import { Input } from '../../ui/input';
+import { Select } from '../../ui/Select';
+import { Button } from '../../ui/button';
 
 interface TargetFormProps {
   onSubmit: (data: any) => Promise<void>;
@@ -72,158 +72,220 @@ export function TargetForm({ onSubmit, onCancel, target }: TargetFormProps) {
   ];
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6 p-1 md:p-0">
+    <div className="space-y-4">
       {error && (
-        <div className="rounded-md bg-red-50 p-3 md:p-4">
-          <div className="flex items-start">
-            <AlertTriangle className="h-5 w-5 text-red-400 mr-2 flex-shrink-0" />
-            <div className="text-sm text-red-700">{error}</div>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+          <div className="flex items-start gap-3">
+            <div className="p-1 bg-red-100 dark:bg-red-900/30 rounded">
+              <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-medium text-red-800 dark:text-red-200">Error</h3>
+              <p className="mt-1 text-sm text-red-700 dark:text-red-300">{error}</p>
+            </div>
           </div>
         </div>
       )}
 
-      <Select
-        label="Category"
-        options={categoryOptions}
-        value={formData.category}
-        onChange={(value) => setFormData({ ...formData, category: value as string })}
-        placeholder="Select a category"
-        className="w-full"
-      />
+    <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6 p-1 md:p-0">
 
-      <Input
-        label="Description *"
-        id="description"
-        required
-        type="textarea"
-        rows={3}
-        value={formData.description}
-        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-        className="w-full"
-      />
-
-      <Input
-        label="Metric *"
-        type="text"
-        id="metric"
-        required
-        value={formData.metric}
-        onChange={(e) => setFormData({ ...formData, metric: e.target.value })}
-        placeholder="e.g., jobs, percentage, hours"
-        className="w-full"
-      />
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
-        <Input
-          label="Baseline Value *"
-          type="number"
-          id="baseline_value"
-          required
-          step="any"
-          value={formData.baseline_value}
-          onChange={(e) => setFormData({ ...formData, baseline_value: e.target.value })}
-          className="w-full"
-        />
-
-        <Input
-          label="Target Value *"
-          type="number"
-          id="target_value"
-          required
-          step="any"
-          value={formData.target_value}
-          onChange={(e) => setFormData({ ...formData, target_value: e.target.value })}
-          className="w-full"
-        />
-
-        <Input
-          label="Current Value *"
-          type="number"
-          id="current_value"
-          required
-          step="any"
-          value={formData.current_value}
-          onChange={(e) => setFormData({ ...formData, current_value: e.target.value })}
+      <div className="space-y-2">
+        <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <Briefcase className="inline h-4 w-4 mr-1" />
+          Category *
+        </label>
+        <Select
+          options={[
+            { value: 'jobs', label: 'Jobs' },
+            { value: 'other', label: 'Other' }
+          ]}
+          value={formData.category}
+          onChange={(value) => setFormData({ ...formData, category: value as any })}
+          placeholder="Select a category"
           className="w-full"
         />
       </div>
 
-      {isJobTarget && (
-        <div className="space-y-4 md:space-y-6 border-t border-gray-200 pt-4 md:pt-6 mt-4 md:mt-6">
-          <h4 className="text-base font-semibold text-gray-800">Job Target Details</h4>
-          
-          <Select
-            label="Job Type"
-            options={[
-              { value: '', label: 'Select a job type' },
-              { value: 'direct', label: 'Direct' },
-              { value: 'indirect', label: 'Indirect' },
-            ]}
-            value={formData.job_subcategory}
-            onChange={(value) => setFormData({ ...formData, job_subcategory: value as string })}            
-            placeholder="Select job subcategory"
-            className="w-full"
+      <div className="space-y-2">
+        <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <Target className="inline h-4 w-4 mr-1" />
+          Description *
+        </label>
+        <Input
+          id="description"
+          type="text"
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          placeholder="Describe the target..."
+          required
+          className="h-10"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="metric" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <TrendingUp className="inline h-4 w-4 mr-1" />
+          Metric *
+        </label>
+        <Input
+          id="metric"
+          type="text"
+          value={formData.metric}
+          onChange={(e) => setFormData({ ...formData, metric: e.target.value })}
+          placeholder="e.g., Number of jobs created"
+          required
+          className="h-10"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <label htmlFor="baseline_value" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Baseline Value *
+          </label>
+          <Input
+            id="baseline_value"
+            type="number"
+            value={formData.baseline_value}
+            onChange={(e) => setFormData({ ...formData, baseline_value: e.target.value })}
+            placeholder="0"
+            required
+            className="h-10"
           />
+        </div>
 
-          {/* Women Jobs Section */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
-            <Input
-              label="Target Jobs for Women"
-              type="number"
-              id="women_target"
-              value={formData.women_target}
-              onChange={(e) => setFormData({ ...formData, women_target: e.target.value })}
-              className="w-full"
-            />
-            <Input
-              label="Current Jobs for Women"
-              type="number"
-              id="women_current"
-              value={formData.women_current}
-              onChange={(e) => setFormData({ ...formData, women_current: e.target.value })}
-              className="w-full"
-            />
-          </div>
+        <div className="space-y-2">
+          <label htmlFor="target_value" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <Target className="inline h-4 w-4 mr-1 text-green-500" />
+            Target Value *
+          </label>
+          <Input
+            id="target_value"
+            type="number"
+            value={formData.target_value}
+            onChange={(e) => setFormData({ ...formData, target_value: e.target.value })}
+            placeholder="100"
+            required
+            className="h-10"
+          />
+        </div>
 
-          {/* Youth Jobs Section */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
-            <Input
-              label="Target Jobs for Youth"
-              type="number"
-              id="youth_target"
-              value={formData.youth_target}
-              onChange={(e) => setFormData({ ...formData, youth_target: e.target.value })}
-              className="w-full"
-            />
-            <Input
-              label="Current Jobs for Youth"
-              type="number"
-              id="youth_current"
-              value={formData.youth_current}
-              onChange={(e) => setFormData({ ...formData, youth_current: e.target.value })}
-              className="w-full"
-            />
+        <div className="space-y-2">
+          <label htmlFor="current_value" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <TrendingUp className="inline h-4 w-4 mr-1 text-blue-500" />
+            Current Value
+          </label>
+          <Input
+            id="current_value"
+            type="number"
+            value={formData.current_value}
+            onChange={(e) => setFormData({ ...formData, current_value: e.target.value })}
+            placeholder="50"
+            className="h-10"
+          />
+        </div>
+      </div>
+
+      {formData.category === 'jobs' && (
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <h3 className="text-base font-medium text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+              <Briefcase className="h-5 w-5 text-blue-600" />
+              Job Target Details
+            </h3>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="job_subcategory" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Job Type
+                </label>
+                <Input
+                  id="job_subcategory"
+                  type="text"
+                  value={formData.job_subcategory}
+                  onChange={(e) => setFormData({ ...formData, job_subcategory: e.target.value })}
+                  placeholder="e.g., Full-time, Part-time, Contract"
+                  className="h-10"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="women_target" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <Users className="inline h-4 w-4 mr-1 text-pink-500" />
+                    Women's Target Jobs
+                  </label>
+                  <Input
+                    id="women_target"
+                    type="number"
+                    value={formData.women_target}
+                    onChange={(e) => setFormData({ ...formData, women_target: e.target.value })}
+                    placeholder="0"
+                    className="h-10"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="women_current" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <Users className="inline h-4 w-4 mr-1 text-pink-500" />
+                    Women's Current Jobs
+                  </label>
+                  <Input
+                    id="women_current"
+                    type="number"
+                    value={formData.women_current}
+                    onChange={(e) => setFormData({ ...formData, women_current: e.target.value })}
+                    placeholder="0"
+                    className="h-10"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="youth_target" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <Users className="inline h-4 w-4 mr-1 text-purple-500" />
+                    Youth Target Jobs
+                  </label>
+                  <Input
+                    id="youth_target"
+                    type="number"
+                    value={formData.youth_target}
+                    onChange={(e) => setFormData({ ...formData, youth_target: e.target.value })}
+                    placeholder="0"
+                    className="h-10"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="youth_current" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <Users className="inline h-4 w-4 mr-1 text-purple-500" />
+                    Youth Current Jobs
+                  </label>
+                  <Input
+                    id="youth_current"
+                    type="number"
+                    value={formData.youth_current}
+                    onChange={(e) => setFormData({ ...formData, youth_current: e.target.value })}
+                    placeholder="0"
+                    className="h-10"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      <div className="flex flex-col space-y-3 pt-4 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-end">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-          className="w-full sm:w-auto"
-        >
+      <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+        <Button type="button" variant="outline" onClick={onCancel} className="sm:w-auto w-full">
           Cancel
         </Button>
-        <Button
-          type="submit"
-          disabled={loading}
-          className="w-full sm:w-auto"
-        >
+        <Button type="submit" disabled={loading} className="sm:w-auto w-full">
           {loading ? 'Saving...' : 'Save Target'}
         </Button>
       </div>
     </form>
+    </div>
   );
 }

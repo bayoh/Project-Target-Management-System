@@ -4,14 +4,17 @@ import { Plus, ChevronRight, Network, EarthIcon, LucideHeartHandshake, List, Luc
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import type { Cluster } from '../types/project';
+import { useActivityTracking } from '../hooks/useActivityTracking';
 
 export function Clusters() {
+  const { trackPageView } = useActivityTracking();
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const navigate = useNavigate();
 
   useEffect(() => {
+    trackPageView('Clusters');
     loadClusters();
   }, []);
 
@@ -40,6 +43,15 @@ export function Clusters() {
     }
   };
 
+  // Determine accent color classes based on cluster name, matching JobsDashboard pattern
+  const getClusterAccentBg = (name?: string) => {
+    const n = (name || '').toLowerCase();
+    if (n.includes('climate')) return 'bg-[#4eab5b]';
+    if (n.includes('heritage')) return 'bg-[#bb5f29]';
+    if (n.includes('digital')) return 'bg-[#68389a]';
+    return 'bg-[#07225c]';
+  };
+
   const getClusterStats = (cluster: Cluster) => {
     const pathwayCount = cluster.pathways?.length || 0;
     const interventionCount = cluster.pathways?.reduce((sum, pathway) => 
@@ -52,6 +64,7 @@ export function Clusters() {
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {[...clusters].sort((a, b) => String(a.code).localeCompare(String(b.code))).map((cluster) => {
         const { pathwayCount, interventionCount } = getClusterStats(cluster);
+        const accentBg = getClusterAccentBg(cluster.name);
         return (
           <div
             key={cluster.id}
@@ -60,16 +73,16 @@ export function Clusters() {
           >
             <div className="px-4 py-5 sm:p-6">
               <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0 p-2 bg-blue-50 rounded-lg">
+                <div className={`flex-shrink-0 p-2 rounded-lg ${accentBg}`}>
                   {/* Generate a unique icon based on cluster code/id */}
                   {cluster.code == 1 ? (
-                    <EarthIcon className="h-6 w-6 text-blue-600" />
+                    <EarthIcon className="h-6 w-6 text-white" />
                   ) : cluster.code == 4 ? (
-                    <LucideGraduationCap className="h-6 w-6 text-blue-600" />
+                    <LucideGraduationCap className="h-6 w-6 text-white" />
                   ) : cluster.code == 2 ? (
-                    <LucideHeartHandshake className="h-6 w-6 text-blue-600" />
+                    <LucideHeartHandshake className="h-6 w-6 text-white" />
                   ) : (
-                    <LucideComputer className="h-6 w-6 text-blue-600" />
+                    <LucideComputer className="h-6 w-6 text-white" />
                   )}
                 </div>
                 <div className="flex items-center">

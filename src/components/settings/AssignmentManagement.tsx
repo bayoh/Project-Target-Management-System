@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Check, Search } from 'lucide-react';
-import { projectApi, userApi } from '../../lib/api'
-import {supabase} from '../../lib/supabase'
+import { projectApi, userApi } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../lib/queryKeys';
+import { executeQuery } from '../../lib/queries';
+import { useAuth } from '../../lib/auth';
 
 
 interface Intervention {
@@ -18,86 +22,121 @@ interface User {
 }
 
 export function AssignmentManagement() {
-  const [actions, setActions] = useState<Intervention[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
   const [selectedInterventions, setSelectedActions] = useState<string[]>([]);
   const [selectedLead, setSelectedLead] = useState<string>('');
   const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [clusters, setClusters] = useState<{ id: string; name: string }[]>([]);
-  const [pathways, setPathways] = useState<{ id: string; name: string }[]>([]);
   const [selectedCluster, setSelectedCluster] = useState('');
   const [selectedPathway, setSelectedPathway] = useState('');
 
+  // Fetch clusters using TanStack Query
+  const { data: clusters = [] } = useQuery({
+    queryKey: queryKeys.clusters.lists(),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clusters')
+        .select('id, name')
+        .order('name');
+      
+      if (error) throw error;
+      return (data || []).map((cluster: any) => ({
+        ...cluster,
+        name: cluster.name || 'Unnamed Cluster',
+        totalActivities: 0,
+        activitySummary: {
+          total: 0,
+          completed: 0,
+          in_progress: 0,
+          pending: 0
+        }
+      }));
+    },
+  });
+
+  // Fetch pathways using TanStack Query
+  const { data: pathways = [] } = useQuery({
+    queryKey: queryKeys.pathways.byCluster(selectedCluster),
+    queryFn: async () => {
+      if (!selectedCluster) return [];
+      const { data, error } = await supabase
+        .from('pathways')
+        .select('id, name')
+        .eq('cluster_id', selectedCluster)
+        .order('name');
+      
+      if (error) throw error;
+      return (data || []).map((pathway: any) => ({
+        ...pathway,
+        name: pathway.name || 'Unnamed Pathway',
+        totalActivities: 0,
+        activitySummary: {
+          total: 0,
+          completed: 0,
+          in_progress: 0,
+          pending: 0
+        }
+      }));
+    },
+    enabled: !!selectedCluster,
+  });
+
+  // Reset pathway selection when cluster changes
   useEffect(() => {
-    const fetchClusters = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('clusters')
-          .select('id, name')
-          .order('name');
-
-        if (error) throw error;
-        setClusters(data || []);
-      } catch (error) {
-        console.error('Error fetching clusters:', error);
-      }
-    };
-
-    fetchClusters();
-  }, []);
-
-  useEffect(() => {
-    const fetchPathways = async () => {
-      if (!selectedCluster) {
-        setPathways([]);
-        setSelectedPathway('');
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from('pathways')
-          .select('id, name')
-          .eq('cluster_id', selectedCluster)
-          .order('name');
-
-        if (error) throw error;
-        setPathways(data || []);
-      } catch (error) {
-        console.error('Error fetching pathways:', error);
-      }
-    };
-
-    fetchPathways();
+    if (!selectedCluster) {
+      setSelectedPathway('');
+    }
   }, [selectedCluster]);
 
-  useEffect(() => {
-    // TODO: Fetch actions and users from API
-    const fetchData = async () => {
-      try {
-        // Implement API calls here
-        // Example:
-        const data = await projectApi.getActions();
-        const users = await userApi.getUsers()
+  // Fetch actions using TanStack Query
+  const { data: actions = [], isLoading: actionsLoading } = useQuery({
+    queryKey: queryKeys.interventions.lists(),
+    queryFn: async () => {
+      const data = await projectApi.getActions();
+      return (data || []).map((action: any) => ({
+        ...action,
+        name: action.name || 'Unnamed Action',
+        totalActivities: 0,
+        activitySummary: {
+          total: 0,
+          completed: 0,
+          in_progress: 0,
+          pending: 0
+        },
+        intervention: action.intervention || {
+          pathway: {
+            cluster: { id: '', name: 'Unknown Cluster' },
+            id: '',
+            name: 'Unknown Pathway'
+          }
+        }
+      }));
+    },
+  });
 
-        setActions(data)
-        setUsers(users)
-        console.log(data)
+  // Fetch users using TanStack Query
+  const { data: users = [], isLoading: usersLoading } = useQuery({
+    queryKey: queryKeys.auth.users(),
+    queryFn: async () => {
+      const data = await userApi.getUsers();
+      return (data || []).map((user: any) => ({
+        ...user,
+        full_name: user.full_name || user.email || 'Unknown User',
+        totalActivities: 0,
+        activitySummary: {
+          total: 0,
+          completed: 0,
+          in_progress: 0,
+          pending: 0
+        }
+      }));
+    },
+  });
 
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
+  const loading = actionsLoading || usersLoading;
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
+      
       setSelectedActions(actions.map(i => i.id));
     } else {
       setSelectedActions([]);
@@ -105,20 +144,23 @@ export function AssignmentManagement() {
   };
 
   const handleSelectAction = (id: string) => {
+   
     setSelectedActions(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
+
   };
 
   const handleBulkAssignLead = async () => {
-    // if (!selectedLead || selectedInterventions.length === 0) return;
+    if (!selectedLead || selectedInterventions.length === 0) return;
 
     try {
       // TODO: Implement API call for bulk lead assignment
 
       // Example:
       const ass = await projectApi.updateActionAssignment(selectedInterventions, selectedLead, selectedStaff)
-      console.log(ass)
+      
+      // console.log(ass)
 
       console.log('Assigning lead:', selectedLead, 'to actions:', selectedInterventions);
     } catch (error) {

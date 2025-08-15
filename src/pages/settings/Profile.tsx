@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { supabase } from '../../lib/supabase';
-import { Camera, Loader2, Lock, UserCircle } from 'lucide-react'; // Added UserCircle
-import toast from 'react-hot-toast';
+import { User, Camera, Loader2, UserCircle, Lock } from 'lucide-react';
 
 interface ProfileData {
   id: string;
+  full_name: string;
   email: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  phone: string | null;
-  role: 'super_admin' | 'leadership' | 'lead' | 'supporting_staff';
+  phone: string;
+  role: string;
+  avatar_url?: string;
 }
 
 interface FormData {
@@ -27,7 +26,7 @@ interface PasswordData {
 }
 
 export function Profile() {
-  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [formData, setFormData] = useState<FormData>({
     full_name: '',
     email: '',
@@ -49,66 +48,39 @@ export function Profile() {
   }, []);
 
   const loadProfile = async () => {
-    setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated user');
+      if (!user) return;
 
-      const { data: existingProfile, error: fetchError } = await supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .maybeSingle();
+        .single();
 
-      if (fetchError) throw fetchError;
-
-      let profileData = existingProfile;
-
-      if (!profileData) {
-        const userRole = user.user_metadata?.role || 'supporting_staff';
-        const { data: createdProfile, error: createError } = await supabase
-          .from('profiles')
-          .insert([{
-            id: user.id,
-            full_name: user.email?.split('@')[0] || 'New User',
-            avatar_url: null,
-            phone: null,
-            role: userRole,
-            // status: 'active' // Assuming status is handled or not needed here for simplicity
-          }])
-          .select()
-          .single();
-
-        if (createError) throw createError;
-        profileData = createdProfile;
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading profile:', error);
+        return;
       }
 
-      const userRoleFromMeta = user.user_metadata?.role;
-      if (userRoleFromMeta && profileData.role !== userRoleFromMeta) {
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ role: userRoleFromMeta })
-          .eq('id', user.id);
-
-        if (updateError) throw updateError;
-        profileData.role = userRoleFromMeta;
-      }
-
-      setProfile({
+      const profileInfo = profile || {
         id: user.id,
-        email: user.email!,
-        ...profileData
-      });
+        full_name: user.user_metadata?.full_name || '',
+        email: user.email || '',
+        phone: user.user_metadata?.phone || '',
+        role: user.user_metadata?.role || 'user',
+        avatar_url: user.user_metadata?.avatar_url
+      };
 
+      setProfileData(profileInfo);
       setFormData({
-        full_name: profileData.full_name || '',
-        email: user.email!,
-        phone: profileData.phone || '',
-        role: profileData.role || ''
+        full_name: profileInfo.full_name,
+        email: profileInfo.email,
+        phone: profileInfo.phone,
+        role: profileInfo.role
       });
-    } catch (err) {
-      console.error('Error loading profile:', err);
-      toast.error('Failed to load profile. Please try again.');
+    } catch (error) {
+      console.error('Error loading profile:', error);
     } finally {
       setLoading(false);
     }
@@ -116,52 +88,44 @@ export function Profile() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile) return;
-
     setSaving(true);
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated user');
+      if (!user) return;
 
-      const currentMetadata = user.user_metadata || {};
-      const needsMetadataUpdate = 
-        currentMetadata.full_name !== formData.full_name ||
-        currentMetadata.phone !== formData.phone; 
-        // Role update in metadata might be restricted or handled differently
-        // currentMetadata.role !== formData.role;
-
-      if (formData.email !== profile.email || needsMetadataUpdate) {
-        const updateData: { email?: string; data?: any } = {};
-        if (formData.email !== profile.email) {
-          updateData.email = formData.email;
-        }
-        if (needsMetadataUpdate) {
-          updateData.data = {
-            full_name: formData.full_name,
-            phone: formData.phone,
-            // role: formData.role // Avoid updating role directly in user_metadata here unless specifically intended
-          };
-        }
-        const { error: userError } = await supabase.auth.updateUser(updateData);
-        if (userError) throw userError;
-      }
-
+      // Update or insert profile
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          id: user.id,
           full_name: formData.full_name,
+          email: formData.email,
           phone: formData.phone,
-          // role: formData.role, // Role update in profiles table, ensure this is desired behavior
+          role: formData.role,
           updated_at: new Date().toISOString()
-        })
-        .eq('id', profile.id);
+        });
 
-      if (profileError) throw profileError;
-      toast.success('Profile updated successfully!');
-      await loadProfile(); // Reload to reflect changes
-    } catch (err: any) {
-      console.error('Error updating profile:', err);
-      toast.error(err.message || 'Failed to update profile.');
+      if (profileError) {
+        console.error('Error updating profile:', profileError);
+        return;
+      }
+
+      // Update auth metadata
+      const { error: authError } = await supabase.auth.updateUser({
+        data: {
+          full_name: formData.full_name,
+          phone: formData.phone
+        }
+      });
+
+      if (authError) {
+        console.error('Error updating auth metadata:', authError);
+      }
+
+      await loadProfile();
+    } catch (error) {
+      console.error('Error saving profile:', error);
     } finally {
       setSaving(false);
     }
@@ -169,83 +133,80 @@ export function Profile() {
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error('New passwords do not match.');
-      return;
-    }
-    if (passwordData.newPassword.length < 8) {
-      toast.error('New password must be at least 8 characters long.');
+      alert('New passwords do not match');
       return;
     }
 
     setChangingPassword(true);
+
     try {
-      // Note: Supabase doesn't have a direct way to verify current password before changing.
-      // This is a direct update to the new password.
       const { error } = await supabase.auth.updateUser({
         password: passwordData.newPassword
       });
 
-      if (error) throw error;
-      toast.success('Password updated successfully!');
-      setPasswordData({
-        currentPassword: '', // Clear current password for security, though it's not used for verification here
-        newPassword: '',
-        confirmPassword: ''
-      });
-    } catch (err: any) {
-      console.error('Error updating password:', err);
-      toast.error(err.message || 'Failed to update password.');
+      if (error) {
+        console.error('Error changing password:', error);
+        alert('Error changing password: ' + error.message);
+      } else {
+        alert('Password updated successfully');
+        setPasswordData({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+      }
+    } catch (error) {
+      console.error('Error changing password:', error);
     } finally {
       setChangingPassword(false);
     }
   };
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !e.target.files[0] || !profile) return;
-
-    const file = e.target.files[0];
-    const fileSize = file.size / 1024 / 1024; // Convert to MB
-    if (fileSize > 2) {
-      toast.error('File size must be less than 2MB. Please choose a smaller file.');
-      return;
-    }
+    const file = e.target.files?.[0];
+    if (!file) return;
 
     setUploading(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${profile.id}/${crypto.randomUUID()}.${fileExt}`;
 
-      // Remove old avatar if exists
-      if (profile.avatar_url) {
-        const oldFilePath = profile.avatar_url.substring(profile.avatar_url.lastIndexOf('avatars/') + 'avatars/'.length);
-        if (oldFilePath !== filePath) { // Avoid deleting if it's somehow the same path (unlikely with UUID)
-          await supabase.storage.from('avatars').remove([oldFilePath]);
-        }
-      }
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file, { upsert: true }); // Use upsert true to overwrite if somehow same path exists
+        .upload(filePath, file, { upsert: true });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Error uploading avatar:', uploadError);
+        return;
+      }
 
-      const { data: { publicUrl } } = supabase.storage
+      const { data } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
-        .eq('id', profile.id);
+        .upsert({
+          id: user.id,
+          avatar_url: data.publicUrl,
+          updated_at: new Date().toISOString()
+        });
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Error updating avatar URL:', updateError);
+        return;
+      }
 
-      toast.success('Avatar updated successfully!');
-      await loadProfile(); // Reload to reflect changes
-    } catch (err: any) {
-      console.error('Error uploading avatar:', err);
-      toast.error(err.message || 'Failed to upload avatar.');
+      await loadProfile();
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
     } finally {
       setUploading(false);
     }
@@ -254,8 +215,8 @@ export function Profile() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[calc(100vh-150px)]">
-          <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
         </div>
       </DashboardLayout>
     );
@@ -263,43 +224,47 @@ export function Profile() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-3xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-8">
-        <header>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Profile Settings</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Manage your personal information, account security, and preferences.
-          </p>
-        </header>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+          <div className="flex items-center space-x-3">
+            <User className="h-6 w-6 text-blue-600" />
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Profile Settings</h1>
+              <p className="text-sm text-gray-600 mt-1">Manage your account information and preferences</p>
+            </div>
+          </div>
+        </div>
 
         {/* Profile Information Section */}
         <section aria-labelledby="profile-information-heading" className="bg-white shadow-lg rounded-xl overflow-hidden">
           <div className="p-6 sm:p-8">
-            <div className="md:flex md:items-center md:space-x-6">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6">
               {/* Avatar */}
-              <div className="relative w-28 h-28 mx-auto md:mx-0 mb-6 md:mb-0 flex-shrink-0">
-                <div className="w-full h-full rounded-full overflow-hidden bg-gray-200 ring-4 ring-white shadow-md">
-                  {profile?.avatar_url ? (
+              <div className="relative">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 p-0.5">
+                  {profileData?.avatar_url ? (
                     <img
-                      src={profile.avatar_url}
-                      alt={profile.full_name || 'Profile avatar'}
-                      className="w-full h-full object-cover"
+                      src={profileData.avatar_url}
+                      alt="Profile"
+                      className="w-full h-full rounded-full object-cover bg-white"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      <UserCircle className="h-16 w-16" />
+                    <div className="w-full h-full rounded-full bg-gray-100 flex items-center justify-center">
+                      <UserCircle className="h-10 w-10 text-gray-400" />
                     </div>
                   )}
                   {uploading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full">
-                      <Loader2 className="h-8 w-8 animate-spin text-white" />
+                      <Loader2 className="h-5 w-5 animate-spin text-white" />
                     </div>
                   )}
                 </div>
                 <label
                   htmlFor="avatar-upload"
-                  className={`absolute -bottom-1 -right-1 bg-blue-600 rounded-full p-2 shadow-md cursor-pointer hover:bg-blue-700 transition-colors ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`absolute -bottom-0.5 -right-0.5 bg-blue-600 rounded-full p-1.5 shadow-sm cursor-pointer hover:bg-blue-700 transition-all duration-200 hover:scale-105 ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  <Camera className="h-5 w-5 text-white" />
+                  <Camera className="h-3 w-3 text-white" />
                   <input
                     id="avatar-upload"
                     type="file"
@@ -312,24 +277,24 @@ export function Profile() {
               </div>
 
               {/* Basic Info */} 
-              <div className="text-center md:text-left">
-                <h2 id="profile-information-heading" className="text-2xl font-semibold text-gray-900">
+              <div className="text-center sm:text-left flex-1">
+                <h2 id="profile-information-heading" className="text-xl font-semibold text-gray-900">
                   {formData.full_name || 'User Profile'}
                 </h2>
-                <p className="text-sm text-gray-500 mt-1">{formData.email}</p>
+                <p className="text-sm text-gray-600 mt-0.5">{formData.email}</p>
                 {formData.role && (
-                    <p className="mt-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full inline-block capitalize">
+                    <span className="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
                         {formData.role.replace('_', ' ')}
-                    </p>
+                    </span>
                 )}
               </div>
             </div>
 
             {/* Profile Form */}
-            <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-              <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                <div className="sm:col-span-3">
-                  <label htmlFor="full_name" className="block text-sm font-medium text-gray-700">
+            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-1">
                     Full Name
                   </label>
                   <input
@@ -338,14 +303,14 @@ export function Profile() {
                     autoComplete="name"
                     value={formData.full_name}
                     onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm placeholder-gray-400"
+                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm placeholder-gray-400 transition-colors"
                     placeholder="Your full name"
                     required
                   />
                 </div>
 
-                <div className="sm:col-span-3">
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                     Email Address
                   </label>
                   <input
@@ -354,15 +319,15 @@ export function Profile() {
                     autoComplete="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm placeholder-gray-400"
+                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm placeholder-gray-400 transition-colors"
                     placeholder="you@example.com"
                     required
                   />
                 </div>
 
-                <div className="sm:col-span-3">
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                    Phone Number <span className="text-xs text-gray-400">(Optional)</span>
+                <div>
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone Number <span className="text-xs text-gray-500">(Optional)</span>
                   </label>
                   <input
                     type="tel"
@@ -370,33 +335,33 @@ export function Profile() {
                     autoComplete="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm placeholder-gray-400"
+                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm placeholder-gray-400 transition-colors"
                     placeholder="+1 (555) 987-6543"
                   />
                 </div>
                 
-                <div className="sm:col-span-3">
-                  <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+                <div>
+                  <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
                     Role
                   </label>
                   <input
                     type="text"
                     id="role"
-                    value={formData.role.replace('_', ' ').replace(/\w/g, l => l.toUpperCase())} // Format role for display
+                    value={formData.role.replace('_', ' ').replace(/\w/g, l => l.toUpperCase())} // Format role for display
                     readOnly
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-100 focus:ring-blue-500 sm:text-sm text-gray-500 cursor-not-allowed"
+                    className="block w-full rounded-lg border-gray-300 shadow-sm bg-gray-50 text-sm text-gray-600 cursor-not-allowed"
                   />
                 </div>
               </div>
 
-              <div className="pt-5 flex justify-end">
+              <div className="pt-4 flex justify-end">
                 <button
                   type="submit"
                   disabled={saving || uploading}
-                  className="inline-flex items-center justify-center px-6 py-2.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  className="inline-flex items-center justify-center px-5 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-md"
                 >
                   {saving ? (
-                    <><Loader2 className="animate-spin h-5 w-5 mr-2" />Saving...</>
+                    <><Loader2 className="animate-spin h-4 w-4 mr-2" />Saving...</>
                   ) : (
                     'Save Changes'
                   )}
@@ -410,13 +375,13 @@ export function Profile() {
         <section aria-labelledby="password-heading" className="bg-white shadow-lg rounded-xl overflow-hidden">
           <div className="p-6 sm:p-8">
             <div className="flex items-center space-x-3 mb-6 border-b border-gray-200 pb-4">
-              <Lock className="h-6 w-6 text-gray-500" />
-              <h2 id="password-heading" className="text-xl font-semibold text-gray-900">Change Password</h2>
+              <Lock className="h-5 w-5 text-gray-500" />
+              <h2 id="password-heading" className="text-lg font-semibold text-gray-900">Change Password</h2>
             </div>
 
-            <form onSubmit={handlePasswordChange} className="space-y-6">
+            <form onSubmit={handlePasswordChange} className="space-y-4">
               <div>
-                <label htmlFor="current-password" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="current-password" className="block text-sm font-medium text-gray-700 mb-1">
                   Current Password
                 </label>
                 <input
@@ -425,55 +390,57 @@ export function Profile() {
                   autoComplete="current-password"
                   value={passwordData.currentPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm placeholder-gray-400"
+                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm placeholder-gray-400 transition-colors"
                   placeholder="Your current password"
                   required
                 />
                  <p className="mt-1 text-xs text-gray-500">Required to change your password. If forgotten, use password reset.</p>
               </div>
 
-              <div>
-                <label htmlFor="new-password" className="block text-sm font-medium text-gray-700">
-                  New Password
-                </label>
-                <input
-                  type="password"
-                  id="new-password"
-                  autoComplete="new-password"
-                  value={passwordData.newPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm placeholder-gray-400"
-                  placeholder="Minimum 8 characters"
-                  required
-                  minLength={8}
-                />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mb-1">
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    id="new-password"
+                    autoComplete="new-password"
+                    value={passwordData.newPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm placeholder-gray-400 transition-colors"
+                    placeholder="Minimum 8 characters"
+                    required
+                    minLength={8}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirm New Password
+                  </label>
+                  <input
+                    type="password"
+                    id="confirm-password"
+                    autoComplete="new-password"
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm placeholder-gray-400 transition-colors"
+                    placeholder="Re-enter new password"
+                    required
+                    minLength={8}
+                  />
+                </div>
               </div>
 
-              <div>
-                <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700">
-                  Confirm New Password
-                </label>
-                <input
-                  type="password"
-                  id="confirm-password"
-                  autoComplete="new-password"
-                  value={passwordData.confirmPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm placeholder-gray-400"
-                  placeholder="Re-enter new password"
-                  required
-                  minLength={8}
-                />
-              </div>
-
-              <div className="pt-5 flex justify-end">
+              <div className="pt-4 flex justify-end">
                 <button
                   type="submit"
                   disabled={changingPassword}
-                  className="inline-flex items-center justify-center px-6 py-2.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  className="inline-flex items-center justify-center px-5 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-md"
                 >
                   {changingPassword ? (
-                    <><Loader2 className="animate-spin h-5 w-5 mr-2" />Updating Password...</>
+                    <><Loader2 className="animate-spin h-4 w-4 mr-2" />Updating Password...</>
                   ) : (
                     'Update Password'
                   )}

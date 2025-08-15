@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Plus, Search, Filter, Edit2, Trash2, AlertTriangle, DatabaseBackup } from 'lucide-react';
 import { UserForm } from './UserForm';
 import { ConfirmationDialog } from '../ui/ConfirmationDialog';
-import { userApi } from '../../lib/api'
+import { userApi } from '../../lib/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../lib/queryKeys';
+import { executeQuery } from '../../lib/queries';
 
 interface User {
   id: string;
@@ -16,9 +19,6 @@ interface User {
 }
 
 export function UserManagement() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showUserForm, setShowUserForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -26,76 +26,90 @@ export function UserManagement() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
+  const queryClient = useQueryClient();
 
-  const loadUsers = async () => {
-    try {
-      const users = await userApi.getUsers();
-      console.log(users)
-      setUsers(users || []);
-    } catch (err: any) {
-      console.error('Error loading users:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Fetch users using TanStack Query
+  const { data: users = [], isLoading: loading, error } = useQuery({
+    queryKey: queryKeys.auth.users(),
+    queryFn: () => userApi.getUsers(),
+  });
 
-  const handleUserSubmit = async (userData: Partial<User>) => {
-    try {
-      if (editingUser) {
-        await userApi.updateProfile(editingUser.id, {
-          full_name: userData.full_name,
-          role: userData.role,
-          status: userData.status
-        }).then(async (data) => {
-         console.log(data)
-         await supabase.auth.admin.updateUserById(editingUser.id, {
-          email: userData.email,
-          user_metadata: {
-            role: userData.role,
-            status: userData.status
-          }
-        });
-      });
-      } else {
-        // Create new user using userApi
-        await userApi.createUser(
-          userData.email!,
-          userData.password!, // Generate random password
-          {
-            full_name: userData.full_name,
-            role: userData.role,
-            status: 'active'
-          }
-        );
+  // User creation mutation
+  const createUserMutation = useMutation({
+    mutationFn: (userData: Partial<User>) => userApi.createUser(
+      userData.email!,
+      userData.password!,
+      {
+        full_name: userData.full_name,
+        role: userData.role,
+        status: 'active'
       }
-
-      await loadUsers();
+    ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.auth.users() });
       setShowUserForm(false);
       setEditingUser(null);
-    } catch (err: any) {
-      console.error('Error saving user:', err);
+    },
+    onError: (err: any) => {
+      console.error('Error creating user:', err);
       throw err;
+    },
+  });
+
+  // User update mutation
+  const updateUserMutation = useMutation({
+    mutationFn: async (userData: Partial<User>) => {
+      if (!editingUser) throw new Error('No user being edited');
+      
+      await userApi.updateProfile(editingUser.id, {
+        full_name: userData.full_name,
+        role: userData.role,
+        status: userData.status
+      });
+      
+      await supabase.auth.admin.updateUserById(editingUser.id, {
+        email: userData.email,
+        user_metadata: {
+          role: userData.role,
+          status: userData.status
+        }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.auth.users() });
+      setShowUserForm(false);
+      setEditingUser(null);
+    },
+    onError: (err: any) => {
+      console.error('Error updating user:', err);
+      throw err;
+    },
+  });
+
+  const handleUserSubmit = async (userData: Partial<User>) => {
+    if (editingUser) {
+      await updateUserMutation.mutateAsync(userData);
+    } else {
+      await createUserMutation.mutateAsync(userData);
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    try {
-      // Update profiles table instead of the view
-      const { error } = await supabase
-        .from('profiles')
-        .update({ status: 'inactive' })
-        .eq('id', userId);
-
-      if (error) throw error;
-      await loadUsers();
+  // User deletion mutation
+  const deleteUserMutation = useMutation({
+    mutationFn: (userId: string) => executeQuery(
+      () => supabase.from('profiles').update({ status: 'inactive' }).eq('id', userId)
+    ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.auth.users() });
       setShowDeleteConfirm(null);
-    } catch (err) {
+    },
+    onError: (err: any) => {
       console.error('Error deleting user:', err);
-    }
+    },
+  });
+
+  const handleDeleteUser = async (userId: string) => {
+    await deleteUserMutation.mutateAsync(userId);
   };
 
   const formatRole = (role: string | null) => {
@@ -105,14 +119,16 @@ export function UserManagement() {
     ).join(' ');
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = 
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-    const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
-    return matchesSearch && matchesRole && matchesStatus;
-  });
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => {
+      const matchesSearch = 
+        user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+      const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
+      return matchesSearch && matchesRole && matchesStatus;
+    });
+  }, [users, searchTerm, roleFilter, statusFilter]);
 
   if (loading) {
     return (

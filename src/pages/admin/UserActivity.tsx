@@ -5,6 +5,9 @@ import { useActivityTracking } from '../../hooks/useActivityTracking';
 import { Search, Filter, Download, Eye, Calendar, Users, Activity, CalendarDays } from 'lucide-react';
 import UserActivityDetail from '../../components/admin/UserActivityDetail';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
+import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '../../lib/queryKeys';
+import { executeQuery } from '../../lib/queries';
 
 interface UserActivitySummary {
   user_id: string;
@@ -33,9 +36,6 @@ interface ActivityFilters {
 const UserActivity: React.FC = () => {
   const { user, isAdmin } = useAuth();
   const { trackPageView } = useActivityTracking();
-  const [users, setUsers] = useState<UserActivitySummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<ActivityFilters>({
     search: '',
     role: '',
@@ -52,41 +52,26 @@ const UserActivity: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
+  // Fetch user activity data using TanStack Query
+  const { data: users = [], isLoading: loading, error } = useQuery({
+    queryKey: queryKeys.admin.userActivity(),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('user_activity_summary')
+        .select('*')
+        .order('last_activity', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: !!user && isAdmin,
+  });
+
   // Track page view
   useEffect(() => {
     // trackPageView('User Activity Dashboard');
   }, []);
-
-  // Fetch user activity data
-  useEffect(() => {
-    if (!isAdmin) {
-      setError('Access denied. Admin privileges required.');
-      setLoading(false);
-      return;
-    }
-
-    fetchUserActivity();
-  }, [isAdmin]);
-
-  const fetchUserActivity = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const { data, error: fetchError } = await supabase
-        .from('user_activity_summary')
-        .select('*');
-
-      if (fetchError) throw fetchError;
-
-      setUsers(data || []);
-    } catch (err) {
-      console.error('Error fetching user activity:', err);
-      setError('Failed to load user activity data');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Filter and sort users
   const filteredAndSortedUsers = useMemo(() => {
@@ -454,13 +439,7 @@ const UserActivity: React.FC = () => {
             </div>
           ) : error ? (
             <div className="p-8 text-center">
-              <p className="text-red-600">{error}</p>
-              <button
-                onClick={fetchUserActivity}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Retry
-              </button>
+              <p className="text-red-600">{(error as Error).message}</p>
             </div>
           ) : (
             <>
@@ -522,7 +501,7 @@ const UserActivity: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {paginatedUsers.map((user) => {
+                    {paginatedUsers.map((user: UserActivitySummary) => {
                 
                       const activityStatus = getActivityStatus(user.last_activity);
                       return (

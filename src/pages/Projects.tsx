@@ -3,19 +3,28 @@ import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { projectApi } from '../lib/api';
-import type { Project } from '../types/project';
+import { supabase } from '../lib/supabase';
+import type { Intervention } from '../types/project';
+import { useActivityTracking } from '../hooks/useActivityTracking';
 
 export function Projects() {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const { trackPageView } = useActivityTracking();
+  const [projects, setProjects] = useState<Intervention[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
+    trackPageView('Projects');
+    
     const loadProjects = async () => {
       try {
-        const data = await projectApi.getProjects();
-        setProjects(data);
+        const { data, error } = await supabase
+          .from('interventions')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        setProjects(data || []);
       } catch (error) {
         console.error('Failed to load projects:', error);
       } finally {
@@ -26,7 +35,7 @@ export function Projects() {
     loadProjects();
   }, []);
 
-  const getStatusColor = (status: Project['status']) => {
+  const getStatusColor = (status: Intervention['status']) => {
     const colors = {
       not_started: 'bg-gray-100 text-gray-800',
       in_progress: 'bg-blue-100 text-blue-800',

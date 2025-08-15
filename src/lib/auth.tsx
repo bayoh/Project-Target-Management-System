@@ -19,19 +19,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
     let currentSessionId: string | null = null;
     let isInitialized = false;
     
     const cleanupSession = async () => {
       if (currentSessionId) {
         try {
+          await activityLogger.flushActivities(); // Flush all pending activities
           await activityLogger.endSession();
           await activityLogger.cleanup();
         } catch (error) {
           console.error('Error cleaning up session:', error);
         }
         currentSessionId = null;
-        setSessionId(null);
+        if (isMounted) {
+          setSessionId(null);
+        }
       }
     };
     
@@ -56,8 +60,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.error('Error getting session:', error);
       }
       
-      setUser(session?.user || null);
-      setIsAdmin(session?.user?.user_metadata?.role === 'admin' || session?.user?.user_metadata?.role === 'super_admin');
+      if (isMounted) {
+        setUser(session?.user || null);
+        setIsAdmin(session?.user?.user_metadata?.role === 'admin' || session?.user?.user_metadata?.role === 'super_admin');
+      }
       
       // Start activity tracking session if user is logged in
       if (session?.user && !isInitialized) {
@@ -65,14 +71,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isInitialized = true;
       }
       
-      setLoading(false);
+      if (isMounted) {
+        setLoading(false);
+      }
     };
 
     getSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user || null);
-      setIsAdmin(session?.user?.user_metadata?.role === 'super_admin' || session?.user?.user_metadata?.role === 'admin');
+      if (isMounted) {
+        setUser(session?.user || null);
+        setIsAdmin(session?.user?.user_metadata?.role === 'super_admin' || session?.user?.user_metadata?.role === 'admin');
+      }
       
       // Handle login/logout activity tracking
       if (event === 'SIGNED_IN' && session?.user) {
@@ -81,11 +91,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         await cleanupSession();
       }
       
-      setLoading(false);
+      if (isMounted) {
+        setLoading(false);
+      }
     });
 
     // Cleanup on unmount
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
       // Cleanup session on unmount
       cleanupSession();

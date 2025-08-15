@@ -1,50 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Plus, FileText, Edit2, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
-import type { ReportTemplate } from '../../types/reports';
+import { useReportTemplates, useDeleteReportTemplate } from '../../hooks/useReportTemplateQueries';
 
 export function ReportTemplates() {
-  const [templates, setTemplates] = useState<ReportTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { data: templates, isLoading } = useReportTemplates();
+  const deleteTemplate = useDeleteReportTemplate();
 
-  useEffect(() => {
-    loadTemplates();
-  }, []);
-
-  const loadTemplates = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('report_templates')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setTemplates(data);
-    } catch (err) {
-      console.error('Error loading templates:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const deleteTemplate = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('report_templates')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      loadTemplates();
-    } catch (err) {
-      console.error('Error deleting template:', err);
-    }
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-[400px]">
@@ -69,7 +34,7 @@ export function ReportTemplates() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {templates.map((template) => (
+          {(templates || []).map((template) => (
             <div
               key={template.id}
               className="bg-white overflow-hidden shadow rounded-lg"
@@ -90,8 +55,9 @@ export function ReportTemplates() {
                       <Edit2 className="h-5 w-5" />
                     </button>
                     <button
-                      onClick={() => deleteTemplate(template.id)}
+                      onClick={() => deleteTemplate.mutate(template.id)}
                       className="text-red-400 hover:text-red-500"
+                      disabled={deleteTemplate.isPending}
                     >
                       <Trash2 className="h-5 w-5" />
                     </button>
@@ -115,7 +81,7 @@ export function ReportTemplates() {
           ))}
         </div>
 
-        {templates.length === 0 && (
+        {(templates || []).length === 0 && (
           <div className="text-center py-12">
             <FileText className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">

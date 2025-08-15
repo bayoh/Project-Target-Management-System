@@ -322,10 +322,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </aside>
 
       {/* Main content */}
-      <main className={`transition-all duration-300 pt-16 ${
+      <main className={`transition-all duration-300 pt-14 ${
         isSidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
       }`}>
-        <div className="p-6">{children}</div>
+        <div className="p-2">{children}</div>
       </main>
 
       {/* Mobile overlay */}

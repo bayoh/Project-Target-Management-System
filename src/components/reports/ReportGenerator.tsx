@@ -8,9 +8,9 @@ import {
   PDFViewer,
   Image,
 } from '@react-pdf/renderer';
-import { supabase } from '../../lib/supabase';
 import type { ReportTemplate } from '../../types/reports';
-import { format } from 'date-fns';
+import { format as formatDate } from 'date-fns';
+import { useCreateGeneratedReport } from '../../hooks/useGeneratedReportQueries';
 
 const styles = StyleSheet.create({
   page: {
@@ -37,6 +37,7 @@ export function ReportGenerator({ template, data, interventionId, onSave }: Prop
   const [chartImages, setChartImages] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const createReport = useCreateGeneratedReport();
 
   useEffect(() => {
     generateChartImages();
@@ -51,20 +52,11 @@ export function ReportGenerator({ template, data, interventionId, onSave }: Prop
       setSaving(true);
       setError(null);
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated user');
-
-      // Save the generated report
-      const { error: saveError } = await supabase
-        .from('generated_reports')
-        .insert([{
-          template_id: template.id,
-          intervention_id: interventionId,
-          data: data,
-          created_by: user.id
-        }]);
-
-      if (saveError) throw saveError;
+      await createReport.mutateAsync({
+        template_id: template.id,
+        intervention_id: interventionId,
+        data,
+      });
 
       if (onSave) {
         onSave();
@@ -77,12 +69,12 @@ export function ReportGenerator({ template, data, interventionId, onSave }: Prop
     }
   };
 
-  const formatTableValue = (value: any, format?: string) => {
+  const formatTableValue = (value: any, fmt?: string) => {
     if (value == null) return '';
 
-    switch (format) {
+    switch (fmt) {
       case 'date':
-        return value instanceof Date ? format(value, 'PPP') : value;
+        return value instanceof Date ? formatDate(value, 'PPP') : value;
       case 'number':
         return typeof value === 'number' ? value.toLocaleString() : value;
       case 'currency':
@@ -130,9 +122,7 @@ export function ReportGenerator({ template, data, interventionId, onSave }: Prop
                 fontSize: element.style.fontSize || 12,
               }}
             >
-              {value instanceof Date
-                ? format(value, 'PPP')
-                : String(value)}
+              {value instanceof Date ? formatDate(value, 'PPP') : String(value)}
             </Text>
           );
         }
@@ -150,9 +140,9 @@ export function ReportGenerator({ template, data, interventionId, onSave }: Prop
                 width: element.style.width,
               }}
             >
-              <View style={{ display: 'table', width: '100%', borderCollapse: 'collapse' }}>
+              <View style={{ display: 'table', width: '100%', borderCollapse: 'collapse' } as any}>
                 {/* Table Header */}
-                <View style={{ display: 'table-row', backgroundColor: '#f3f4f6' }}>
+                <View style={{ display: 'table-row', backgroundColor: '#f3f4f6' } as any}>
                   {element.tableConfig.dataSource.columns.map((column: any, colIndex: number) => (
                     <View
                       key={`${element.id}-header-${colIndex}`}
@@ -162,7 +152,7 @@ export function ReportGenerator({ template, data, interventionId, onSave }: Prop
                         borderBottom: '1px solid #e5e7eb',
                         width: column.width,
                         textAlign: column.align || 'left',
-                      }}
+                      } as any}
                     >
                       <Text style={{ fontSize: 12, fontWeight: 'bold' }}>
                         {column.header}
@@ -178,8 +168,11 @@ export function ReportGenerator({ template, data, interventionId, onSave }: Prop
                       key={`${element.id}-row-${rowIndex}`}
                       style={{
                         display: 'table-row',
-                        backgroundColor: element.tableConfig.style?.striped && rowIndex % 2 === 1 ? '#f9fafb' : '#ffffff',
-                      }}
+                        backgroundColor:
+                          element.tableConfig.style?.striped && rowIndex % 2 === 1
+                            ? '#f9fafb'
+                            : '#ffffff',
+                      } as any}
                     >
                       {element.tableConfig.dataSource.columns.map((column: any, colIndex: number) => (
                         <View
@@ -190,7 +183,7 @@ export function ReportGenerator({ template, data, interventionId, onSave }: Prop
                             borderBottom: '1px solid #e5e7eb',
                             width: column.width,
                             textAlign: column.align || 'left',
-                          }}
+                          } as any}
                         >
                           <Text style={{ fontSize: 12 }}>
                             {formatTableValue(row[column.field], column.format)}
@@ -242,7 +235,7 @@ export function ReportGenerator({ template, data, interventionId, onSave }: Prop
             <Page size="A4" style={styles.page}>
               {template.layout.sections.map((section, sectionIndex) => (
                 <View key={`section-${sectionIndex}`} style={styles.section}>
-                  {section.elements.map((element, elementIndex) => 
+                  {section.elements.map((element, elementIndex) =>
                     renderElement(element, elementIndex)
                   )}
                 </View>
@@ -256,7 +249,7 @@ export function ReportGenerator({ template, data, interventionId, onSave }: Prop
         <button
           onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
         >
           {saving ? 'Saving...' : 'Save Report'}
         </button>

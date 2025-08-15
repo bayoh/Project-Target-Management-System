@@ -1,172 +1,47 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Target, 
   Plus, 
-  BarChart3, 
-  ListChecks,
   ArrowUpRight,
   CheckCircle2,
   AlertCircle,
   Clock,
-  Filter,
-  TrendingDown,
   TrendingUp,
-  PieChart
+  ChevronRight
 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
-import { PageHeader } from '../../components/layout/PageHeader'; // Added PageHeader
-
-interface TargetSummary {
-  total: number;
-  completed: number;
-  at_risk: number;
-  in_progress: number;
-  categories: { [key: string]: number };
-  averageProgress: number;
-}
-
-interface TargetItem {
-  id: string;
-  description: string;
-  metric: string;
-  baseline_value: number;
-  target_value: number;
-  current_value: number;
-  last_updated: string;
-  category?: string;
-  action?: {
-    id: string;
-    name: string;
-    intervention?: {
-      id: string;
-      name: string;
-    }
-  };
-}
+import { PageHeader } from '../../components/layout/PageHeader';
+import { useTargetSummary, useRecentTargets, useTargetFilterOptions } from '../../hooks/useProjectQueries';
+import type { TargetFilters } from '../../types/queries';
 
 export default function TargetsIndex() {
-  const [summary, setSummary] = useState<TargetSummary>({
+  const [filterStatus, setFilterStatus] = useState<string>('');
+  const [filterCategory, setFilterCategory] = useState<string>('');
+  const navigate = useNavigate();
+
+  // Create filters object for queries
+  const filters: TargetFilters = useMemo(() => {
+    const f: TargetFilters = {};
+    if (filterStatus) f.status = filterStatus;
+    if (filterCategory) f.category = filterCategory;
+    return f;
+  }, [filterStatus, filterCategory]);
+
+  // Use hooks for data fetching
+  const { data: summary = {
     total: 0,
     completed: 0,
     at_risk: 0,
     in_progress: 0,
     categories: {},
     averageProgress: 0,
-  });
-  const [recentTargets, setRecentTargets] = useState<TargetItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterCategory, setFilterCategory] = useState('');
-  const navigate = useNavigate();
+  }, isLoading: summaryLoading } = useTargetSummary(filters);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, [filterStatus, filterCategory]); // Reload data when filters change
+  const { data: recentTargets = [], isLoading: targetsLoading } = useRecentTargets(filters);
+  const { data: filterOptions } = useTargetFilterOptions();
 
-  const loadDashboardData = async () => {
-    setLoading(true);
-    await loadSummary();
-    await loadRecentTargets();
-    setLoading(false);
-  };
-
-  const applyFilters = () => {
-    loadDashboardData(); // Reload all data when filters are applied
-  };
-
-  const loadSummary = async () => {
-    try {
-      let query = supabase.from('action_targets').select('*');
-
-      if (filterCategory) {
-        query = query.eq('category', filterCategory);
-      }
-      // Status filter will be applied during calculation, not in DB query for summary across all statuses
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      
-      const targets = data || [];
-      const total = targets.length;
-      const completed = targets.filter(t => t.target_value > 0 && (t.current_value / t.target_value) >= 1).length;
-      const at_risk = targets.filter(t => t.target_value > 0 && (t.current_value / t.target_value) < 0.5 && (t.current_value / t.target_value) < 1).length;
-      const in_progress = targets.filter(t => t.target_value > 0 && (t.current_value / t.target_value) >= 0.5 && (t.current_value / t.target_value) < 1).length;
-      
-      const categories: { [key: string]: number } = {};
-      targets.forEach(t => {
-        const category = t.category || 'Uncategorized';
-        categories[category] = (categories[category] || 0) + 1;
-      });
-
-      const totalProgress = targets.reduce((acc, t) => {
-        if (t.target_value > 0) {
-          return acc + Math.min((t.current_value / t.target_value) * 100, 100);
-        }
-        return acc;
-      }, 0);
-      const averageProgress = total > 0 ? totalProgress / targets.filter(t => t.target_value > 0).length : 0;
-
-      setSummary({
-        total,
-        completed,
-        at_risk,
-        in_progress,
-        categories,
-        averageProgress
-      });
-    } catch (err) {
-      console.error('Error loading target summary:', err);
-    } 
-    // Removed finally setLoading(false) as it's handled in loadDashboardData
-  };
-
-  const loadRecentTargets = async () => {
-    try {
-      let query = supabase
-        .from('action_targets')
-        .select(`
-          *,
-          action:actions(
-            id,
-            name,
-            intervention:interventions(
-              id,
-              name
-            )
-          )
-        `)
-        .limit(10); // Limit recent targets for dashboard view
-
-      if (filterStatus) {
-        if (filterStatus === 'completed') {
-          query = query.gte('current_value', supabase.sql('target_value')); // Ensure target_value is treated as column
-        } else if (filterStatus === 'at_risk') {
-          // current_value < 0.5 * target_value AND current_value < target_value
-          query = query.lt('current_value', supabase.sql('0.5 * target_value'))
-                       .lt('current_value', supabase.sql('target_value'));
-        } else if (filterStatus === 'in_progress') {
-          // current_value >= 0.5 * target_value AND current_value < target_value
-          query = query.gte('current_value', supabase.sql('0.5 * target_value'))
-                       .lt('current_value', supabase.sql('target_value'));
-        }
-      }
-
-      if (filterCategory) {
-        query = query.eq('category', filterCategory);
-      }
-
-      const { data, error } = await query
-        .order('last_updated', { ascending: false });
-
-      if (error) throw error;
-      setRecentTargets(data || []);
-    } catch (err) {
-      console.error('Error loading recent targets:', err);
-    }
-  };
+  const loading = summaryLoading || targetsLoading;
 
   const calculateProgress = (current: number, target: number) => {
     if (target <= 0) return 0; // Avoid division by zero or negative target
@@ -174,17 +49,10 @@ export default function TargetsIndex() {
   };
 
   const getProgressColor = (progress: number) => {
-    if (progress >= 100) return 'bg-green-500';
-    if (progress >= 75) return 'bg-blue-500';
-    if (progress >= 50) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
-
-  const getProgressIcon = (progress: number) => {
-    if (progress >= 100) return <CheckCircle2 className="h-5 w-5 text-green-500" />;
-    if (progress >= 50) return <Clock className="h-5 w-5 text-yellow-500" />;
-    if (progress < 50 && progress > 0) return <TrendingDown className="h-5 w-5 text-orange-500" />;
-    return <AlertCircle className="h-5 w-5 text-red-500" />;
+    if (progress >= 100) return 'bg-gradient-to-r from-green-500 to-green-600';
+    if (progress >= 75) return 'bg-gradient-to-r from-blue-500 to-blue-600';
+    if (progress >= 50) return 'bg-gradient-to-r from-yellow-500 to-yellow-600';
+    return 'bg-gradient-to-r from-red-500 to-red-600';
   };
 
   const summaryCards = useMemo(() => [
@@ -195,11 +63,22 @@ export default function TargetsIndex() {
     { title: 'Avg. Progress', value: `${summary.averageProgress.toFixed(1)}%`, icon: TrendingUp, color: 'indigo' },
   ], [summary]);
 
+  // Compute category data (must not be conditional to satisfy Rules of Hooks)
+  const categoryData = useMemo(() => {
+    const data = Object.entries(summary.categories || {}).map(([name, count]) => ({ name, count }));
+    const topCategories = data.slice(0, 5);
+    const remainingCount = data.slice(5).reduce((sum, item) => sum + item.count, 0);
+    return remainingCount > 0 ? [...topCategories, { name: 'Other', count: remainingCount }] : topCategories;
+  }, [summary.categories]);
+
   if (loading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-screen">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+            <p className="mt-4 text-muted-foreground">Loading targets data...</p>
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -207,169 +86,286 @@ export default function TargetsIndex() {
 
   return (
     <DashboardLayout>
-      <div className="container mx-auto px-4 py-8">
-        <PageHeader
-          title="Cluster Metrics Dashboard"
-          description="High-level overview of target performance and status."
-          icon={<BarChart3 className="h-8 w-8" />}
-          actions={[
-            {
-              label: 'Track All Metric',
-              icon: ListChecks,
-              onClick: () => navigate('/targets/tracking'),
-              variant: 'outline',
-            },
-            {
-              label: 'Add New Metric',
-              icon: Plus,
-              onClick: () => navigate('/targets/new'),
-            },
-          ]}
-        />
+      <div className="space-y-6">
+        <PageHeader title="Targets Dashboard" description="Track progress towards key metrics across interventions and actions." />
 
-        {/* Filter Section */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8 ring-1 ring-gray-200">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-800">Filters</h2>
-            <Filter className="h-6 w-6 text-gray-500" />
+        {/* Filters */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4 space-y-3 lg:space-y-0">
+            <h2 className="text-lg font-semibold text-gray-900">Filters & Actions</h2>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+              <button
+                onClick={() => navigate('/targets/new')}
+                className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 hover:shadow-md"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add New Target
+              </button>
+            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <select
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="">All Status</option>
-              <option value="completed">Completed</option>
-              <option value="in_progress">In Progress</option>
-              <option value="at_risk">At Risk</option>
-            </select>
-            
-            <select
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-            >
-              <option value="">All Categories</option>
-              <option value="jobs">Jobs</option>
-              <option value="revenue">Revenue</option>
-              <option value="other">Other</option>
-            </select>
-            
-            <button
-              onClick={applyFilters}
-              className="inline-flex justify-center items-center px-6 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-150"
-            >
-              Apply Filters
-            </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 mb-2">
+                Status
+              </label>
+              <select
+                id="status-filter"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm transition-colors duration-200 min-w-0 flex-1 sm:flex-none sm:w-auto"
+              >
+                <option value="">All Statuses</option>
+                {filterOptions?.statuses?.map((status) => (
+                  <option key={status} value={status}>{status.replace('_', ' ')}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="category-filter" className="block text-sm font-medium text-gray-700 mb-2">
+                Category
+              </label>
+              <select
+                id="category-filter"
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm transition-colors duration-200 min-w-0 flex-1 sm:flex-none sm:w-auto"
+              >
+                <option value="">All Categories</option>
+                {filterOptions?.categories?.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-end">
+              <button
+                onClick={() => {
+                  setFilterStatus('');
+                  setFilterCategory('');
+                }}
+                className="w-full px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-dashed border-gray-300 hover:border-gray-400 rounded-md transition-all duration-200"
+              >
+                <span className="hidden xs:inline">Clear Filters</span>
+                <span className="xs:hidden">Clear</span>
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
           {summaryCards.map((card, index) => (
-            <div key={index} className={`bg-white rounded-xl shadow-lg p-6 ring-1 ring-gray-200 hover:shadow-xl transition-shadow duration-200 flex flex-col justify-between`}>
-              <div className="flex items-center justify-between mb-3">
-                <div className={`p-3 rounded-full bg-${card.color}-100 text-${card.color}-600`}>
-                  <card.icon className="h-7 w-7" />
+            <div key={index} className="bg-white rounded-lg shadow-sm p-4 transition-all duration-300 hover:shadow-md">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">{card.title}</h3>
+                  <p className="mt-1 text-2xl font-bold text-gray-900">{card.value}</p>
                 </div>
-                {card.percentage !== undefined && (
-                  <span className={`text-xs font-semibold px-2 py-1 rounded-full bg-${card.color}-100 text-${card.color}-700`}>
-                    {card.percentage.toFixed(1)}%
-                  </span>
-                )}
+                <div className={`p-2 rounded-md ${
+                  card.color === 'blue' ? 'bg-blue-100' :
+                  card.color === 'green' ? 'bg-green-100' :
+                  card.color === 'yellow' ? 'bg-yellow-100' :
+                  card.color === 'red' ? 'bg-red-100' :
+                  'bg-indigo-100'
+                }`}>
+                  <card.icon className={`h-5 w-5 ${
+                    card.color === 'blue' ? 'text-blue-600' :
+                    card.color === 'green' ? 'text-green-600' :
+                    card.color === 'yellow' ? 'text-yellow-600' :
+                    card.color === 'red' ? 'text-red-600' :
+                    'text-indigo-600'
+                  }`} />
+                </div>
               </div>
-              <div>
-                <h3 className="text-2xl font-bold text-gray-800 mb-1">{card.value}</h3>
-                <p className="text-sm text-gray-500 font-medium">{card.title}</p>
-              </div>
+              {card.percentage !== undefined && (
+                <div className="mt-4">
+                  <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
+                    <div
+                      className={`h-3 rounded-full transition-all duration-500 ease-out shadow-sm ${
+                        card.color === 'blue' ? 'bg-gradient-to-r from-blue-500 to-blue-600' :
+                        card.color === 'green' ? 'bg-gradient-to-r from-green-500 to-green-600' :
+                        card.color === 'yellow' ? 'bg-gradient-to-r from-yellow-500 to-yellow-600' :
+                        card.color === 'red' ? 'bg-gradient-to-r from-red-500 to-red-600' :
+                        'bg-gradient-to-r from-indigo-500 to-indigo-600'
+                      }`}
+                      style={{ width: `${Math.min(card.percentage.toFixed(1), 100)}%` }}
+                    >
+                      <div className="h-full w-full rounded-full bg-gradient-to-t from-transparent to-white opacity-30"></div>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm font-medium text-gray-600">{card.percentage.toFixed(1)}%</p>
+                </div>
+              )}
             </div>
           ))}
         </div>
 
-        {/* Recent Targets & Category Breakdown */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          <div className="lg:col-span-2 bg-white rounded-xl shadow-lg p-6 ring-1 ring-gray-200">
-            <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-800">Recent Metric Updates</h2>
-                <button 
-                    onClick={() => navigate('/targets/tracking')}
-                    className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center"
-                >
-                    View All <ArrowUpRight className="h-4 w-4 ml-1" />
-                </button>
+        {/* Recent Targets */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between border-b border-gray-200">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Recent Targets</h3>
+              <p className="mt-1 text-sm text-gray-500">Latest target metrics and progress updates</p>
             </div>
-            {recentTargets.length > 0 ? (
-              <div className="space-y-4">
-                {recentTargets.map((target) => {
-                  const progress = calculateProgress(target.current_value, target.target_value);
-                  return (
-                    <div 
-                        key={target.id} 
-                        className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow duration-150 cursor-pointer"
-                        onClick={() => navigate(`/targets/${target.id}`)}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-md font-semibold text-gray-800 truncate" title={target.description}>{target.description}</h3>
-                        <p className="text-xs text-gray-500 truncate">
-                          {target.action?.intervention?.name} - {target.action?.name}
-                        </p>
-                        <div className="mt-2 flex items-center">
-                          <div className="flex-1 h-2.5 bg-gray-200 rounded-full">
-                            <div
-                              className={`h-2.5 rounded-full ${getProgressColor(progress)} transition-all duration-500 ease-out`}
-                              style={{ width: `${progress}%` }}
-                            />
-                          </div>
-                          <span className="ml-3 text-sm font-medium text-gray-700">{Math.round(progress)}%</span>
+            <button
+              onClick={() => navigate('/targets/tracking')}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 hover:shadow-md"
+            >
+              View All Metrics
+              <ArrowUpRight className="h-4 w-4 ml-2" />
+            </button>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {recentTargets.length === 0 ? (
+              <div className="px-6 py-8 text-center">
+                <Target className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No recent targets</h3>
+                <p className="mt-1 text-sm text-gray-500">Get started by creating your first target.</p>
+                <div className="mt-6">
+                  <button
+                    onClick={() => navigate('/targets/new')}
+                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Target
+                  </button>
+                </div>
+              </div>
+            ) : (
+              recentTargets.map((target) => (
+                <div key={target.id} className="px-6 py-4 hover:bg-gray-50 transition-colors duration-200 cursor-pointer">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0">
+                          <div className={`w-3 h-3 rounded-full ${
+                            calculateProgress(target.current_value, target.target_value) >= 100 ? 'bg-green-500' :
+                            calculateProgress(target.current_value, target.target_value) >= 75 ? 'bg-blue-500' :
+                            calculateProgress(target.current_value, target.target_value) >= 50 ? 'bg-yellow-500' :
+                            'bg-red-500'
+                          }`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {target.metric}
+                          </p>
+                          <p className="text-sm text-gray-500 truncate">
+                            {target.action?.intervention?.name || 'Unknown Intervention'} • {target.action?.name || 'Unknown Action'}
+                          </p>
                         </div>
                       </div>
-                      <div className="ml-4 flex items-center space-x-2 text-gray-500">
-                        {getProgressIcon(progress)}
-                        <ArrowUpRight className="h-5 w-5 text-blue-500 group-hover:text-blue-700" />
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-gray-900">
+                          {target.current_value.toLocaleString()} / {target.target_value.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {calculateProgress(target.current_value, target.target_value).toFixed(1)}% complete
+                        </p>
+                      </div>
+                      <div className="w-24">
+                        <div className="w-full bg-gray-200 rounded-full h-2.5 shadow-inner">
+                          <div
+                            className={`h-2.5 rounded-full transition-all duration-500 ease-out shadow-sm ${getProgressColor(calculateProgress(target.current_value, target.target_value))}`}
+                            style={{ width: `${calculateProgress(target.current_value, target.target_value)}%` }}
+                          />
+                        </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-10">
-                <Target className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-md text-gray-500">
-                  No metrics match the current filters.
-                </p>
-                { (filterStatus || filterCategory) && 
-                    <button 
-                        onClick={() => { setFilterStatus(''); setFilterCategory(''); /* applyFilters will be called by useEffect */}}
-                        className="mt-4 px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg"
-                    >
-                        Clear Filters
-                    </button>
-                }
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white rounded-xl shadow-lg p-6 ring-1 ring-gray-200">
-            <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-800">Metric Categories</h2>
-                <PieChart className="h-6 w-6 text-gray-500" />
-            </div>
-            {Object.keys(summary.categories).length > 0 ? (
-                <ul className="space-y-3">
-                {Object.entries(summary.categories).map(([category, count]) => (
-                    <li key={category} className="flex justify-between items-center text-sm">
-                    <span className="text-gray-700 font-medium capitalize">{category}</span>
-                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full font-semibold">{count}</span>
-                    </li>
-                ))}
-                </ul>
-            ) : (
-                <p className="text-sm text-gray-500 text-center py-4">No category data available.</p>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         </div>
 
+        {/* Category Distribution */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Category Distribution</h3>
+                <p className="mt-1 text-sm text-gray-500">Target distribution across different categories</p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span className="text-xs text-gray-500">Live Data</span>
+              </div>
+            </div>
+          </div>
+          <div className="p-4 sm:p-6">
+            {categoryData.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="mx-auto h-12 w-12 text-gray-400">
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No category data</h3>
+                <p className="mt-1 text-sm text-gray-500">Category distribution will appear here once targets are created.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium text-gray-900 mb-3">Categories</h4>
+                  <div className="space-y-3">
+                    {categoryData.map((item, index) => {
+                      const total = categoryData.reduce((sum, i) => sum + i.count, 0);
+                      const percentage = ((item.count / total) * 100).toFixed(1);
+                      const colors = [
+                        'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-red-500', 
+                        'bg-purple-500', 'bg-indigo-500', 'bg-pink-500', 'bg-gray-500'
+                      ];
+                      return (
+                        <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-4 h-4 rounded-full ${colors[index % colors.length]} shadow-sm`} />
+                            <div>
+                              <span className="text-sm font-medium text-gray-900">{item.name}</span>
+                              <p className="text-xs text-gray-500">{percentage}% of total</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-sm font-semibold text-gray-900">{item.count}</span>
+                            <p className="text-xs text-gray-500">targets</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex flex-col items-center justify-center">
+                  <h4 className="text-sm font-medium text-gray-900 mb-4">Visual Distribution</h4>
+                  <div className="relative w-48 h-48">
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 shadow-inner" />
+                    <div className="absolute inset-2 rounded-full bg-white shadow-sm" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-gray-900">{categoryData.reduce((sum, i) => sum + i.count, 0)}</p>
+                        <p className="text-xs text-gray-500 font-medium">Total Targets</p>
+                      </div>
+                    </div>
+                    {/* Decorative elements */}
+                    {categoryData.slice(0, 4).map((item, index) => {
+                      const colors = ['bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-red-500'];
+                      const positions = [
+                        'top-4 right-4', 'bottom-4 right-4', 'bottom-4 left-4', 'top-4 left-4'
+                      ];
+                      return (
+                        <div key={index} className={`absolute ${positions[index]} w-3 h-3 ${colors[index]} rounded-full shadow-sm opacity-80`} />
+                      );
+                    })}
+                  </div>
+                  <p className="mt-4 text-xs text-gray-500 text-center max-w-xs">
+                    Interactive chart visualization will be available with chart library integration
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );

@@ -1,21 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { ReportTemplateDesigner } from '../../components/reports/ReportTemplateDesigner';
 import { ChevronLeft, Save } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
 import type { ReportTemplate } from '../../types/reports';
+import { useReportTemplate, useCreateReportTemplate, useUpdateReportTemplate } from '../../hooks/useReportTemplateQueries';
 
 export function EditTemplate() {
   const { id } = useParams();
   const navigate = useNavigate();
+
+  const { data: fetchedTemplate, isLoading } = useReportTemplate(id);
+  const createTemplate = useCreateReportTemplate();
+  const updateTemplate = useUpdateReportTemplate();
+
   const [template, setTemplate] = useState<ReportTemplate | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (id) {
-      loadTemplate();
+      setTemplate(fetchedTemplate ?? null);
     } else {
       setTemplate({
         id: crypto.randomUUID(),
@@ -34,59 +37,37 @@ export function EditTemplate() {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
-      setLoading(false);
     }
-  }, [id]);
+  }, [id, fetchedTemplate]);
 
-  const loadTemplate = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('report_templates')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-      setTemplate(data);
-    } catch (err) {
-      console.error('Error loading template:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const saving = createTemplate.isPending || updateTemplate.isPending;
 
   const handleSave = async () => {
     if (!template) return;
 
-    setSaving(true);
     try {
-      const { error } = id
-        ? await supabase
-            .from('report_templates')
-            .update({
-              name: template.name,
-              description: template.description,
-              layout: template.layout,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', id)
-        : await supabase.from('report_templates').insert([
-            {
-              ...template,
-              created_by: (await supabase.auth.getUser()).data.user?.id,
-            },
-          ]);
-
-      if (error) throw error;
+      if (id) {
+        await updateTemplate.mutateAsync({
+          id,
+          name: template.name,
+          description: template.description,
+          layout: template.layout,
+        });
+      } else {
+        await createTemplate.mutateAsync({
+          id: template.id,
+          name: template.name,
+          description: template.description,
+          layout: template.layout,
+        });
+      }
       navigate('/reports/templates');
     } catch (err) {
       console.error('Error saving template:', err);
-    } finally {
-      setSaving(false);
     }
   };
 
-  if (loading) {
+  if (isLoading && id) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-[400px]">

@@ -1,8 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import React, { useState, useMemo } from 'react';
 import { ArrowUpDown, Calendar, Users, Target, Eye, Edit, AlertTriangle, Trophy, MessageSquare, ChevronRight } from 'lucide-react';
 import type { Action, Intervention } from '../../types/project';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../lib/auth';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../../lib/supabase';
+import { queryKeys } from '../../lib/queryKeys';
+import { executeQuery } from '../../lib/queries';
 
 interface DashboardItem {
   id: string;
@@ -17,81 +21,81 @@ interface DashboardItem {
   role: 'lead' | 'supporting';
 }
 
+// Query function for user dashboard items
+const fetchUserDashboardItems = async (userId: string): Promise<DashboardItem[]> => {
+  // Fetch interventions where user is lead
+  const interventionsResult = await executeQuery(
+    supabase
+      .from('interventions')
+      .select('id, name, description, status, start_date, code, end_date')
+      .eq('lead_id', userId)
+  );
+
+  // Fetch actions with intervention details where user is lead or supporting staff
+  const actionsResult = await executeQuery(
+    supabase
+      .from('actions')
+      .select('id, name, description, code, status, start_date, end_date, lead_id, supporting_staff, intervention_id, intervention:interventions(id, name)')
+      .or(`lead_id.eq.${userId},supporting_staff.cs.{${userId}}`)
+  );
+
+  const interventions = interventionsResult.data || [];
+  const actions = actionsResult.data || [];
+
+  // Transform data into unified format with relationships
+  const dashboardItems: DashboardItem[] = [
+    ...interventions.map(item => ({
+      ...item,
+      type: 'intervention' as const,
+      code: item.code,
+      role: 'lead' as const,
+      relatedActions: actions
+        .filter(action => action.intervention_id === item.id)
+        .map(action => ({
+          ...action,
+          type: 'action' as const,
+          role: action.lead_id === userId ? 'lead' as const : 'supporting' as const
+        }))
+    })),
+    ...actions
+      .filter(action => !interventions.some(int => int.id === action.intervention_id))
+      .map(item => ({
+        ...item,
+        type: 'action' as const,
+        code: item.code,
+        intervention_id: interventions.find(int => int.id === item.intervention_id)?.id,
+        role: item.lead_id === userId ? 'lead' as const : 'supporting' as const
+      }))
+  ];
+
+  return dashboardItems;
+};
+
 export function UserDashboard() {
   const navigate = useNavigate();
-  const [items, setItems] = useState<DashboardItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadUserItems();
-  }, []);
-
-  const loadUserItems = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated user');
-  
-      // Fetch interventions where user is lead
-      const { data: interventions, error: interventionsError } = await supabase
-        .from('interventions')
-        .select('id, name, description, status, start_date,code, end_date')
-        .eq('lead_id', user.id);
-  
-      if (interventionsError) throw interventionsError;
-  
-      // Fetch actions with intervention details where user is lead or supporting staff
-      const { data: actions, error: actionsError } = await supabase
-        .from('actions')
-        .select('id, name, description,code, status, start_date, end_date, lead_id, supporting_staff, intervention_id, intervention:interventions(id, name)')
-        .or(`lead_id.eq.${user.id},supporting_staff.cs.{${user.id}}`);
-  
-      if (actionsError) throw actionsError;
-  
-      // Transform data into unified format with relationships
-      const dashboardItems: DashboardItem[] = [
-        ...(interventions || []).map(item => ({
-          ...item,
-          type: 'intervention' as const,
-          code: item.code,
-          role: 'lead' as const,
-          relatedActions: (actions || [])
-            .filter(action => action.intervention_id === item.id)
-            .map(action => ({
-              ...action,
-              type: 'action' as const,
-              role: action.lead_id === user.id ? 'lead' as const : 'supporting' as const
-            }))
-        })),
-        ...(actions || [])
-          .filter(action => !interventions?.some(int => int.id === action.intervention_id))
-          .map(item => ({
-            ...item,
-            type: 'action' as const,
-            code: item.code,
-            intervention_id: interventions?.find(int => int.id === item.intervention_id)?.id,
-            role: item.lead_id === user.id ? 'lead' as const : 'supporting' as const
-          }))
-      ];
-      setItems(dashboardItems);
-    } catch (err: any) {
-      console.error('Error loading dashboard items:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filteredItems = items.filter(item => {
-    const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
-    const matchesType = typeFilter === 'all' || item.type === typeFilter;
-    const matchesRole = roleFilter === 'all' || item.role === roleFilter;
-    return matchesStatus && matchesType && matchesRole;
+  // Use TanStack Query for data fetching
+  const { data: items = [], isLoading: loading, error } = useQuery({
+    queryKey: queryKeys.dashboard.userItems(user?.id),
+    queryFn: () => fetchUserDashboardItems(user!.id),
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
+
+  const filteredItems = useMemo(() => {
+    return items.filter(item => {
+      const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
+      const matchesType = typeFilter === 'all' || item.type === typeFilter;
+      const matchesRole = roleFilter === 'all' || item.role === roleFilter;
+      return matchesStatus && matchesType && matchesRole;
+    });
+  }, [items, statusFilter, typeFilter, roleFilter]);
 
   const formatDate = (date: string | null) => {
     if (!date) return 'Not set';
@@ -102,6 +106,18 @@ export function UserDashboard() {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Error loading dashboard</h3>
+          <p className="text-sm text-gray-500">{error instanceof Error ? error.message : 'An unexpected error occurred'}</p>
+        </div>
       </div>
     );
   }

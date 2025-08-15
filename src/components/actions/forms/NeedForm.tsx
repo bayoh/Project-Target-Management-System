@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Calendar, DollarSign, Package } from 'lucide-react';
 import { Input } from '../../ui/Input'; // Added import
 import { Select } from '../../ui/Select'; // Added import
 import { Button } from '../../ui/button'; // Added import
@@ -13,6 +13,9 @@ interface NeedFormProps {
     date_fulfilled?: string;
     resource_requirements: string;
     budget_impact?: number;
+    status?: string;
+    priority?: string;
+    fulfillment_details?: string;
   };
 }
 
@@ -22,7 +25,10 @@ export function NeedForm({ onSubmit, onCancel, need }: NeedFormProps) {
     date_identified: need?.date_identified || new Date().toISOString().split('T')[0],
     date_fulfilled: need?.date_fulfilled || null,
     resource_requirements: need?.resource_requirements || '',
-    budget_impact: need?.budget_impact?.toString() || ''
+    budget_impact: need?.budget_impact?.toString() || '',
+    status: need?.status || 'open',
+    priority: need?.priority || 'medium',
+    fulfillment_details: need?.fulfillment_details || ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,26 +57,35 @@ export function NeedForm({ onSubmit, onCancel, need }: NeedFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6 p-1 md:p-0">
+    <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="rounded-md bg-red-50 p-3 md:p-4">
-          <div className="flex items-start">
-            <AlertTriangle className="h-5 w-5 text-red-400 mr-2 flex-shrink-0" />
-            <div className="text-sm text-red-700">{error}</div>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+          <div className="flex items-start gap-3">
+            <div className="p-1 bg-red-100 dark:bg-red-900/30 rounded">
+              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-medium text-red-800 dark:text-red-200">Error</h3>
+              <p className="mt-1 text-sm text-red-700 dark:text-red-300">{error}</p>
+            </div>
           </div>
         </div>
       )}
 
-      <Input
-        label="Description *"
-        id="description"
-        required
-        type="textarea"
-        rows={3}
-        value={formData.description}
-        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-        className="w-full"
-      />
+      <div className="space-y-2">
+        <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          Description *
+        </label>
+        <Input
+          id="description"
+          type="text"
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          placeholder="Describe the need..."
+          required
+          className="h-10"
+        />
+      </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
         <Select
@@ -97,23 +112,70 @@ export function NeedForm({ onSubmit, onCancel, need }: NeedFormProps) {
           className="w-full"
         />
 
-        <Input
-          label="Date Identified *"
-          type="date"
-          id="date_identified"
-          value={formData.date_identified}
-          onChange={(e) => setFormData({ ...formData, date_identified: e.target.value })}
-          className="w-full"
-        />
+        <div className="space-y-2">
+          <label htmlFor="date_identified" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <Calendar className="inline h-4 w-4 mr-1" />
+            Date Identified *
+          </label>
+          <Input
+            id="date_identified"
+            type="date"
+            value={formData.date_identified}
+            onChange={(e) => setFormData({ ...formData, date_identified: e.target.value })}
+            required
+            className="h-10"
+          />
+        </div>
 
-        <Input
-          label="Date Fulfilled"
-          type="date"
-          id="date_fulfilled"
-          value={formData.date_fulfilled || ''}
-          onChange={(e) => setFormData({ ...formData, date_fulfilled: e.target.value || null })}
-          className="w-full"
-        />
+        <div className="space-y-2">
+          <label htmlFor="date_fulfilled" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <Calendar className="inline h-4 w-4 mr-1" />
+            Date Fulfilled
+          </label>
+          <Input
+            id="date_fulfilled"
+            type="date"
+            value={formData.date_fulfilled || ''}
+            onChange={(e) => setFormData({ ...formData, date_fulfilled: e.target.value || null })}
+            className="h-10"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+        <div className="space-y-2">
+          <label htmlFor="resource_requirements" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <Package className="inline h-4 w-4 mr-1" />
+            Resource Requirements *
+          </label>
+          <Input
+            id="resource_requirements"
+            type="textarea"
+            rows={3}
+            value={formData.resource_requirements}
+            onChange={(e) => setFormData({ ...formData, resource_requirements: e.target.value })}
+            placeholder="Describe required resources..."
+            required
+            className="w-full"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="budget_impact" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <DollarSign className="inline h-4 w-4 mr-1" />
+            Budget Impact
+          </label>
+          <Input
+            id="budget_impact"
+            type="number"
+            step="0.01"
+            min="0"
+            value={formData.budget_impact}
+            onChange={(e) => setFormData({ ...formData, budget_impact: e.target.value })}
+            placeholder="0.00"
+            className="h-10"
+          />
+        </div>
       </div>
 
       <Input
@@ -126,20 +188,11 @@ export function NeedForm({ onSubmit, onCancel, need }: NeedFormProps) {
         className="w-full"
       />
 
-      <div className="flex flex-col space-y-3 pt-4 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-end">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-          className="w-full sm:w-auto"
-        >
+      <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+        <Button type="button" variant="outline" onClick={onCancel} className="sm:w-auto w-full">
           Cancel
         </Button>
-        <Button
-          type="submit"
-          disabled={loading}
-          className="w-full sm:w-auto"
-        >
+        <Button type="submit" disabled={loading} className="sm:w-auto w-full">
           {loading ? 'Saving...' : 'Save Need'}
         </Button>
       </div>

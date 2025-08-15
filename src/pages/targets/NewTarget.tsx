@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Target, AlertTriangle } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Button } from '../../components/ui/button';
+import { useActivityTracking } from '../../hooks/useActivityTracking';
+import { useActionsForTarget, useCreateTarget } from '../../hooks/useTargetQueries';
 
 export default function NewTarget() {
+  const { trackPageView } = useActivityTracking();
   const [formData, setFormData] = useState({
     action_id: '',
     description: '',
@@ -23,59 +25,45 @@ export default function NewTarget() {
     job_subcategory: ''
   });
 
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [actions, setActions] = useState<{id: string, name: string, intervention_name: string}[]>([]);
   const navigate = useNavigate();
   const isJobTarget = formData.category === 'jobs';
 
+  // Use TanStack Query hooks
+  const { data: actions = [], isLoading: actionsLoading, error: actionsError } = useActionsForTarget();
+  const createTargetMutation = useCreateTarget();
+
   useEffect(() => {
-    loadActions();
-  }, []);
+    trackPageView('New Target');
+  }, [trackPageView]);
 
-  const loadActions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('actions')
-        .select(`
-          id,
-          name,
-          intervention:interventions(name)
-        `);
-
-      if (error) throw error;
-      
-      const formattedActions = data?.map(action => ({
-        id: action.id,
-        name: action.name,
-        intervention_name: action.intervention?.name || 'Unknown'
-      })) || [];
-      
-      setActions(formattedActions);
-    } catch (err: any) {
-      console.error('Error loading actions:', err);
+  // Display error if actions fail to load
+  useEffect(() => {
+    if (actionsError) {
       setError('Failed to load actions. Please try again.');
     }
+  }, [actionsError]);
+
+  const handleFieldChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> | string, fieldName?: string) => {
-    if (typeof e === 'string' && fieldName) {
-      setFormData(prev => ({
-        ...prev,
-        [fieldName]: e
-      }));
-    } else if (typeof e === 'object') {
-      const { name, value } = e.target;
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
+  const handleSelectChange = (fieldName: keyof typeof formData) => (value: string | string[]) => {
+    const next = Array.isArray(value) ? (value[0] ?? '') : value;
+    setFormData(prev => ({
+      ...prev,
+      [fieldName]: next
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
 
     try {
@@ -85,36 +73,27 @@ export default function NewTarget() {
         throw new Error('Please fill in all required fields');
       }
 
-      const { data, error } = await supabase
-        .from('action_targets')
-        .insert([
-          {
-            action_id: formData.action_id,
-            description: formData.description,
-            metric: formData.metric,
-            baseline_value: parseFloat(formData.baseline_value),
-            target_value: parseFloat(formData.target_value),
-            current_value: parseFloat(formData.current_value),
-            category: formData.category || null,
-            created_by: (await supabase.auth.getUser()).data.user?.id,
-            women_target: formData.women_target ? parseFloat(formData.women_target) : null,
-            women_current: formData.women_current ? parseFloat(formData.women_current) : null,
-            youth_target: formData.youth_target ? parseFloat(formData.youth_target) : null,
-            youth_current: formData.youth_current ? parseFloat(formData.youth_current) : null,
-            job_subcategory: formData.job_subcategory || null
-          }
-        ])
-        .select();
-
-      if (error) throw error;
+      await createTargetMutation.mutateAsync({
+        action_id: formData.action_id,
+        description: formData.description,
+        metric: formData.metric,
+        baseline_value: parseFloat(formData.baseline_value),
+        target_value: parseFloat(formData.target_value),
+        current_value: parseFloat(formData.current_value),
+        category: formData.category || undefined,
+        women_target: formData.women_target ? parseFloat(formData.women_target) : undefined,
+        women_current: formData.women_current ? parseFloat(formData.women_current) : undefined,
+        youth_target: formData.youth_target ? parseFloat(formData.youth_target) : undefined,
+        youth_current: formData.youth_current ? parseFloat(formData.youth_current) : undefined,
+        job_subcategory: formData.job_subcategory || undefined
+      });
       
       // Navigate back to the targets list
       navigate('/targets/tracking');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error creating target:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError(message);
     }
   };
 
@@ -136,30 +115,29 @@ export default function NewTarget() {
 
         <div className="grid grid-cols-1 gap-6">
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Action</label>
             <Select
               options={actions.map(action => ({
                 value: action.id,
                 label: `${action.name}`
               }))}
               value={formData.action_id}
-              onChange={(value) => handleInputChange(value, 'action_id')}
+              onChange={handleSelectChange('action_id')}
               placeholder="Select an action"
               searchable
-              label="Action"
-              required
             />
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
             <Select
               options={[
                 { value: 'jobs', label: 'Jobs' },
                 { value: 'other', label: 'Other' }
               ]}
               value={formData.category}
-              onChange={(value) => handleInputChange(value, 'category')}
+              onChange={handleSelectChange('category')}
               placeholder="Select a category"
-              label="Category"
             />
           </div>
 
@@ -168,7 +146,7 @@ export default function NewTarget() {
               label="Description"
               name="description"
               value={formData.description}
-              onChange={handleInputChange}
+              onChange={handleFieldChange}
               type="textarea"
               required
             />
@@ -179,7 +157,7 @@ export default function NewTarget() {
               label="Metric"
               name="metric"
               value={formData.metric}
-              onChange={handleInputChange}
+              onChange={handleFieldChange}
               required
             />
           </div>
@@ -189,7 +167,7 @@ export default function NewTarget() {
               label="Baseline Value"
               name="baseline_value"
               value={formData.baseline_value}
-              onChange={handleInputChange}
+              onChange={handleFieldChange}
               type="number"
               required
             />
@@ -198,7 +176,7 @@ export default function NewTarget() {
               label="Target Value"
               name="target_value"
               value={formData.target_value}
-              onChange={handleInputChange}
+              onChange={handleFieldChange}
               type="number"
               required
             />
@@ -207,7 +185,7 @@ export default function NewTarget() {
               label="Current Value"
               name="current_value"
               value={formData.current_value}
-              onChange={handleInputChange}
+              onChange={handleFieldChange}
               type="number"
               required
             />
@@ -217,24 +195,26 @@ export default function NewTarget() {
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Job Target Details</h3>
 
-              <Select
-                label="Job Type"
-                options={[
-                  { value: '', label: 'Select a job type' },
-                  { value: 'direct', label: 'Direct' },
-                  { value: 'indirect', label: 'Indirect' },
-                ]}
-                value={formData.job_subcategory}
-                onChange={(value) => handleInputChange(value, 'job_subcategory')}
-                placeholder="Select job subcategory"
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Job Type</label>
+                <Select
+                  options={[
+                    { value: '', label: 'Select a job type' },
+                    { value: 'direct', label: 'Direct' },
+                    { value: 'indirect', label: 'Indirect' },
+                  ]}
+                  value={formData.job_subcategory}
+                  onChange={handleSelectChange('job_subcategory')}
+                  placeholder="Select job subcategory"
+                />
+              </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input
                   label="Women Target"
                   name="women_target"
                   value={formData.women_target}
-                  onChange={handleInputChange}
+                  onChange={handleFieldChange}
                   type="number"
                 />
 
@@ -242,15 +222,17 @@ export default function NewTarget() {
                   label="Current Women"
                   name="women_current"
                   value={formData.women_current}
-                  onChange={handleInputChange}
+                  onChange={handleFieldChange}
                   type="number"
                 />
+              </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input
                   label="Youth Target"
                   name="youth_target"
                   value={formData.youth_target}
-                  onChange={handleInputChange}
+                  onChange={handleFieldChange}
                   type="number"
                 />
 
@@ -258,28 +240,28 @@ export default function NewTarget() {
                   label="Current Youth"
                   name="youth_current"
                   value={formData.youth_current}
-                  onChange={handleInputChange}
+                  onChange={handleFieldChange}
                   type="number"
                 />
               </div>
             </div>
           )}
-        </div>
 
-        <div className="flex justify-end gap-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate('/targets/tracking')}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={loading}
-          >
-            {loading ? 'Creating...' : 'Create Target'}
-          </Button>
+          <div className="flex justify-end space-x-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate('/targets/tracking')}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={actionsLoading || createTargetMutation.isPending}
+            >
+              {createTargetMutation.isPending ? 'Creating...' : 'Create Target'}
+            </Button>
+          </div>
         </div>
       </form>
     </div>

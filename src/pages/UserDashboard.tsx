@@ -1,9 +1,15 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { UserDashboard} from '../components/dashboard/UserDashboard'
+import { useActivityTracking } from '../hooks/useActivityTracking';
 
 
 export function MyDashboard() {
+  const { trackPageView } = useActivityTracking();
+
+  useEffect(() => {
+    trackPageView('User Dashboard');
+  }, []);
 
   return (
     <DashboardLayout>

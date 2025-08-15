@@ -604,7 +604,17 @@ export function ActionReports() {
       Select Action
     </label>
     <Select
-      options={actions.map(action => ({ value: action.id, label: action.name, prefix: action.code }))}
+      options={actions
+        .sort((a, b) => {
+          const codeA = String(a.code || '');
+          const codeB = String(b.code || '');
+          return codeA.localeCompare(codeB);
+        })
+        .map(action => ({ 
+          value: action.id, 
+          label: action.name, 
+          prefix: action.code 
+        }))}
       value={selectedActionId}
       onChange={(value)=> typeof value === 'string' && setSelectedActionId(value)}
       placeholder="Select Action"

@@ -1,157 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  Target, 
   ArrowLeft, 
-  FileEdit, 
   Trash2, 
   CheckCircle2, 
   AlertCircle, 
-  Clock,
-  Calendar,
-  Users,
-  TrendingUp
+  Clock
 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
-// import { PageHeader } from '../../components/layout/PageHeader';
-
-interface TargetDetail {
-  id: string;
-  description: string;
-  metric: string;
-  baseline_value: number;
-  target_value: number;
-  current_value: number;
-  last_updated: string;
-  category?: string;
-  women_target?: number;
-  women_current?: number;
-  youth_target?: number;
-  youth_current?: number;
-  created_at: string;
-  action?: {
-    id: string;
-    name: string;
-    intervention?: {
-      id: string;
-      name: string;
-      pathway?: {
-        id: string;
-        name: string;
-        cluster?: {
-          id: string;
-          name: string;
-        }
-      }
-    }
-  };
-}
-
-interface TargetHistory {
-  id: string;
-  target_id: string;
-  previous_target_value: number;
-  new_target_value: number;
-  previous_baseline_value?: number;
-  new_baseline_value?: number;
-  previous_current_value?: number;
-  new_current_value?: number;
-  women_previous_value?: number;
-  women_new_value?: number;
-  youth_previous_value?: number;
-  youth_new_value?: number;
-  changed_at: string;
-  changed_by: string;
-  user?: {
-    full_name: string;
-    email: string;
-  };
-}
+import { useTargetDetail, useTargetHistory, useDeleteTarget } from '../../hooks/useTargetQueries';
 
 export default function TargetDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   
-  const [target, setTarget] = useState<TargetDetail | null>(null);
-  const [history, setHistory] = useState<TargetHistory[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [updateValue, setUpdateValue] = useState('');
-  const [updateWomenValue, setUpdateWomenValue] = useState('');
-  const [updateYouthValue, setUpdateYouthValue] = useState('');
-  const [updatingLoading, setUpdatingLoading] = useState(false);
+  // Use hooks instead of direct Supabase calls
+  const { data: target, isLoading: targetLoading, error: targetError } = useTargetDetail(id || '');
+  const { data: history = [], isLoading: historyLoading } = useTargetHistory(id || '');
+  const deleteTargetMutation = useDeleteTarget();
   
-  useEffect(() => {
-    if (id) {
-      loadTarget(id);
-      loadTargetHistory(id);
-    }
-  }, [id]);
-  
-  const loadTarget = async (targetId: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const { data, error } = await supabase
-        .from('action_targets')
-        .select(`
-          *,
-          action:actions(
-            id,
-            name,
-            intervention:interventions(
-              id,
-              name,
-              pathway:pathways(
-                id,
-                name,
-                cluster:clusters(
-                  id,
-                  name
-                )
-              )
-            )
-          )
-        `)
-        .eq('id', targetId)
-        .single();
-
-      if (error) throw error;
-      
-      setTarget(data);
-    } catch (err: any) {
-      console.error('Error loading target:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const loadTargetHistory = async (targetId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('target_history')
-        .select(`*, changed_by:profiles(full_name)`)
-        .eq('target_id', targetId)
-        .order('changed_at', { ascending: false });
-
-      if (error) throw error;
-      
-      setHistory(data || []);
-      console.log(data)
-    } catch (err: any) {
-      console.error('Error loading target history:', err);
-    }
-  };
-  
-  const handleEdit = () => {
-    if (target) {
-      navigate(`/targets/edit/${target.id}`);
-    }
-  };
+  const loading = targetLoading || historyLoading;
+  const error = targetError ? (targetError instanceof Error ? targetError.message : 'Unknown error') : null;
   
   const handleDelete = async () => {
     if (!target) return;
@@ -159,17 +28,12 @@ export default function TargetDetail() {
     if (!window.confirm('Are you sure you want to delete this target?')) return;
     
     try {
-      const { error } = await supabase
-        .from('action_targets')
-        .delete()
-        .eq('id', target.id);
-
-      if (error) throw error;
-      
+      await deleteTargetMutation.mutateAsync(target.id);
       navigate('/targets/tracking');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error deleting target:', err);
-      alert(`Error deleting target: ${err.message}`);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      alert(`Error deleting target: ${message}`);
     }
   };
   
@@ -190,30 +54,39 @@ export default function TargetDetail() {
     if (progress >= 50) return <Clock className="h-5 w-5 text-yellow-500" />;
     return <AlertCircle className="h-5 w-5 text-red-500" />;
   };
-  
-  const isJobTarget = (target: TargetDetail) => {
-    return target.category === 'jobs';
-  };
-  
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
-  
+
+  const isJobTarget = (t: typeof target) => t?.category === 'jobs';
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-[calc(100vh-150px)]">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600"></div>
+        </div>
+      </DashboardLayout>
     );
   }
-  
+
   if (error || !target) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
-          <div className="flex items-center">
-            <AlertCircle className="h-5 w-5 mr-2" />
-            <span className="block sm:inline">{error || 'Metric not found'}</span>
+      <DashboardLayout>
+        <div className="container mx-auto px-4 py-8">
+          <div className="rounded-md bg-red-50 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <AlertCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">
+                  Error Loading Metric Details
+                </h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>
+                    {error || 'The requested metric could not be found or you do not have permission to view it.'}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
           <button 
             onClick={() => navigate('/targets/tracking')} 
@@ -223,7 +96,7 @@ export default function TargetDetail() {
             Back to Targets
           </button>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
   
@@ -244,29 +117,17 @@ export default function TargetDetail() {
         </button>
       </div>
       
-      {/* <PageHeader
-        title={target.description}
-        description={`Target tracking for ${target.metric}`}
-        icon={<Target className="h-8 w-8" />}
-      /> */}
-      
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {/* Target Information */}
         <div className="bg-white rounded-lg shadow-sm p-6 col-span-2">
           <div className="flex justify-between items-start mb-6">
             <h3 className="text-lg font-medium text-gray-900">Metric Information</h3>
             <div className="flex space-x-2">
-              {/* <button
-                onClick={handleEdit}
-                className="p-2 text-blue-600 hover:text-blue-800 rounded-full hover:bg-blue-50"
-                title="Edit Target"
-              >
-                <FileEdit className="h-5 w-5" />
-              </button> */}
               <button
                 onClick={handleDelete}
                 className="p-2 text-red-600 hover:text-red-800 rounded-full hover:bg-red-50"
                 title="Delete Metric"
+                disabled={deleteTargetMutation.isPending}
               >
                 <Trash2 className="h-5 w-5" />
               </button>
@@ -301,136 +162,48 @@ export default function TargetDetail() {
             
             <div>
               <h4 className="text-sm font-medium text-gray-500 mb-1">Last Updated</h4>
-              <p className="text-base">{formatDate(target.last_updated)}</p>
+              <p className="text-base">{new Date(target.last_updated).toLocaleDateString()}</p>
             </div>
-            
-            {isJobTarget(target) && (
-              <>
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-1">Women Target</h4>
-                  <p className="text-base">{target.women_target?.toLocaleString() || 0}</p>
-                </div>
-                
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-1">Women Current</h4>
-                  <p className="text-base">{target.women_current?.toLocaleString() || 0}</p>
-                </div>
-                
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-1">Youth Target</h4>
-                  <p className="text-base">{target.youth_target?.toLocaleString() || 0}</p>
-                </div>
-                
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-1">Youth Current</h4>
-                  <p className="text-base">{target.youth_current?.toLocaleString() || 0}</p>
-                </div>
-              </>
-            )}
-          </div>
-          
-          <div className="mt-8">
-            <h4 className="text-sm font-medium text-gray-500 mb-3">Progress</h4>
-            <div className="flex items-center mb-2">
-              <div className="w-full bg-gray-200 rounded-full h-4 mr-4">
-                <div 
-                  className={`h-4 rounded-full ${progressColor}`} 
-                  style={{ width: `${progress}%` }}
-                ></div>
-              </div>
-              <span className="text-sm font-medium">{Math.round(progress)}%</span>
-              <div className="ml-2">{progressIcon}</div>
-            </div>
-            
-            {isJobTarget(target) && (
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h5 className="text-xs font-medium text-gray-500 mb-1">Women Progress</h5>
-                  <div className="flex items-center">
-                    <div className="w-full bg-gray-200 rounded-full h-3 mr-4">
-                      <div 
-                        className="h-3 rounded-full bg-purple-500" 
-                        style={{ width: `${calculateProgress(target.women_current || 0, target.women_target || 0)}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-xs font-medium">
-                      {Math.round(calculateProgress(target.women_current || 0, target.women_target || 0))}%
-                    </span>
-                  </div>
-                </div>
-                
-                <div>
-                  <h5 className="text-xs font-medium text-gray-500 mb-1">Youth Progress</h5>
-                  <div className="flex items-center">
-                    <div className="w-full bg-gray-200 rounded-full h-3 mr-4">
-                      <div 
-                        className="h-3 rounded-full bg-blue-500" 
-                        style={{ width: `${calculateProgress(target.youth_current || 0, target.youth_target || 0)}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-xs font-medium">
-                      {Math.round(calculateProgress(target.youth_current || 0, target.youth_target || 0))}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
         
-        {/* Action Information */}
+        {/* Progress Summary */}
         <div className="bg-white rounded-lg shadow-sm p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Related Information</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Progress Summary</h3>
+          <div className="flex items-center space-x-3">
+            {progressIcon}
+            <div>
+              <div className="text-sm text-gray-500">Completion</div>
+              <div className="text-lg font-semibold">{progress.toFixed(1)}%</div>
+            </div>
+          </div>
+          <div className="mt-4 w-full bg-gray-200 rounded-full h-2.5">
+            <div className={`${progressColor} h-2.5 rounded-full`} style={{ width: `${progress}%` }}></div>
+          </div>
           
-          {target.action ? (
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-sm font-medium text-gray-500 mb-1">Action</h4>
-                <p className="text-base font-medium">{target.action.name}</p>
-              </div>
-              
-              {target.action.intervention && (
+          {isJobTarget(target) && (
+            <div className="mt-6 space-y-4">
+              <h4 className="text-sm font-medium text-gray-500">Job Target Breakdown</h4>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-1">Intervention</h4>
-                  <p className="text-base">{target.action.intervention.name}</p>
+                  <div className="text-sm text-gray-500">Women</div>
+                  <div className="text-lg font-semibold">{(target.women_current ?? 0).toLocaleString()} / {(target.women_target ?? 0).toLocaleString()}</div>
                 </div>
-              )}
-              
-              {target.action.intervention?.pathway && (
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-1">Pathway</h4>
-                  <p className="text-base">{target.action.intervention.pathway.name}</p>
+                  <div className="text-sm text-gray-500">Youth</div>
+                  <div className="text-lg font-semibold">{(target.youth_current ?? 0).toLocaleString()} / {(target.youth_target ?? 0).toLocaleString()}</div>
                 </div>
-              )}
-              
-              {target.action.intervention?.pathway?.cluster && (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-1">Cluster</h4>
-                  <p className="text-base">{target.action.intervention.pathway.cluster.name}</p>
-                </div>
-              )}
-              
-              <div className="pt-4">
-                <button
-                  onClick={() => navigate(`/interventions/${target.action?.intervention?.id}/actions/${target.action?.id}#targets`)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  View Action Details
-                </button>
               </div>
             </div>
-          ) : (
-            <p className="text-gray-500">No related action information available</p>
           )}
         </div>
       </div>
       
-      {/* Target History */}
-      <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-        <h3 className="text-lg font-medium text-gray-900 mb-6">Update History</h3>
-        
+      {/* History */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Update History</h3>
         {history.length === 0 ? (
-          <p className="text-gray-500">No update history available</p>
+          <div className="text-sm text-gray-500">No history available</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -461,7 +234,7 @@ export default function TargetDetail() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {history.map(item => (
+                {history.map((item: any) => (
                   <tr key={item.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(item.changed_at)}
@@ -470,10 +243,10 @@ export default function TargetDetail() {
                       {item.changed_by?.full_name || item.user?.email || 'Unknown'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item.previous_current_value.toLocaleString()}
+                      {(item.previous_current_value ?? 0).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item.new_current_value.toLocaleString()}
+                      {(item.new_current_value ?? 0).toLocaleString()}
                     </td>
                     {isJobTarget(target) && (
                       <>
@@ -495,6 +268,10 @@ export default function TargetDetail() {
     </div>
     </DashboardLayout>
   );
+}
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleString();
 }
 
   
