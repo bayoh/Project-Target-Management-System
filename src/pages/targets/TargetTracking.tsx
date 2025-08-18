@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { usePaginatedTargets, useDeleteTarget, useUpdateTarget, TargetItem, TargetFilters } from '../../hooks/useTargetQueries';
-import { DashboardLayout } from '../../components/layout/DashboardLayout';
+
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
@@ -177,31 +177,26 @@ function TargetTracking() {
 
   if (isLoading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
     );
   }
 
   if (isError) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Error loading targets</h3>
-            <p className="text-sm text-gray-500">{error?.message || 'An unexpected error occurred'}</p>
-          </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Error loading targets</h3>
+          <p className="text-sm text-gray-500">{error?.message || 'An unexpected error occurred'}</p>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
-      <TooltipProvider>
+    <TooltipProvider>
         <div className="space-y-6">
           {/* Header Section */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -731,7 +726,6 @@ function TargetTracking() {
         )}
         </div>
       </TooltipProvider>
-    </DashboardLayout>
   );
 }
 

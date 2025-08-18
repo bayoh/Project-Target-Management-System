@@ -73,7 +73,7 @@ export function NeedForm({ onSubmit, onCancel, need }: NeedFormProps) {
       )}
 
       <div className="space-y-2">
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label htmlFor="description" className="block text-sm font-medium text-gray-700">
           Description *
         </label>
         <Input
@@ -113,7 +113,7 @@ export function NeedForm({ onSubmit, onCancel, need }: NeedFormProps) {
         />
 
         <div className="space-y-2">
-          <label htmlFor="date_identified" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="date_identified" className="block text-sm font-medium text-gray-700">
             <Calendar className="inline h-4 w-4 mr-1" />
             Date Identified *
           </label>
@@ -128,7 +128,7 @@ export function NeedForm({ onSubmit, onCancel, need }: NeedFormProps) {
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="date_fulfilled" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="date_fulfilled" className="block text-sm font-medium text-gray-700">
             <Calendar className="inline h-4 w-4 mr-1" />
             Date Fulfilled
           </label>
@@ -144,7 +144,7 @@ export function NeedForm({ onSubmit, onCancel, need }: NeedFormProps) {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
         <div className="space-y-2">
-          <label htmlFor="resource_requirements" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="resource_requirements" className="block text-sm font-medium text-gray-700">
             <Package className="inline h-4 w-4 mr-1" />
             Resource Requirements *
           </label>
@@ -161,7 +161,7 @@ export function NeedForm({ onSubmit, onCancel, need }: NeedFormProps) {
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="budget_impact" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="budget_impact" className="block text-sm font-medium text-gray-700">
             <DollarSign className="inline h-4 w-4 mr-1" />
             Budget Impact
           </label>
@@ -188,7 +188,7 @@ export function NeedForm({ onSubmit, onCancel, need }: NeedFormProps) {
         className="w-full"
       />
 
-      <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+      <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-200">
         <Button type="button" variant="outline" onClick={onCancel} className="sm:w-auto w-full">
           Cancel
         </Button>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import type { User } from '../../types/auth';
+import { useActivityTracking } from '../../hooks/useActivityTracking';
 
 interface FormData {
   cluster: {
@@ -84,6 +85,7 @@ export function MultiStepClusterForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { trackCreate } = useActivityTracking();
 
   useEffect(() => {
     // Get the current user
@@ -130,6 +132,12 @@ export function MultiStepClusterForm() {
 
       if (clusterError) throw clusterError;
       if (!cluster) throw new Error('Failed to create cluster');
+
+      // Track cluster creation
+      await trackCreate('cluster', cluster.id, {
+        name: formData.cluster.name,
+        description: formData.cluster.description
+      });
 
       // Process each pathway
       for (const pathway of formData.pathways) {

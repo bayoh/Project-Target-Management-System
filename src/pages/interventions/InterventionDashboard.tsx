@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DashboardLayout } from '../../components/layout/DashboardLayout';
+
 import { 
   Plus,
   ChevronRight,
@@ -19,6 +19,7 @@ import {
   LayoutGrid, // Added for grid view icon
   ListChecks // Added for list view icon
 } from 'lucide-react';
+import { MetricsGrid } from '../../components/ui/MetricsGrid';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { projectApi, userApi } from '../../lib/api';
@@ -50,7 +51,7 @@ interface ConfirmationState {
 }
 
 export function InterventionDashboard() {
-  const { trackPageView } = useActivityTracking();
+  const { trackPageView, trackDelete } = useActivityTracking();
   const { user: sessionUser } = useAuth();
   const queryClient = useQueryClient();
   const [confirmation, setConfirmation] = useState<ConfirmationState>({
@@ -127,7 +128,15 @@ export function InterventionDashboard() {
   // Delete intervention mutation
   const deleteInterventionMutation = useMutation({
     mutationFn: (interventionId: string) => projectApi.deleteIntervention(interventionId),
-    onSuccess: () => {
+    onSuccess: (_, interventionId) => {
+      const deletedIntervention = interventions.find(intervention => intervention.id === interventionId);
+      if (deletedIntervention) {
+        trackDelete('intervention', interventionId, {
+          name: deletedIntervention.name,
+          pathway_id: deletedIntervention.pathway_id,
+          status: deletedIntervention.status
+        });
+      }
       queryClient.invalidateQueries({ queryKey: queryKeys.projects.interventions() });
       toast.success('Intervention deleted successfully');
     },
@@ -339,11 +348,11 @@ export function InterventionDashboard() {
     );
   };
 
-  if (loading) return <DashboardLayout><div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-purple-500"></div></div></DashboardLayout>;
-  if (error) return <DashboardLayout><div className="text-red-500 text-center p-4">Error: {(error as Error).message}. Please try refreshing the page.</div></DashboardLayout>;
+  if (loading) return <div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-purple-500"></div></div>;
+  if (error) return <div className="text-red-500 text-center p-4">Error: {(error as Error).message}. Please try refreshing the page.</div>;
 
   return (
-    <DashboardLayout>
+    <>
       <div className="p-3 md:p-4 lg:p-6">
         <header className="mb-5">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
@@ -361,43 +370,50 @@ export function InterventionDashboard() {
           </div>
 
           {/* Metrics Section */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
-            <div className="bg-white rounded-lg shadow-sm p-3 flex items-center justify-between transition-all duration-300 hover:shadow-md">
-              <div className="flex items-center">
-                <div className="p-2 bg-blue-100 rounded-md">
-                  <Network className="h-4 w-4 text-blue-600" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-xs font-medium text-gray-500">Total Interventions</p>
-                  <p className="text-xl font-bold text-gray-900">{totalActions}</p>
-                </div>
-              </div>
-            </div>
-            {Object.entries(statusCounts).map(([status, count]) => {
-              const StatusIcon = statusIcons[status] || List;
-              const iconColors = {
-                completed: 'bg-green-100 text-green-600',
-                in_progress: 'bg-blue-100 text-blue-600',
-                at_risk: 'bg-yellow-100 text-yellow-600',
-                not_started: 'bg-gray-100 text-gray-600'
-              };
-              return (
-                <div key={status} className="bg-white rounded-lg shadow-sm p-3 flex items-center justify-between transition-all duration-300 hover:shadow-md">
-                  <div className="flex items-center">
-                    <div className={`p-2 rounded-md ${iconColors[status as keyof typeof iconColors] || iconColors.not_started}`}>
-                      <StatusIcon className="h-4 w-4" />
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-xs font-medium text-gray-500">
-                        {status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </p>
-                      <p className="text-xl font-bold text-gray-900">{count}</p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <MetricsGrid 
+            metrics={[
+              {
+                id: 'total',
+                label: 'Total Interventions',
+                value: totalActions,
+                icon: Network,
+                gradient: 'bg-gradient-to-br from-blue-500 to-blue-600',
+                onClick: () => setFilters(prev => ({ ...prev, status: '' }))
+              },
+              {
+                id: 'completed',
+                label: 'Completed',
+                value: statusCounts.completed,
+                icon: CheckCircle2,
+                gradient: 'bg-gradient-to-br from-green-500 to-green-600',
+                onClick: () => setFilters(prev => ({ ...prev, status: 'completed' }))
+              },
+              {
+                id: 'in_progress',
+                label: 'On Track',
+                value: statusCounts.in_progress,
+                icon: Clock,
+                gradient: 'bg-gradient-to-br from-blue-500 to-blue-600',
+                onClick: () => setFilters(prev => ({ ...prev, status: 'in_progress' }))
+              },
+              {
+                id: 'at_risk',
+                label: 'Off Track',
+                value: statusCounts.at_risk,
+                icon: AlertTriangle,
+                gradient: 'bg-gradient-to-br from-amber-500 to-amber-600',
+                onClick: () => setFilters(prev => ({ ...prev, status: 'at_risk' }))
+              },
+              {
+                id: 'not_started',
+                label: 'Not Started',
+                value: statusCounts.not_started,
+                icon: X,
+                gradient: 'bg-gradient-to-br from-gray-500 to-gray-600',
+                onClick: () => setFilters(prev => ({ ...prev, status: 'not_started' }))
+              }
+            ]}
+          />
 
           {/* Filters and Search Section */}
           <div className="bg-white rounded-lg shadow-sm p-3 mb-4">
@@ -501,18 +517,18 @@ export function InterventionDashboard() {
       </div>
 
       <ConfirmationDialog
-        isOpen={confirmation.isOpen}
-        onClose={() => setConfirmation({ ...confirmation, isOpen: false })}
-        onConfirm={handleConfirmation}
-        title={confirmation.type === 'delete' ? 'Confirm Deletion' : 'Confirm Status Change'}
-        message={
-          confirmation.type === 'delete'
-            ? 'Are you sure you want to delete this intervention? This action cannot be undone.'
-            : `Are you sure you want to change the status to ${confirmation.newStatus?.replace('_', ' ')}?`
-        }
-        confirmText={confirmation.type === 'delete' ? 'Delete' : 'Confirm'}
-        confirmButtonVariant={confirmation.type === 'delete' ? 'destructive' : 'default'}
-      />
-    </DashboardLayout>
+      isOpen={confirmation.isOpen}
+      onClose={() => setConfirmation({ ...confirmation, isOpen: false })}
+      onConfirm={handleConfirmation}
+      title={confirmation.type === 'delete' ? 'Confirm Deletion' : 'Confirm Status Change'}
+      message={
+        confirmation.type === 'delete'
+          ? 'Are you sure you want to delete this intervention? This action cannot be undone.'
+          : `Are you sure you want to change the status to ${confirmation.newStatus?.replace('_', ' ')}?`
+      }
+      confirmLabel={confirmation.type === 'delete' ? 'Delete' : 'Confirm'}
+      type={confirmation.type === 'delete' ? 'danger' : 'warning'}
+    />
+    </>
   );
 }

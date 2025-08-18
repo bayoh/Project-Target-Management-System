@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { Upload, X, FileText, Image, AlertCircle, Loader2, Calendar, FileIcon, AlertTriangle } from 'lucide-react';
+import { Upload, X, FileText, AlertCircle, Loader2, Calendar, FileIcon } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
-import { Input } from '../../ui/input';
+import { Input } from '../../ui/Input';
 import { Button } from '../../ui/button';
 import { projectApi } from '../../../lib/api';
+import { useActivityTracking } from '../../../hooks/useActivityTracking';
 
 interface AchievementFormProps {
   onSubmit: (data: any) => Promise<void>;
@@ -31,16 +32,16 @@ function DeleteConfirmationDialog({ isOpen, fileName, onConfirm, onCancel }: Del
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full border border-gray-200 dark:border-gray-700">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full border">
         <div className="p-5">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
-              <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+              <AlertCircle className="h-5 w-5 text-red-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Delete File</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Delete File</h3>
           </div>
-          <p className="text-gray-600 dark:text-gray-300 mb-6 text-sm leading-relaxed">
-            Are you sure you want to delete <span className="font-medium text-gray-900 dark:text-gray-100">"{fileName}"</span>? This action cannot be undone.
+          <p className="text-gray-600 mb-6 text-sm leading-relaxed">
+            Are you sure you want to delete <span className="font-medium text-gray-900">"{fileName}"</span>? This action cannot be undone.
           </p>
           <div className="flex gap-3 justify-end">
             <Button variant="outline" onClick={onCancel} size="sm" className="px-4">
@@ -56,7 +57,8 @@ function DeleteConfirmationDialog({ isOpen, fileName, onConfirm, onCancel }: Del
   );
 }
 
-export function AchievementForm({ onSubmit, onCancel, achievement, action , showEdit }: AchievementFormProps) {
+export function AchievementForm({ onSubmit, onCancel, achievement }: AchievementFormProps) {
+  const { trackDelete } = useActivityTracking();
   const [formData, setFormData] = useState({
     id: achievement?.id,
     description: achievement?.description || '',
@@ -64,7 +66,7 @@ export function AchievementForm({ onSubmit, onCancel, achievement, action , show
     evidence_url: achievement?.evidence_url || '',
     evidence_file: Array.isArray(achievement?.evidence_file) ? achievement?.evidence_file : []
   });
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null); // This seems unused, consider removing if not needed elsewhere
+  // const [uploadProgress, setUploadProgress] = useState<number | null>(null); // This seems unused, consider removing if not needed elsewhere
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [fileUploads, setFileUploads] = useState<{[key: string]: { progress: number; uploadedName?: string } }>({}); // Ensure uploadedName is optional
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -224,9 +226,18 @@ export function AchievementForm({ onSubmit, onCancel, achievement, action , show
 
       // const { error: deleteError} = await supabase.from()
       console.log(achievement)
-      const { error } = await projectApi.deleteAchievementFile(achievement?.id, storagePath)
+      const success = achievement?.id ? await projectApi.deleteAchievementFile(achievement.id, storagePath) : false;
+      if (!success) throw new Error('Failed to delete file')
 
       if (error) throw error;
+
+      // Track file deletion
+      await trackDelete('achievement_file', storagePath, {
+        achievement_id: achievement?.id,
+        file_name: getFileNameFromUrl(storagePath),
+        file_path: storagePath,
+        entity_type: 'achievement_file'
+      });
 
       setFormData(prev => ({
         ...prev,
@@ -286,21 +297,21 @@ export function AchievementForm({ onSubmit, onCancel, achievement, action , show
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 rounded-lg p-3">
           <div className="flex items-start gap-3">
             <div className="p-1 bg-red-100 dark:bg-red-900/30 rounded">
-              <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <AlertCircle className="h-4 w-4 text-red-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-medium text-red-800 dark:text-red-200">Error</h3>
-              <p className="mt-1 text-sm text-red-700 dark:text-red-300">{error}</p>
+              <h3 className="text-sm font-medium text-red-800">Error</h3>
+              <p className="mt-1 text-sm text-red-700">{error}</p>
             </div>
           </div>
         </div>
       )}
 
       <div className="space-y-2">
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label htmlFor="description" className="block text-sm font-medium text-gray-700">
           Description *
         </label>
         <Input
@@ -316,7 +327,7 @@ export function AchievementForm({ onSubmit, onCancel, achievement, action , show
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label htmlFor="date_achieved" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="date_achieved" className="block text-sm font-medium text-gray-700">
             <Calendar className="inline h-4 w-4 mr-1" />
             Date Achieved *
           </label>
@@ -332,7 +343,7 @@ export function AchievementForm({ onSubmit, onCancel, achievement, action , show
       </div>
 
       <div className="space-y-2">
-        <label htmlFor="supporting_evidence_url" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label htmlFor="supporting_evidence_url" className="block text-sm font-medium text-gray-700">
           Supporting Evidence URL
         </label>
         <Input
@@ -346,7 +357,7 @@ export function AchievementForm({ onSubmit, onCancel, achievement, action , show
       </div>
 
         <div className="space-y-3">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label className="block text-sm font-medium text-gray-700">
             <FileIcon className="inline h-4 w-4 mr-1" />
             Upload Evidence Files
           </label>
@@ -356,17 +367,17 @@ export function AchievementForm({ onSubmit, onCancel, achievement, action , show
                 htmlFor="evidence_file"
                 className={`
                   border-2 border-dashed rounded-xl p-4 text-center transition-all duration-200 cursor-pointer
-                  ${selectedFiles.length ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-500' : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'}
+                  ${selectedFiles.length ? 'border-blue-400 bg-blue-50 ' : 'border-gray-3000 hover:border-gray-400'}
                 `}
               >
                 <div className="space-y-1 text-center">
                   <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg inline-block mb-3">
-                    <Upload className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+                    <Upload className="h-8 w-8 text-gray-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">
+                    <p className="text-sm text-gray-600 mb-1">
                       Drag and drop files here, or{' '}
-                      <span className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 font-medium underline">
+                      <span className="text-blue-600 hover:text-blue-500 font-medium underline">
                         {selectedFiles.length ? `${selectedFiles.length} files selected` : 'browse'}
                       </span>
                     </p>
@@ -392,27 +403,27 @@ export function AchievementForm({ onSubmit, onCancel, achievement, action , show
           {/* Existing Files Preview */}
           {formData.evidence_file && formData.evidence_file.length > 0 && (
             <div className="space-y-3">
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Uploaded Files</h4>
+              <h4 className="text-sm font-medium text-gray-700">Uploaded Files</h4>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 max-h-[300px] overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 {formData.evidence_file.map((url, index) => {
                   const fileName = getFileNameFromUrl(url);
                   return (
-                    <div key={url} className="relative group bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    <div key={index} className="relative group bg-gray-50 p-2 rounded-lg border hover:bg-gray-100 transition-colors">
                       <div className="aspect-w-16 aspect-h-9 mb-2">
                         {isImageFile(url) ? (
                           <img
                             src={url}
                             alt={fileName}
-                            className="object-cover rounded border border-gray-200 dark:border-gray-600"
+                            className="object-cover rounded border0"
                           />
                         ) : (
-                          <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded">
-                            <FileText className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+                          <div className="flex items-center justify-center bg-gray-100 rounded">
+                            <FileText className="h-8 w-8 text-gray-400" />
                           </div>
                         )}
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600 dark:text-gray-300 truncate flex-1">{fileName}</span>
+                        <span className="text-sm text-gray-600 truncate flex-1">{fileName}</span>
                         <button
                           type="button"
                           onClick={() => setDeleteConfirmation({ 
@@ -421,7 +432,7 @@ export function AchievementForm({ onSubmit, onCancel, achievement, action , show
                             // Pass the full URL here, handleDeleteFile will parse it
                             filePath: url 
                           })}
-                          className="p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/20 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
+                          className="p-1 rounded-full hover:bg-red-100 text-gray-500 hover:text-red-600 transition-colors"
                           disabled={isBatchUploading} 
                         >
                           <X className="h-4 w-4" />
@@ -439,7 +450,7 @@ export function AchievementForm({ onSubmit, onCancel, achievement, action , show
       {/* Uploading Files Preview / Progress */}
       {(selectedFiles.length > 0 || Object.keys(fileUploads).length > 0) && (
         <div className="space-y-3">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <h4 className="text-sm font-medium text-gray-700">
             {isBatchUploading ? 'Uploading Files...' : (Object.keys(fileUploads).length > 0 ? 'Pending Uploads:' : 'Selected Files:')}
           </h4>
           <div className="max-h-[150px] overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
@@ -455,23 +466,23 @@ export function AchievementForm({ onSubmit, onCancel, achievement, action , show
               if (!uploadInfo && formData.evidence_file.find(fUrl => getFileNameFromUrl(fUrl) === (file as any).uploadedName)) return null; // Already uploaded and in formData
 
               return (
-                <div key={file.name} className="flex items-center justify-between bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700 mb-1">
+                <div key={file.name} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border mb-1">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="p-1 bg-gray-100 dark:bg-gray-700 rounded">
+                    <div className="p-1 bg-gray-100 rounded">
                       {uploadInfo && uploadInfo.progress > 0 && uploadInfo.progress < 100 ? (
-                        <Loader2 className="h-4 w-4 text-blue-500 dark:text-blue-400 animate-spin" />
+                        <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
                       ) : (
                         <FileText className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-sm text-gray-600 dark:text-gray-300 truncate block">
+                      <span className="text-sm text-gray-600 truncate block">
                         {uploadInfo?.uploadedName || file.name}
                       </span>
                       {uploadInfo && uploadInfo.progress >= 0 && (
-                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-1">
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
                           <div
-                            className="bg-blue-600 dark:bg-blue-500 h-1.5 rounded-full transition-all duration-150"
+                            className="bg-blue-600 h-1.5 rounded-full transition-all duration-150"
                             style={{ width: `${uploadInfo.progress}%` }}
                           />
                         </div>
@@ -483,7 +494,7 @@ export function AchievementForm({ onSubmit, onCancel, achievement, action , show
                     <button
                       type="button"
                       onClick={() => handleRemoveFile(file.name)}
-                      className="p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/20 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
+                      className="p-1 rounded-full hover:bg-red-100 text-gray-500 hover:text-red-600 transition-colors"
                       disabled={isBatchUploading} // Also disable remove if batch is uploading
                     >
                       <X className="h-4 w-4" />
@@ -496,7 +507,7 @@ export function AchievementForm({ onSubmit, onCancel, achievement, action , show
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+      <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t">
         <Button
           type="button"
           variant="outline"

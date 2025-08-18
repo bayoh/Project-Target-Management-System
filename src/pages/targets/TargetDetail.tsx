@@ -7,7 +7,7 @@ import {
   AlertCircle, 
   Clock
 } from 'lucide-react';
-import { DashboardLayout } from '../../components/layout/DashboardLayout';
+
 import { useTargetDetail, useTargetHistory, useDeleteTarget } from '../../hooks/useTargetQueries';
 
 export default function TargetDetail() {
@@ -59,18 +59,15 @@ export default function TargetDetail() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-[calc(100vh-150px)]">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600"></div>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center h-[calc(100vh-150px)]">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600"></div>
+      </div>
     );
   }
 
   if (error || !target) {
     return (
-      <DashboardLayout>
-        <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8">
           <div className="rounded-md bg-red-50 p-4">
             <div className="flex">
               <div className="flex-shrink-0">
@@ -96,7 +93,6 @@ export default function TargetDetail() {
             Back to Targets
           </button>
         </div>
-      </DashboardLayout>
     );
   }
   
@@ -105,7 +101,6 @@ export default function TargetDetail() {
   const progressIcon = getProgressIcon(progress);
   
   return (
-    <DashboardLayout>
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
         <button 
@@ -266,7 +261,6 @@ export default function TargetDetail() {
         )}
       </div>
     </div>
-    </DashboardLayout>
   );
 }
 

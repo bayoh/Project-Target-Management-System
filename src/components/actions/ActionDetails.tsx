@@ -28,6 +28,7 @@ import { AchievementViewModal } from './AchievementViewModal';
 import { Button } from '../../components/ui/button'; // Corrected import path
 import { projectApi } from '../../lib/api';
 import { CommentsSection } from '../comments/CommentsSection';
+import { useActivityTracking } from '../../hooks/useActivityTracking';
 
 interface Partner {
   id: string;
@@ -113,6 +114,7 @@ interface DeleteConfirmationDialogProps {
 export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { trackCreate, trackUpdate, trackDelete } = useActivityTracking();
   const [activeTab, setActiveTab] = useState<'details' | 'achievements' | 'issues' | 'needs' | 'targets' | 'comments'>(() => {
     const tab = location.hash.slice(1);
     return ['details', 'achievements', 'issues', 'needs', 'targets', 'comments'].includes(tab) ? tab as any : 'details';
@@ -242,15 +244,23 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated user');
 
-      const { error: commentError } = await supabase
+      const { data: commentData, error: commentError } = await supabase
         .from('action_comments')
         .insert([{
           action_id: action.id,
           content: newComment,
           created_by: user.id
-        }]);
+        }])
+        .select('id')
+        .single();
 
       if (commentError) throw commentError;
+      
+      // Track comment creation activity
+      await trackCreate('comment', commentData.id, {
+        action_id: action.id,
+        content_preview: newComment.substring(0, 100)
+      });
       
       setNewComment('');
       await loadComments();
@@ -270,6 +280,12 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
         .eq('id', commentId);
 
       if (error) throw error;
+      
+      // Track comment deletion activity
+      await trackDelete('comment', commentId, {
+        action_id: action.id
+      });
+      
       await loadComments();
     } catch (err) {
       console.error('Error deleting comment:', err);
@@ -348,18 +364,23 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
       if (!user) throw new Error('No authenticated user');
 
       let table = '';
+      let entityType = '';
       switch (formType) {
         case 'achievement':
           table = 'action_achievements';
+          entityType = 'achievement';
           break;
         case 'issue':
           table = 'action_issues';
+          entityType = 'issue';
           break;
         case 'need':
           table = 'action_needs';
+          entityType = 'need';
           break;
         case 'target':
           table = 'action_targets';
+          entityType = 'target';
           break;
       }
 
@@ -374,17 +395,32 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
           .eq('id', editingItem.id);
 
         if (updateError) throw updateError;
+        
+        // Track update activity
+        await trackUpdate(entityType as any, editingItem.id, {
+          action_id: action.id,
+          description: formData.description || formData.name,
+          changes: Object.keys(formData)
+        });
       } else {
         // Create new item
-        const { error: saveError } = await supabase
+        const { data: newItem, error: saveError } = await supabase
           .from(table)
           .insert([{
             ...formData,
             action_id: action.id,
             created_by: user.id
-          }]);
+          }])
+          .select('id')
+          .single();
 
         if (saveError) throw saveError;
+        
+        // Track create activity
+        await trackCreate(entityType as any, newItem.id, {
+          action_id: action.id,
+          description: formData.description || formData.name
+        });
       }
 
       await loadData();
@@ -421,6 +457,14 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
         .eq('id', issue.id);
 
       if (updateError) throw updateError;
+      
+      // Track issue resolution activity
+      await trackUpdate('issue', issue.id, {
+        action_id: action.id,
+        status: 'resolved',
+        description: issue.description
+      });
+      
       await loadData();
       onUpdate();
       handleIssueResolved(); // Call the risk assessment dialog
@@ -446,6 +490,14 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
         .eq('id', need.id);
 
       if (updateError) throw updateError;
+      
+      // Track need fulfillment activity
+      await trackUpdate('need', need.id, {
+        action_id: action.id,
+        date_fulfilled: new Date().toISOString().split('T')[0],
+        description: need.description
+      });
+      
       await loadData();
       onUpdate();
     } catch (err: any) {
@@ -478,6 +530,15 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
         .eq('id', target.id);
 
       if (updateError) throw updateError;
+      
+      // Track target update activity
+      await trackUpdate('target', target.id, {
+        action_id: action.id,
+        current_value: newValue,
+        previous_value: target.current_value,
+        description: target.description
+      });
+      
       await loadData();
       onUpdate();
     } catch (err: any) {
@@ -1263,18 +1324,41 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                     try {
                       if (deleteConfirmation.itemType === 'target') {
                         await projectApi.deleteTarget(deleteConfirmation.item.id);
+                        trackDelete('target', {
+                          action_id: action.id,
+                          description: deleteConfirmation.item.description,
+                          metric: deleteConfirmation.item.metric,
+                          current_value: deleteConfirmation.item.current_value
+                        });
                       } 
                       
                       if (deleteConfirmation.itemType === 'achievement') {
                         await projectApi.deleteAchievement(deleteConfirmation.item.id);
+                        trackDelete('achievement', {
+                          action_id: action.id,
+                          description: deleteConfirmation.item.description,
+                          status: deleteConfirmation.item.status
+                        });
                       }
 
                       if (deleteConfirmation.itemType === 'issue') {
                         await projectApi.deleteIssue(deleteConfirmation.item.id);
+                        trackDelete('issue', {
+                          action_id: action.id,
+                          description: deleteConfirmation.item.description,
+                          status: deleteConfirmation.item.status,
+                          priority: deleteConfirmation.item.priority
+                        });
                       }
 
                       if (deleteConfirmation.itemType ===  'need'){
                         await projectApi.deleteNeeeds(deleteConfirmation.item.id)
+                        trackDelete('need', {
+                          action_id: action.id,
+                          description: deleteConfirmation.item.description,
+                          status: deleteConfirmation.item.status,
+                          priority: deleteConfirmation.item.priority
+                        });
                       }
 
                       // if (deleteConfirmation.itemType === 'comment'){

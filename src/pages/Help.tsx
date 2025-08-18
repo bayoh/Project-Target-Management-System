@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useAuth } from '../lib/auth';
 import { Disclosure, Transition, Dialog } from '@headlessui/react';
 import { ChevronUpIcon, BookOpen, LayoutDashboard, Briefcase, Target, AlertTriangle, FileText, Users, Settings as SettingsIcon, Search, Edit, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react'; 
-import { DashboardLayout } from '../components/layout/DashboardLayout';
+
 import { supabase } from '../lib/supabase';
 import { getIconComponent } from '../lib/iconMapping';
 import { useActivityTracking } from '../hooks/useActivityTracking'; 
@@ -622,7 +622,7 @@ interface HelpMainContentProps {
 
 
 const Help = () => {
-  const { trackPageView } = useActivityTracking();
+  const { trackPageView, trackDelete } = useActivityTracking();
   const { user } = useAuth();
   const isAdmin = user?.user_metadata?.role === 'super_admin' || false;
 
@@ -681,6 +681,9 @@ const Help = () => {
       return;
     }
     try {
+      // Get the content item for tracking metadata
+      const contentItem = helpContent.find(item => item.id === id);
+      
       const { error } = await supabase
         .from('help_content')
         .delete()
@@ -689,6 +692,13 @@ const Help = () => {
       if (error) {
         throw error;
       }
+      
+      // Track the deletion
+      await trackDelete('help_content', id, {
+        title: contentItem?.title,
+        section_id: contentItem?.section_id
+      });
+      
       setHelpContent(prevContent => prevContent.filter(item => item.id !== id));
     } catch (err: any) {
       console.error('Error deleting help content:', err.message);
@@ -828,6 +838,9 @@ const Help = () => {
       return;
     }
     try {
+      // Get the section item for tracking metadata
+      const sectionItem = sections.find(section => section.id === sectionId);
+      
       const { error } = await supabase
         .from('help_sections')
         .delete()
@@ -836,6 +849,14 @@ const Help = () => {
       if (error) {
         throw error;
       }
+      
+      // Track the deletion
+      await trackDelete('help_section', sectionId, {
+        title: sectionItem?.title,
+        icon_name: sectionItem?.icon_name,
+        display_order: sectionItem?.display_order
+      });
+      
       setSections(prevSections => prevSections.filter(section => section.id !== sectionId));
       // If the deleted section was active, switch to the first available section
       if (activeSection === sectionId && sections.length > 1) {
@@ -900,26 +921,22 @@ const Help = () => {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="min-h-screen bg-gray-100 py-8 flex justify-center items-center">
-          <p className="text-gray-600">Loading help content...</p>
-        </div>
-      </DashboardLayout>
+      <div className="min-h-screen bg-gray-100 py-8 flex justify-center items-center">
+        <p className="text-gray-600">Loading help content...</p>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <DashboardLayout>
-        <div className="min-h-screen bg-gray-100 py-8 flex justify-center items-center">
-          <p className="text-red-600">Error loading help content: {error}</p>
-        </div>
-      </DashboardLayout>
+      <div className="min-h-screen bg-gray-100 py-8 flex justify-center items-center">
+        <p className="text-red-600">Error loading help content: {error}</p>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
+    <>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         <div className="flex h-screen overflow-hidden">
           {/* Mobile sidebar toggle */}
@@ -988,7 +1005,7 @@ const Help = () => {
               leaveFrom="opacity-100"
               leaveTo="opacity-0"
             >
-              <div className="fixed inset-0 bg-black/70 backdrop-blur-md" />
+              <div className="fixed inset-0 bg-black/70 backdrop-blur-md" ></div>
             </Transition.Child>
 
             <div className="fixed inset-0 overflow-y-auto">
@@ -1092,7 +1109,7 @@ const Help = () => {
           </Dialog>
         </Transition>
       )}
-    </DashboardLayout>
+    </>
   );
 };
 

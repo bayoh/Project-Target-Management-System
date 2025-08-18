@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { DashboardLayout } from '../../components/layout/DashboardLayout';
+import React, { useState, useEffect, useMemo } from 'react';
+
 import { 
   Download,
   FileSpreadsheet,
@@ -48,6 +48,13 @@ interface Milestone {
   status: 'completed' | 'ongoing/ontrack' | 'ongoing/offtrack'| 'pending';
 }
 
+interface Comment {
+  action_id: string;
+  content: string;
+  created_at: Date;
+  created_by: string;
+}
+
 interface ActionReport {
   id: string;
   name: string;
@@ -56,7 +63,7 @@ interface ActionReport {
   milestones: Milestone[];
   keyMilestones: string[];
   needs: [];
-  comments: [];
+  comments: Comment[];
   issues: [];
   jobsTarget: string;
   projectCost: string;
@@ -146,6 +153,75 @@ const getStatusColor = (status: string) => {
   }
 };
 
+// Enhanced date range filtering helper function
+interface DateRangeFilterOptions {
+  dateFields: string[];
+  startDate: Date;
+  endDate: Date;
+  allowNullDates?: boolean;
+}
+
+const isWithinDateRange = (item: any, options: DateRangeFilterOptions): boolean => {
+  const { dateFields, startDate, endDate, allowNullDates = false } = options;
+  
+  // Input validation
+  if (!startDate || !endDate) {
+    console.warn('Invalid date range: start or end date is missing');
+    return false;
+  }
+  
+  if (startDate > endDate) {
+    console.warn('Invalid date range: start date is after end date');
+    return false;
+  }
+  
+  if (!item || !dateFields.length) {
+    return false;
+  }
+  
+  // Check if any of the specified date fields fall within the range
+  return dateFields.some(fieldPath => {
+    const dateValue = getNestedValue(item, fieldPath);
+    
+    if (!dateValue) {
+      return allowNullDates;
+    }
+    
+    try {
+      const parsedDate = new Date(dateValue);
+      
+      // Check if the date is valid
+      if (isNaN(parsedDate.getTime())) {
+        console.warn(`Invalid date value for field ${fieldPath}:`, dateValue);
+        return false;
+      }
+      
+      return parsedDate >= startDate && parsedDate <= endDate;
+    } catch (error) {
+      console.warn(`Error parsing date for field ${fieldPath}:`, error);
+      return false;
+    }
+  });
+};
+
+// Helper function to get nested object values
+const getNestedValue = (obj: any, path: string): any => {
+  return path.split('.').reduce((current, key) => current?.[key], obj);
+};
+
+// Memoized date range filter function
+const useDateRangeFilter = (startDate: Date | null, endDate: Date | null) => {
+  return useMemo(() => {
+    if (!startDate || !endDate) return null;
+    
+    return {
+      filterStartDate: startDate,
+      filterEndDate: endDate,
+      isValidRange: startDate <= endDate
+    };
+  }, [startDate, endDate]);
+};
+
 // PDF Document Component
 
 
@@ -162,6 +238,9 @@ export function ActionReports() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCalendarOpen, setCalendarOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
+  
+  // Memoized date range filter for performance optimization
+  const dateRangeFilter = useDateRangeFilter(dateRange.start, dateRange.end);
 
   const ActionReportPDF = ({ report }: { report: ActionReport} ) => (
 
@@ -407,50 +486,54 @@ export function ActionReports() {
       }
       console.log(params)
       const data = await reportApi.getActionReport(params);
-      console.log(data)
+
       if (!data) {
         throw new Error('Failed to load report data');
       }
 
-      // Filter achievements, issues, comments, and needs based on date range
-      if (dateRange.start && dateRange.end) {
-        const startDate = dateRange.start;
-        const endDate = dateRange.end;
+      // Apply enhanced date range filtering if date range is selected
+      if (dateRangeFilter?.isValidRange) {
+        const { filterStartDate, filterEndDate } = dateRangeFilter;
         
-        // Filter issues within date range
-        data.issues = data.issues?.filter(issue => {
-          const issueDate = new Date(issue.created_at);
-          const issueIdentifiedDate = issue.date_identified ? new Date(issue.date_identified) : null;
-          const isWithinDateRange = (issueDate >= startDate && issueDate <= endDate) || 
-                                  (issueIdentifiedDate && issueIdentifiedDate >= startDate && issueIdentifiedDate <= endDate);
-          // const isUnresolved = issue.status !== 'resolved' && issue.status !== 'closed';
-          return isWithinDateRange;
-        }) || [];
+        // Filter issues using the enhanced helper function
+        data.issues = data.issues?.filter(issue => 
+          isWithinDateRange(issue, {
+            dateFields: ['created_at', 'date_identified'],
+            startDate: filterStartDate,
+            endDate: filterEndDate,
+            allowNullDates: false
+          })
+        ) || [];
 
-        // data.issues = data.issues?.filter(issue => {
-        //   const issueDate = new Date(issue.date_identified);
-        //   return (issueDate >= startDate && issueDate <= endDate) || issue.date_resolved === null;
-        // }) || [];
+        // Filter needs using multiple date fields with flexible matching
+        data.needs = data.needs?.filter(need => 
+          isWithinDateRange(need, {
+            dateFields: ['date_identified', 'date_fulfilled'],
+            startDate: filterStartDate,
+            endDate: filterEndDate,
+            allowNullDates: true // Allow needs with null fulfillment dates
+          })
+        ) || [];
 
-        // Filter comments within date range
-        // data.comments = data.comments?.filter(comment => {
-        //   const commentDate = new Date(comment.created_at);
-        //   return commentDate >= startDate && commentDate <= endDate;
-        // }) || [];
+        // Filter milestones using the enhanced helper function
+        data.milestones = data.milestones?.filter(milestone => 
+          isWithinDateRange(milestone, {
+            dateFields: ['date'],
+            startDate: filterStartDate,
+            endDate: filterEndDate,
+            allowNullDates: false
+          })
+        ) || [];
 
-        // Filter needs within date range
-        data.needs = data.needs?.filter(need => {
-          const needDate = new Date(need.date_identified);
-          const dateFulfiled =  new Date(need.date_fulfilled);
-          return (needDate >= startDate && needDate <= endDate) || (dateFulfiled && dateFulfiled >=startDate && dateFulfiled <= endDate || dateFulfiled === null) ;
-        }) || [];
-
-        // Filter milestones within date range
-        data.milestones = data.milestones?.filter(milestone => {
-          const milestoneDate = new Date(milestone.date);
-          return milestoneDate >= startDate && milestoneDate <= endDate;
-        }) || [];
-
+        // Filter comments using the enhanced helper function
+        data.comments = data.comments?.filter(comment => 
+          isWithinDateRange(comment, {
+            dateFields: ['created_at'],
+            startDate: filterStartDate,
+            endDate: filterEndDate,
+            allowNullDates: false
+          })
+        ) || [];
       }
       
       // Transform action data into report format
@@ -483,7 +566,7 @@ export function ActionReports() {
         lastUpdated: format(new Date(data.lastUpdated), 'dd/MM/yyyy HH:mm'),
         path: data.path
       };
-      console.log(reportData)
+      console.log("testing",reportData)
       setReport(reportData);
     } catch (err: any) {
       console.error('Error loading report:', err);
@@ -511,11 +594,9 @@ export function ActionReports() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Loader2 className="h-8 w-8 animate-spin text-gray-900" />
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-900" />
+      </div>
     );
   }
 
@@ -534,8 +615,7 @@ export function ActionReports() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="p-6 space-y-2">
+    <div className="p-6 space-y-2">
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">Action Reports</h1>
@@ -886,7 +966,7 @@ export function ActionReports() {
 
                   <div className="p-6 border-t border-gray-100">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Comments</h3>
-                    {report.needs.length > 0 ? (
+                    {report.comments.length > 0 ? (
                       <List>
                         {report.comments.map((comment, index) => (
                           <ListItem icon={<SpeechIcon className="h-5 w-5 text-blue-500 mt-0.5" />} key={index}>
@@ -930,6 +1010,5 @@ export function ActionReports() {
           </div>
           </div>
               
-        </DashboardLayout>
       );
     }

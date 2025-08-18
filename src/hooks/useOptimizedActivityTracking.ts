@@ -1,417 +1,468 @@
-import { useCallback, useEffect, useRef } from 'react';
-import { optimizedActivityLogger, useOptimizedActivityLogger } from '../lib/optimizedActivityLogger';
-import { ActivityActionType, EntityType } from '../lib/activityLogger';
+import { useCallback, useRef, useEffect } from 'react';
+import { useAuth } from '@/lib/auth';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
 
-// Extended EntityType to include new types for comprehensive tracking
-type ExtendedEntityType = EntityType | 'navigation' | 'form_submission' | 'search' | 'ui_interaction' | 'error' | 'performance_metric';
+// Performance monitoring interface
+interface PerformanceMetrics {
+  totalLogs: number;
+  successfulLogs: number;
+  failedLogs: number;
+  averageLatency: number;
+  circuitBreakerTrips: number;
+  debouncedCalls: number;
+}
 
-// Mock useAuth hook - replace with your actual auth hook
-const useAuth = () => {
-  // This should be replaced with your actual useAuth implementation
-  return { user: null }; // Placeholder
+// Activity log entry interface
+interface ActivityLogEntry {
+  user_id: string;
+  action: string;
+  entity_type?: string;
+  entity_id?: string;
+  details?: Record<string, any>;
+  timestamp: string;
+  session_id?: string;
+  ip_address?: string;
+}
+
+// Circuit breaker states
+type CircuitBreakerState = 'closed' | 'open' | 'half-open';
+
+// Debounce configuration
+interface DebounceConfig {
+  delay: number;
+  maxWait: number;
+}
+
+// Default configurations
+const DEFAULT_DEBOUNCE_CONFIG: DebounceConfig = {
+  delay: 300, // 300ms debounce delay
+  maxWait: 1000 // Maximum 1 second wait
 };
 
-/**
- * Optimized Activity Tracking Hook with Performance Enhancements
- * 
- * Key improvements:
- * - Smart batching and deduplication
- * - Debounced tracking for rapid actions
- * - Background processing
- * - Memory leak prevention
- * - Performance monitoring
- * - Graceful degradation
- */
+const CIRCUIT_BREAKER_CONFIG = {
+  failureThreshold: 5,
+  resetTimeout: 30000, // 30 seconds
+  halfOpenMaxCalls: 3
+};
 
-interface TrackingOptions {
-  debounce?: boolean;
-  immediate?: boolean;
-  metadata?: Record<string, any>;
-}
+const BATCH_CONFIG = {
+  maxSize: 20,
+  flushInterval: 2000 // 2 seconds
+};
 
-interface PerformanceStats {
-  totalActivities: number;
-  deduplicatedActivities: number;
-  averageProcessingTime: number;
-  errorRate: number;
-}
+class OptimizedActivityLogger {
+  private batch: ActivityLogEntry[] = [];
+  private batchTimer: NodeJS.Timeout | null = null;
+  private circuitBreakerState: CircuitBreakerState = 'closed';
+  private failureCount = 0;
+  private lastFailureTime = 0;
+  private halfOpenCalls = 0;
+  private metrics: PerformanceMetrics = {
+    totalLogs: 0,
+    successfulLogs: 0,
+    failedLogs: 0,
+    averageLatency: 0,
+    circuitBreakerTrips: 0,
+    debouncedCalls: 0
+  };
+  private latencySum = 0;
+  private sessionId: string | null = null;
+  private ipAddress: string | null = null;
 
-export const useOptimizedActivityTracking = () => {
-  const { user } = useAuth();
-  const logger = useOptimizedActivityLogger();
-  
-  // Performance tracking
-  const performanceRef = useRef({
-    totalActivities: 0,
-    deduplicatedActivities: 0,
-    processingTimes: [] as number[],
-    errors: 0
-  });
-  
-  // Debounce timers for different activity types
-  const debounceTimers = useRef(new Map<string, NodeJS.Timeout>());
-  
-  // Activity deduplication cache
-  const activityCache = useRef(new Map<string, number>());
-  
-  // Component mount tracking
-  const isMountedRef = useRef(true);
+  constructor(private queryClient: ReturnType<typeof useQueryClient>) {
+    this.initializeSession();
+  }
 
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-      // Clear any pending debounce timers
-      for (const timer of debounceTimers.current.values()) {
-        clearTimeout(timer);
+  private async initializeSession() {
+    try {
+      // Get or create session
+      const { data: session } = await supabase
+        .from('user_sessions')
+        .select('session_id')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('ended_at', null)
+        .single();
+
+      this.sessionId = session?.session_id || crypto.randomUUID();
+      
+      // Get IP address (non-blocking)
+      this.getIPAddress();
+    } catch (error) {
+      console.warn('Failed to initialize session:', error);
+      this.sessionId = crypto.randomUUID();
+    }
+  }
+
+  private async getIPAddress() {
+    try {
+      const response = await fetch('https://api.ipify.org?format=json');
+      const data = await response.json();
+      this.ipAddress = data.ip;
+    } catch (error) {
+      // Fallback to local IP detection or use placeholder
+      this.ipAddress = 'unknown';
+    }
+  }
+
+  private isCircuitBreakerOpen(): boolean {
+    if (this.circuitBreakerState === 'open') {
+      if (Date.now() - this.lastFailureTime > CIRCUIT_BREAKER_CONFIG.resetTimeout) {
+        this.circuitBreakerState = 'half-open';
+        this.halfOpenCalls = 0;
+        return false;
       }
-    };
-  }, []);
+      return true;
+    }
+    return false;
+  }
 
-  /**
-   * Generic activity tracking with performance monitoring
-   */
-  const trackActivity = useCallback(async (
-    actionType: ActivityActionType,
-    entityType?: ExtendedEntityType,
-    entityId?: string,
-    options: TrackingOptions = {}
-  ) => {
-    if (!user || !isMountedRef.current) return;
+  private handleSuccess() {
+    this.failureCount = 0;
+    this.metrics.successfulLogs++;
     
+    if (this.circuitBreakerState === 'half-open') {
+      this.circuitBreakerState = 'closed';
+    }
+  }
+
+  private handleFailure() {
+    this.failureCount++;
+    this.metrics.failedLogs++;
+    this.lastFailureTime = Date.now();
+
+    if (this.circuitBreakerState === 'half-open') {
+      this.circuitBreakerState = 'open';
+      this.metrics.circuitBreakerTrips++;
+    } else if (this.failureCount >= CIRCUIT_BREAKER_CONFIG.failureThreshold) {
+      this.circuitBreakerState = 'open';
+      this.metrics.circuitBreakerTrips++;
+    }
+  }
+
+  async logActivity(entry: Omit<ActivityLogEntry, 'timestamp' | 'session_id' | 'ip_address'>) {
+    // Circuit breaker check
+    if (this.isCircuitBreakerOpen()) {
+      console.warn('Activity logging circuit breaker is open, skipping log');
+      return;
+    }
+
+    if (this.circuitBreakerState === 'half-open') {
+      this.halfOpenCalls++;
+      if (this.halfOpenCalls > CIRCUIT_BREAKER_CONFIG.halfOpenMaxCalls) {
+        this.circuitBreakerState = 'open';
+        this.metrics.circuitBreakerTrips++;
+        return;
+      }
+    }
+
+    const activityEntry: ActivityLogEntry = {
+      ...entry,
+      timestamp: new Date().toISOString(),
+      session_id: this.sessionId,
+      ip_address: this.ipAddress
+    };
+
+    this.batch.push(activityEntry);
+    this.metrics.totalLogs++;
+
+    // Auto-flush if batch is full
+    if (this.batch.length >= BATCH_CONFIG.maxSize) {
+      await this.flushBatch();
+    } else {
+      this.scheduleBatchFlush();
+    }
+  }
+
+  private scheduleBatchFlush() {
+    if (this.batchTimer) {
+      clearTimeout(this.batchTimer);
+    }
+
+    this.batchTimer = setTimeout(() => {
+      this.flushBatch();
+    }, BATCH_CONFIG.flushInterval);
+  }
+
+  private async flushBatch() {
+    if (this.batch.length === 0) return;
+
     const startTime = performance.now();
-    
-    try {
-      // Create activity key for deduplication
-      const activityKey = `${actionType}-${entityType}-${entityId}-${Math.floor(Date.now() / 30000)}`; // 30-second window
-      
-      // Check for recent duplicate
-      const lastTracked = activityCache.current.get(activityKey);
-      const now = Date.now();
-      
-      if (lastTracked && (now - lastTracked) < 30000) { // 30-second deduplication
-        performanceRef.current.deduplicatedActivities++;
-        return;
-      }
-      
-      // Update cache
-      activityCache.current.set(activityKey, now);
-      
-      // Clean up old cache entries periodically
-      if (activityCache.current.size > 100) {
-        const cutoff = now - 300000; // 5 minutes
-        for (const [key, timestamp] of activityCache.current.entries()) {
-          if (timestamp < cutoff) {
-            activityCache.current.delete(key);
-          }
-        }
-      }
-      
-      // Handle debouncing for specific activity types
-      if (options.debounce && (actionType === 'view' || entityType === 'navigation')) {
-        const debounceKey = `${actionType}-${entityType}-${entityId}`;
-        
-        // Clear existing timer
-        const existingTimer = debounceTimers.current.get(debounceKey);
-        if (existingTimer) {
-          clearTimeout(existingTimer);
-        }
-        
-        // Set new debounced timer
-        const timer = setTimeout(async () => {
-          if (isMountedRef.current) {
-            const baseEntityType = ['navigation', 'form_submission', 'search', 'ui_interaction', 'error', 'performance_metric'].includes(entityType as string)
-              ? 'navigation' // Coerce to a valid EntityType
-              : entityType as EntityType;
-            
-            await logger.logActivity({
-              action_type: actionType,
-              entity_type: baseEntityType,
-              entity_id: entityId || null,
-              metadata: {
-                ...options.metadata || {},
-                extended_entity_type: entityType
-              }
-            });
-          }
-          debounceTimers.current.delete(debounceKey);
-        }, 1000); // 1-second debounce
-        
-        debounceTimers.current.set(debounceKey, timer);
-        return;
-      }
-      
-      // Log activity immediately or with standard batching
-      // Convert extended entity types to base types for the logger
-      const baseEntityType = ['navigation', 'form_submission', 'search', 'ui_interaction', 'error', 'performance_metric'].includes(entityType as string)
-        ? 'navigation' // Coerce to a valid EntityType
-        : entityType as EntityType;
-      
-      await logger.logActivity({
-        action_type: actionType,
-        entity_type: baseEntityType,
-        entity_id: entityId || null,
-        metadata: {
-          ...options.metadata || {},
-          extended_entity_type: entityType // Store the extended type in metadata
-        }
-      });
-      
-      // Update performance metrics
-      performanceRef.current.totalActivities++;
-      const processingTime = performance.now() - startTime;
-      performanceRef.current.processingTimes.push(processingTime);
-      
-      // Keep only recent processing times for average calculation
-      if (performanceRef.current.processingTimes.length > 100) {
-        performanceRef.current.processingTimes = performanceRef.current.processingTimes.slice(-50);
-      }
-      
-    } catch (error) {
-      console.error('Failed to track activity:', error);
-      performanceRef.current.errors++;
+    const batchToFlush = [...this.batch];
+    this.batch = [];
+
+    if (this.batchTimer) {
+      clearTimeout(this.batchTimer);
+      this.batchTimer = null;
     }
-  }, [user, logger]);
 
-  /**
-   * Track CRUD operations with smart defaults
-   */
-  const trackCreate = useCallback((entityType: ExtendedEntityType, entityId: string, metadata?: Record<string, any>) => {
-    return trackActivity('create', entityType, entityId, { metadata, immediate: true });
-  }, [trackActivity]);
+    try {
+      const { error } = await supabase
+        .from('user_activities')
+        .insert(batchToFlush);
 
-  const trackUpdate = useCallback((entityType: ExtendedEntityType, entityId: string, metadata?: Record<string, any>) => {
-    return trackActivity('update', entityType, entityId, { metadata, immediate: true });
-  }, [trackActivity]);
+      if (error) throw error;
 
-  const trackDelete = useCallback((entityType: ExtendedEntityType, entityId: string, metadata?: Record<string, any>) => {
-    return trackActivity('delete', entityType, entityId, { metadata, immediate: true });
-  }, [trackActivity]);
+      const latency = performance.now() - startTime;
+      this.latencySum += latency;
+      this.metrics.averageLatency = this.latencySum / this.metrics.successfulLogs;
+      
+      this.handleSuccess();
+      
+      // Selective query invalidation instead of invalidating all queries
+      this.invalidateRelevantQueries(batchToFlush);
+    } catch (error) {
+      console.error('Failed to flush activity batch:', error);
+      this.handleFailure();
+      
+      // Re-add failed entries to batch for retry (with limit)
+      if (this.batch.length < BATCH_CONFIG.maxSize) {
+        this.batch.unshift(...batchToFlush.slice(0, BATCH_CONFIG.maxSize - this.batch.length));
+      }
+    }
+  }
 
-  /**
-   * Track view operations with debouncing
-   */
-  const trackView = useCallback((entityType: ExtendedEntityType, entityId?: string, metadata?: Record<string, any>) => {
-    return trackActivity('view', entityType, entityId, { metadata, debounce: true });
-  }, [trackActivity]);
+  private invalidateRelevantQueries(activities: ActivityLogEntry[]) {
+    // Only invalidate specific queries based on the activities logged
+    const entityTypes = new Set(activities.map(a => a.entity_type).filter(Boolean));
+    const userIds = new Set(activities.map(a => a.user_id));
 
-  /**
-   * Track page views with enhanced metadata
-   */
-  const trackPageView = useCallback((pageName: string, metadata?: Record<string, any>) => {
-    return trackActivity('view', 'navigation', pageName, { 
-      metadata: { ...metadata, page_name: pageName },
-      debounce: true 
+    // Invalidate activity metrics only if needed
+    if (activities.length > 0) {
+      this.queryClient.invalidateQueries({ queryKey: ['activity-metrics'] });
+    }
+
+    // Invalidate user-specific queries only for affected users
+    userIds.forEach(userId => {
+      this.queryClient.invalidateQueries({ 
+        queryKey: ['user-activities', userId],
+        exact: false 
+      });
     });
-  }, [trackActivity]);
 
-  /**
-   * Track form submissions with detailed metadata
-   */
-  const trackFormSubmission = useCallback((formName: string, entityType: ExtendedEntityType, entityId?: string, metadata?: Record<string, any>) => {
-    return trackActivity('update', entityType, entityId, { 
-      metadata: { ...metadata, form_name: formName, submission: true },
-      immediate: true
+    // Invalidate entity-specific queries only for affected entity types
+    entityTypes.forEach(entityType => {
+      this.queryClient.invalidateQueries({ 
+        queryKey: ['activities', entityType],
+        exact: false 
+      });
     });
-  }, [trackActivity]);
+  }
 
-  /**
-   * Track search queries with performance data
-   */
-  const trackSearch = useCallback((query: string, metadata?: Record<string, any>) => {
-    return trackActivity('view', 'search', query, { 
-      metadata: { ...metadata, query },
-      debounce: true 
+  getMetrics(): PerformanceMetrics {
+    return { ...this.metrics };
+  }
+
+  getCircuitBreakerState(): CircuitBreakerState {
+    return this.circuitBreakerState;
+  }
+
+  async forceFlush() {
+    await this.flushBatch();
+  }
+
+  cleanup() {
+    if (this.batchTimer) {
+      clearTimeout(this.batchTimer);
+    }
+    // Flush any remaining activities
+    this.flushBatch();
+  }
+}
+
+// Debounced function wrapper
+function createDebouncedFunction<T extends (...args: any[]) => void>(
+  func: T,
+  config: DebounceConfig = DEFAULT_DEBOUNCE_CONFIG
+): T & { cancel: () => void; flush: () => void } {
+  let timeoutId: NodeJS.Timeout | null = null;
+  let maxTimeoutId: NodeJS.Timeout | null = null;
+  let lastCallTime = 0;
+  let lastArgs: Parameters<T> | null = null;
+  let lastThis: any = null;
+
+  const debouncedFunc = function (this: any, ...args: Parameters<T>) {
+    lastArgs = args;
+    lastThis = this;
+    const now = Date.now();
+
+    // Clear existing timeout
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+
+    // Set up max wait timeout if this is the first call in a series
+    if (!maxTimeoutId) {
+      lastCallTime = now;
+      maxTimeoutId = setTimeout(() => {
+        if (lastArgs) {
+          func.apply(lastThis, lastArgs);
+          lastArgs = null;
+          lastThis = null;
+        }
+        maxTimeoutId = null;
+      }, config.maxWait);
+    }
+
+    // Set up regular debounce timeout
+    timeoutId = setTimeout(() => {
+      if (maxTimeoutId) {
+        clearTimeout(maxTimeoutId);
+        maxTimeoutId = null;
+      }
+      if (lastArgs) {
+        func.apply(lastThis, lastArgs);
+        lastArgs = null;
+        lastThis = null;
+      }
+      timeoutId = null;
+    }, config.delay);
+  } as T & { cancel: () => void; flush: () => void };
+
+  debouncedFunc.cancel = () => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+    if (maxTimeoutId) {
+      clearTimeout(maxTimeoutId);
+      maxTimeoutId = null;
+    }
+    lastArgs = null;
+    lastThis = null;
+  };
+
+  debouncedFunc.flush = () => {
+    if (lastArgs) {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (maxTimeoutId) clearTimeout(maxTimeoutId);
+      func.apply(lastThis, lastArgs);
+      timeoutId = null;
+      maxTimeoutId = null;
+      lastArgs = null;
+      lastThis = null;
+    }
+  };
+
+  return debouncedFunc;
+}
+
+export function useOptimizedActivityTracking() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const loggerRef = useRef<OptimizedActivityLogger | null>(null);
+  const metricsRef = useRef<PerformanceMetrics>({
+    totalLogs: 0,
+    successfulLogs: 0,
+    failedLogs: 0,
+    averageLatency: 0,
+    circuitBreakerTrips: 0,
+    debouncedCalls: 0
+  });
+
+  // Initialize logger
+  useEffect(() => {
+    if (user && !loggerRef.current) {
+      loggerRef.current = new OptimizedActivityLogger(queryClient);
+    }
+    return () => {
+      if (loggerRef.current) {
+        loggerRef.current.cleanup();
+      }
+    };
+  }, [user, queryClient]);
+
+  // Base logging function (non-blocking)
+  const logActivity = useCallback(async (
+    action: string,
+    entityType?: string,
+    entityId?: string,
+    details?: Record<string, any>
+  ) => {
+    if (!user || !loggerRef.current) return;
+
+    // Fire and forget - don't await to avoid blocking UI
+    loggerRef.current.logActivity({
+      user_id: user.id,
+      action,
+      entity_type: entityType,
+      entity_id: entityId,
+      details
+    }).catch(error => {
+      console.warn('Activity logging failed:', error);
     });
-  }, [trackActivity]);
+  }, [user]);
 
-  /**
-   * Track UI interactions for usability analysis
-   */
-  const trackInteraction = useCallback((interactionType: string, component: string, metadata?: Record<string, any>) => {
-    return trackActivity('view', 'ui_interaction', component, { 
-      metadata: { ...metadata, interaction_type: interactionType },
-      debounce: true 
-    });
-  }, [trackActivity]);
+  // Debounced logging functions for rapid actions
+  const debouncedLogActivity = useCallback(
+    createDebouncedFunction((action: string, entityType?: string, entityId?: string, details?: Record<string, any>) => {
+      metricsRef.current.debouncedCalls++;
+      logActivity(action, entityType, entityId, details);
+    }),
+    [logActivity]
+  );
 
-  /**
-   * Track application errors for debugging
-   */
-  const trackError = useCallback((error: Error, componentStack?: string, metadata?: Record<string, any>) => {
-    return trackActivity('create', 'error', error.message, { 
-      metadata: { ...metadata, error: error.toString(), stack: error.stack, componentStack },
-      immediate: true 
-    });
-  }, [trackActivity]);
+  // CRUD operations (debounced)
+  const trackCreate = useCallback((entityType: string, entityId: string, details?: Record<string, any>) => {
+    debouncedLogActivity('create', entityType, entityId, details);
+  }, [debouncedLogActivity]);
 
-  /**
-   * Track performance metrics for optimization
-   */
-  const trackPerformance = useCallback((metricName: string, value: number, metadata?: Record<string, any>) => {
-    return trackActivity('create', 'performance_metric', metricName, { 
-      metadata: { ...metadata, metric_name: metricName, value },
-      immediate: true 
-    });
-  }, [trackActivity]);
+  const trackUpdate = useCallback((entityType: string, entityId: string, details?: Record<string, any>) => {
+    debouncedLogActivity('update', entityType, entityId, details);
+  }, [debouncedLogActivity]);
 
-  /**
-   * Get current performance statistics
-   */
-  const getPerformanceStats = useCallback((): PerformanceStats => {
-    const { totalActivities, deduplicatedActivities, processingTimes, errors } = performanceRef.current;
-    
-    const averageProcessingTime = processingTimes.length > 0 
-      ? processingTimes.reduce((sum, time) => sum + time, 0) / processingTimes.length 
-      : 0;
-    
-    const errorRate = totalActivities > 0 ? errors / totalActivities : 0;
-    
+  const trackDelete = useCallback((entityType: string, entityId: string, details?: Record<string, any>) => {
+    debouncedLogActivity('delete', entityType, entityId, details);
+  }, [debouncedLogActivity]);
+
+  const trackView = useCallback((entityType: string, entityId: string, details?: Record<string, any>) => {
+    debouncedLogActivity('view', entityType, entityId, details);
+  }, [debouncedLogActivity]);
+
+  // Page navigation (immediate logging)
+  const trackPageView = useCallback((page: string, details?: Record<string, any>) => {
+    logActivity('page_view', 'page', page, details);
+  }, [logActivity]);
+
+  // Form interactions (debounced)
+  const trackFormSubmit = useCallback((formType: string, details?: Record<string, any>) => {
+    debouncedLogActivity('form_submit', 'form', formType, details);
+  }, [debouncedLogActivity]);
+
+  // Search actions (heavily debounced)
+  const trackSearch = useCallback(
+    createDebouncedFunction((query: string, entityType?: string, details?: Record<string, any>) => {
+      logActivity('search', entityType || 'general', query, { query, ...details });
+    }, { delay: 500, maxWait: 2000 }),
+    [logActivity]
+  );
+
+  // Export actions (immediate)
+  const trackExport = useCallback((exportType: string, entityType?: string, details?: Record<string, any>) => {
+    logActivity('export', entityType, exportType, details);
+  }, [logActivity]);
+
+  // Bulk operations (immediate)
+  const trackBulkOperation = useCallback((operation: string, entityType: string, count: number, details?: Record<string, any>) => {
+    logActivity('bulk_operation', entityType, operation, { count, ...details });
+  }, [logActivity]);
+
+  // Performance monitoring
+  const getPerformanceMetrics = useCallback(() => {
+    const loggerMetrics = loggerRef.current?.getMetrics() || metricsRef.current;
     return {
-      totalActivities,
-      deduplicatedActivities,
-      averageProcessingTime,
-      errorRate
+      ...loggerMetrics,
+      debouncedCalls: metricsRef.current.debouncedCalls,
+      circuitBreakerState: loggerRef.current?.getCircuitBreakerState() || 'closed'
     };
   }, []);
 
-  /**
-   * Flush pending activities (useful before navigation)
-   */
-  const flushActivities = useCallback(async () => {
-    try {
-      // Clear all debounce timers and execute immediately
-      for (const timer of debounceTimers.current.values()) {
-        clearTimeout(timer);
-      }
-      debounceTimers.current.clear();
-      
-      // Flush the logger
-      await logger.flush();
-    } catch (error) {
-      console.error('Failed to flush activities:', error);
+  // Force flush for critical operations
+  const forceFlush = useCallback(async () => {
+    if (loggerRef.current) {
+      await loggerRef.current.forceFlush();
     }
-  }, [logger]);
-
-  /**
-   * Start session tracking
-   */
-  const startSession = useCallback(async () => {
-    try {
-      const sessionId = await logger.startSession();
-      if (sessionId) {
-        await trackActivity('login', undefined, undefined, { 
-          metadata: { session_id: sessionId },
-          immediate: true 
-        });
-      }
-      return sessionId;
-    } catch (error) {
-      console.error('Failed to start session:', error);
-      return null;
-    }
-  }, [logger, trackActivity]);
-
-  /**
-   * End session tracking
-   */
-  const endSession = useCallback(async () => {
-    try {
-      await trackActivity('logout', undefined, undefined, { immediate: true });
-      await flushActivities();
-      await logger.endSession();
-    } catch (error) {
-      console.error('Failed to end session:', error);
-    }
-  }, [logger, trackActivity, flushActivities]);
-
-  /**
-   * Setup automatic session management
-   */
-  useEffect(() => {
-    if (user) {
-      startSession();
-    }
-    
-    return () => {
-      if (user) {
-        endSession();
-      }
-    };
-  }, [user]); // Only depend on user, not the functions to avoid re-running
-
-  /**
-   * Setup cleanup on component unmount
-   */
-  useEffect(() => {
-    isMountedRef.current = true;
-    
-    return () => {
-      isMountedRef.current = false;
-      
-      // Clear all debounce timers
-      for (const timer of debounceTimers.current.values()) {
-        clearTimeout(timer);
-      }
-      debounceTimers.current.clear();
-      
-      // Clear activity cache
-      activityCache.current.clear();
-    };
   }, []);
-
-  /**
-   * Setup page visibility handling
-   */
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        // Flush activities when page becomes hidden
-        flushActivities();
-      }
-    };
-    
-    const handleBeforeUnload = () => {
-      // Flush activities before page unload
-      flushActivities();
-    };
-    
-    if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      window.addEventListener('beforeunload', handleBeforeUnload);
-      
-      return () => {
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-        window.removeEventListener('beforeunload', handleBeforeUnload);
-      };
-    }
-  }, [flushActivities]);
-
-  /**
-   * Performance monitoring effect
-   */
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const stats = getPerformanceStats();
-      const loggerMetrics = logger.getMetrics();
-      
-      // Log performance metrics periodically
-      console.debug('Activity Tracking Performance:', {
-        ...stats,
-        loggerMetrics
-      });
-      
-      // Track performance metrics as activities
-      if (stats.totalActivities > 0) {
-        trackPerformance('activity_tracking_error_rate', stats.errorRate * 100, { unit: '%' });
-        trackPerformance('activity_tracking_avg_processing_time', stats.averageProcessingTime, { unit: 'ms' });
-        trackPerformance('activity_tracking_deduplication_rate', 
-          (stats.deduplicatedActivities / stats.totalActivities) * 100, { unit: '%' });
-      }
-    }, 5 * 60 * 1000); // Every 5 minutes
-    
-    return () => clearInterval(interval);
-  }, [getPerformanceStats, logger, trackPerformance]);
 
   return {
     // Core tracking functions
@@ -420,34 +471,59 @@ export const useOptimizedActivityTracking = () => {
     trackDelete,
     trackView,
     trackPageView,
-    trackFormSubmission,
+    trackFormSubmit,
     trackSearch,
-    trackInteraction,
-    trackError,
-    trackPerformance,
-    
-    // Session management
-    startSession,
-    endSession,
+    trackExport,
+    trackBulkOperation,
     
     // Utility functions
-    flushActivities,
-    getPerformanceStats,
+    logActivity,
+    getPerformanceMetrics,
+    forceFlush,
     
-    // Raw activity tracking for custom use cases
-    trackActivity,
-    
-    // Performance monitoring
-    isTracking: !!user,
-    performanceStats: getPerformanceStats()
+    // Debounced function controls
+    cancelPendingLogs: () => {
+      debouncedLogActivity.cancel();
+      trackSearch.cancel();
+    },
+    flushPendingLogs: () => {
+      debouncedLogActivity.flush();
+      trackSearch.flush();
+    }
   };
-};
+}
 
-// Export convenience hook for backward compatibility
-export const useActivityTracking = useOptimizedActivityTracking;
+// Convenience hooks for specific entity types
+export function useClusterTracking() {
+  const tracking = useOptimizedActivityTracking();
+  
+  return {
+    trackClusterCreate: (clusterId: string, details?: Record<string, any>) => 
+      tracking.trackCreate('cluster', clusterId, details),
+    trackClusterUpdate: (clusterId: string, details?: Record<string, any>) => 
+      tracking.trackUpdate('cluster', clusterId, details),
+    trackClusterDelete: (clusterId: string, details?: Record<string, any>) => 
+      tracking.trackDelete('cluster', clusterId, details),
+    trackClusterView: (clusterId: string, details?: Record<string, any>) => 
+      tracking.trackView('cluster', clusterId, details),
+    ...tracking
+  };
+}
 
-// Export performance monitoring hook
-export const useActivityTrackingPerformance = () => {
-  const { getPerformanceStats } = useOptimizedActivityTracking();
-  return getPerformanceStats();
-};
+export function usePathwayTracking() {
+  const tracking = useOptimizedActivityTracking();
+  
+  return {
+    trackPathwayCreate: (pathwayId: string, details?: Record<string, any>) => 
+      tracking.trackCreate('pathway', pathwayId, details),
+    trackPathwayUpdate: (pathwayId: string, details?: Record<string, any>) => 
+      tracking.trackUpdate('pathway', pathwayId, details),
+    trackPathwayDelete: (pathwayId: string, details?: Record<string, any>) => 
+      tracking.trackDelete('pathway', pathwayId, details),
+    trackPathwayView: (pathwayId: string, details?: Record<string, any>) => 
+      tracking.trackView('pathway', pathwayId, details),
+    ...tracking
+  };
+}
+
+export default useOptimizedActivityTracking;

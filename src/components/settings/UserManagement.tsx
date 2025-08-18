@@ -7,6 +7,7 @@ import { userApi } from '../../lib/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../lib/queryKeys';
 import { executeQuery } from '../../lib/queries';
+import { useActivityTracking } from '../../hooks/useActivityTracking';
 
 interface User {
   id: string;
@@ -19,6 +20,7 @@ interface User {
 }
 
 export function UserManagement() {
+  const { trackCreate, trackUpdate, trackDelete } = useActivityTracking();
   const [showUserForm, setShowUserForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,8 +47,16 @@ export function UserManagement() {
         status: 'active'
       }
     ),
-    onSuccess: () => {
+    onSuccess: async (data, userData) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.users() });
+      
+      // Track user creation
+      await trackCreate('user', data.id, {
+        email: userData.email,
+        full_name: userData.full_name,
+        role: userData.role
+      });
+      
       setShowUserForm(false);
       setEditingUser(null);
     },
@@ -75,8 +85,19 @@ export function UserManagement() {
         }
       });
     },
-    onSuccess: () => {
+    onSuccess: async (data, userData) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.users() });
+      
+      // Track user update
+      if (editingUser) {
+        await trackUpdate('user', editingUser.id, {
+          email: userData.email,
+          full_name: userData.full_name,
+          role: userData.role,
+          status: userData.status
+        });
+      }
+      
       setShowUserForm(false);
       setEditingUser(null);
     },
@@ -99,8 +120,14 @@ export function UserManagement() {
     mutationFn: (userId: string) => executeQuery(
       () => supabase.from('profiles').update({ status: 'inactive' }).eq('id', userId)
     ),
-    onSuccess: () => {
+    onSuccess: async (data, userId) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.users() });
+      
+      // Track user deletion (status change to inactive)
+      await trackDelete('user', userId, {
+        action: 'deactivated'
+      });
+      
       setShowDeleteConfirm(null);
     },
     onError: (err: any) => {

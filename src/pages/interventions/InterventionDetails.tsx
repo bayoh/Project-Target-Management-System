@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { DashboardLayout } from '../../components/layout/DashboardLayout';
+
 import { supabase } from '../../lib/supabase';
 import { queryKeys } from '../../lib/queryKeys';
 import { executeQuery } from '../../lib/queries';
@@ -34,7 +34,7 @@ interface InterventionDocument {
 }
 
 export function InterventionDetails() {
-  const { trackPageView } = useActivityTracking();
+  const { trackPageView, trackDelete } = useActivityTracking();
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -260,7 +260,7 @@ export function InterventionDetails() {
 
   // Delete document mutation
   const deleteDocumentMutation = useMutation({
-    mutationFn: async ({ documentId, documentUrl }: { documentId: string; documentUrl: string }) => {
+    mutationFn: async ({ documentId, documentUrl, documentName }: { documentId: string; documentUrl: string; documentName: string }) => {
       // Delete from storage
       const { error: storageError } = await supabase.storage
         .from('intervention-documents')
@@ -275,6 +275,13 @@ export function InterventionDetails() {
         .eq('id', documentId);
 
       if (dbError) throw dbError;
+
+      // Track document deletion
+      await trackDelete('document', documentId, {
+        name: documentName,
+        intervention_id: id,
+        url: documentUrl
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['intervention-documents', id] });
@@ -285,13 +292,13 @@ export function InterventionDetails() {
     },
   });
 
-  const handleDeleteDocument = async (documentId: string, documentUrl: string) => {
+  const handleDeleteDocument = async (documentId: string, documentUrl: string, documentName: string) => {
     if (!window.confirm('Are you sure you want to delete this document?')) {
       return;
     }
 
     try {
-      await deleteDocumentMutation.mutateAsync({ documentId, documentUrl });
+      await deleteDocumentMutation.mutateAsync({ documentId, documentUrl, documentName });
     } catch (err: any) {
       // Error handling is done in the mutation
     }
@@ -322,38 +329,33 @@ export function InterventionDetails() {
 
   if (interventionLoading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
     );
   }
 
   if (interventionError || !intervention) {
     return (
-      <DashboardLayout>
-        <div className="min-h-[400px] flex items-center justify-center">
-          <div className="text-center">
-            <h3 className="mt-2 text-sm font-medium text-gray-900">Error Loading Intervention</h3>
-            <p className="mt-1 text-sm text-gray-500">{interventionError?.message || error || 'Intervention not found'}</p>
-            <div className="mt-6">
-              <button
-                onClick={() => navigate(-1)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-              >
-                Go Back
-              </button>
-            </div>
+      <div className="min-h-[400px] flex items-center justify-center">
+        <div className="text-center">
+          <h3 className="mt-2 text-sm font-medium text-gray-900">Error Loading Intervention</h3>
+          <p className="mt-1 text-sm text-gray-500">{interventionError?.message || error || 'Intervention not found'}</p>
+          <div className="mt-6">
+            <button
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+            >
+              Go Back
+            </button>
           </div>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="max-w-7xl mx-auto space-y-6 px-4 sm:px-6 lg:px-8">
+    <div className="max-w-7xl mx-auto space-y-6 px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
           <div className="flex flex-col sm:flex-row items-start sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
@@ -490,7 +492,7 @@ export function InterventionDetails() {
               onDelete={(documentId) => {
                 const docToDelete = documents.find(doc => doc.id === documentId);
                 if (docToDelete) {
-                  handleDeleteDocument(documentId, docToDelete.url);
+                  handleDeleteDocument(documentId, docToDelete.url, docToDelete.name);
                 }
               }}
             />
@@ -513,6 +515,13 @@ export function InterventionDetails() {
               .from('intervention_comments')
               .delete()
               .eq('id', commentId);
+            
+            // Track the deletion
+            await trackDelete('comment', commentId, {
+              intervention_id: id,
+              entity_type: 'intervention'
+            });
+            
             queryClient.invalidateQueries({ queryKey: ['intervention-comments', id] });
           }}
         />
@@ -605,8 +614,7 @@ export function InterventionDetails() {
             </div>
           </div>
         )}
-      </div>
-    </DashboardLayout>
+    </div>
   );
 }
 

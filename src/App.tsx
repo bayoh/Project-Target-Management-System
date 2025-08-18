@@ -4,6 +4,8 @@ import { Toaster } from 'react-hot-toast';
 import { LoginForm } from './components/auth/LoginForm';
 import { PasswordReset } from './components/auth/PasswordReset';
 import { UpdatePassword } from './components/auth/UpdatePassword';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { DashboardLayout } from './components/layout/DashboardLayout';
 
 import { Clusters } from './pages/Clusters';
 import { NewCluster } from './pages/NewCluster';
@@ -40,17 +42,10 @@ import { Jobs } from './pages/jobs';
 import UserActivity from './pages/admin/UserActivity';
 import Reports from './pages/admin/Reports';
 import { IframePage } from './pages/IframePage';
+import { CircuitBreakerTest } from './pages/CircuitBreakerTest';
 
 export default function App() {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
-    );
-  }
+  const { user } = useAuth();
 
   return (
     <Router>
@@ -79,6 +74,7 @@ export default function App() {
         }}
       />
       <Routes>
+        {/* Auth routes - no layout needed */}
         <Route 
           path="/login" 
           element={user ? <Navigate to="/" replace /> : <LoginForm />} />
@@ -90,122 +86,298 @@ export default function App() {
         <Route 
           path="/update-password" 
           element={user ? <Navigate to="/" replace /> : <UpdatePassword /> }/>
+        
+        {/* Protected routes with persistent DashboardLayout */}
         <Route 
           path="/" 
-          element={user ? <Jobs /> : <Navigate to="/login" replace />} 
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Jobs />
+              </DashboardLayout>
+            </ProtectedRoute>
+          } 
         />
         <Route 
           path="/jobs" 
-          element={user ? <Jobs /> : <Navigate to="/login" replace />} 
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Jobs />
+              </DashboardLayout>
+            </ProtectedRoute>
+          } 
         />
         <Route 
           path="/clusters" 
-          element={user ? <Clusters /> : <Navigate to="/login" replace />} 
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Clusters />
+              </DashboardLayout>
+            </ProtectedRoute>
+          } 
         />
         <Route 
           path="/clusters/new" 
-          element={user ? <NewCluster /> : <Navigate to="/login" replace />} 
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <NewCluster />
+              </DashboardLayout>
+            </ProtectedRoute>
+          } 
         />
         <Route 
           path="/clusters/:id" 
-          element={user ? <ViewCluster /> : <Navigate to="/login" replace />} 
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <ViewCluster />
+              </DashboardLayout>
+            </ProtectedRoute>
+          } 
         />
         <Route 
           path="/clusters/:id/edit" 
-          element={user ? <EditCluster /> : <Navigate to="/login" replace />} 
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <EditCluster />
+              </DashboardLayout>
+            </ProtectedRoute>
+          } 
         />
         <Route 
           path="/interventions" 
-          element={user ? <InterventionDashboard /> : <Navigate to="/login" replace />} 
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <InterventionDashboard />
+              </DashboardLayout>
+            </ProtectedRoute>
+          } 
         />
         <Route 
           path="/interventions/new" 
-          element={user ? <NewIntervention /> : <Navigate to="/login" replace />} 
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <NewIntervention />
+              </DashboardLayout>
+            </ProtectedRoute>
+          } 
         />
         <Route 
           path="/interventions/:id" 
-          element={user ? <InterventionDetails /> : <Navigate to="/login" replace />} 
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <InterventionDetails />
+              </DashboardLayout>
+            </ProtectedRoute>
+          } 
         />
         <Route 
           path="/interventions/:id/edit" 
-          element={user ? <EditIntervention /> : <Navigate to="/login" replace />} 
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <EditIntervention />
+              </DashboardLayout>
+            </ProtectedRoute>
+          } 
         />
         <Route 
           path="/interventions/:interventionId/actions/:id" 
-          element={user ? <ActionDetails /> : <Navigate to="/login" replace />} 
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <ActionDetails />
+              </DashboardLayout>
+            </ProtectedRoute>
+          } 
         />
          <Route 
           path="/actions" 
-          element={user ? <ActionDashboard /> : <Navigate to="/login" replace />} 
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <ActionDashboard />
+              </DashboardLayout>
+            </ProtectedRoute>
+          } 
         />
         <Route
           path="/reports"
-          element={user ? <ActionReports /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <ActionReports />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/reports/actions"
-          element={user ? <ActionReports /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <ActionReports />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/reports/templates"
-          element={user ? <ReportTemplates /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <ReportTemplates />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/reports/templates/new"
-          element={user ? <EditTemplate /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <EditTemplate />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/reports/templates/:id/edit"
-          element={user ? <EditTemplate /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <EditTemplate />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/reports/generate/:templateId/:interventionId"
-          element={user ? <GenerateReport /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <GenerateReport />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/settings"
-          element={user ? <Settings /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Settings />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
          <Route
           path="/settings/users"
-          element={user ? <Users /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Users />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/settings/import"
-          element={user ? <Import /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Import />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         <Route 
           path="/settings/assignment"
-          element={user ? <Assignments /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Assignments />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/settings/roles"
-          element={user ? <Roles /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Roles />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/settings/system"
-          element={user ? <System /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <System />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
          <Route
           path="/settings/security"
-          element={user ? <Security /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Security />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         
         <Route
           path="/settings/profile"
-          element={user ? <Profile /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Profile />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/settings/projectspartners"
-          element={user ? <PojectsPartners /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <PojectsPartners />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/settings/user-activity"
-          element={user ? <UserActivity /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <UserActivity />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/settings/reports"
-          element={user ? <Reports /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Reports />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
 
         <Route
@@ -215,43 +387,104 @@ export default function App() {
 
         <Route
           path="/userdashboard"
-          element={ user ? <MyDashboard/> : <Navigate to="/" replace />}
-
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <MyDashboard />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
          <Route
           path="/issue"
-          element={ user ? <Issue/> : <Navigate to="/" replace />}
-
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Issue />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
          <Route
           path="/help"
-          element={ user ? <Help/> : <Navigate to="/" replace />}
-
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Help />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
 
         <Route
           path="/targets"
-          element={user ? <TargetsIndex /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <TargetsIndex />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/targets/tracking"
-          element={user ? <TargetTracking /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <TargetTracking />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/targets/new"
-          element={user ? <NewTarget /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <NewTarget />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/targets/:id"
-          element={user ? <TargetDetail /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <TargetDetail />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/targets/edit/:id"
-          element={user ? <TargetDetail /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <TargetDetail />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/iframe"
-          element={user ? <IframePage /> : <Navigate to="/login" replace />}
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <IframePage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/test/circuit-breaker"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <CircuitBreakerTest />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
         />
 
         <Route 

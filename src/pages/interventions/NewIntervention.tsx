@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DashboardLayout } from '../../components/layout/DashboardLayout';
+
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
@@ -191,8 +191,7 @@ export function NewIntervention() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
         <div className="space-y-6">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">New Intervention</h1>
@@ -434,8 +433,7 @@ export function NewIntervention() {
               </div>
             </div>
           </form>
-        </div>
       </div>
-    </DashboardLayout>
+    </div>
   );
 }

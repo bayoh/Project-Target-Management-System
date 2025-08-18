@@ -6,6 +6,7 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Calendar } from '../ui/Calendar'; // Added import for Calendar
 import { format, formatDate, formatDistance, formatRelative, subDays } from 'date-fns'
+import { useActivityTracking } from '../../hooks/useActivityTracking';
 
 interface Partner {
   id: string;
@@ -25,6 +26,7 @@ interface ActionFormProps {
 }
 
 export function ActionForm({ interventionId, action, onSuccess, onCancel }: ActionFormProps) {
+  const { trackCreate, trackUpdate } = useActivityTracking();
   const [formData, setFormData] = useState({
     name: action?.name || '',
     code: action?.code || '',
@@ -145,6 +147,24 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
             .single();
 
       if (error) throw error;
+      
+      // Track activity
+      if (data) {
+        if (action) {
+          await trackUpdate('action', data.id, {
+            intervention_id: interventionId,
+            name: data.name,
+            status: data.status
+          });
+        } else {
+          await trackCreate('action', data.id, {
+            intervention_id: interventionId,
+            name: data.name,
+            status: data.status
+          });
+        }
+      }
+      
       if (onSuccess && data) onSuccess(data as Action);
     } catch (err: any) {
       console.error('Error saving action:', err);
@@ -330,7 +350,7 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
           <Calendar
             mode="single"
             selected={formData.actual_startDate ? new Date(formData.actual_startDate) : undefined}
-            onSelect={(date) => setFormData({ ...formData, actual_startDate: date ? date.toISOString().split('T')[0] : '' })}
+            onSelect={(date) => setFormData({ ...formData, actual_startDate: date ? date.toISOString().split('T')[0] : null })}
             className="rounded-md border"
           />
         </div>
@@ -342,7 +362,7 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
           <Calendar
             mode="single"
             selected={formData.actual_endDate ? new Date(formData.actual_endDate) : undefined}
-            onSelect={(date) => setFormData({ ...formData, actual_endDate: date ? date.toISOString().split('T')[0] : '' })}
+            onSelect={(date) => setFormData({ ...formData, actual_endDate: date ? date.toISOString().split('T')[0] : null})}
             className="rounded-md border"
           />
         </div>

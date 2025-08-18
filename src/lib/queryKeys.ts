@@ -157,6 +157,13 @@ export const queryKeys = {
     userDetail: (userId: string) => [...queryKeys.admin.all, 'userDetail', userId] as const,
   },
 
+  // System settings queries
+  systemSettings: {
+    all: ['systemSettings'] as const,
+    settings: () => [...queryKeys.systemSettings.all, 'settings'] as const,
+    logo: () => [...queryKeys.systemSettings.all, 'logo'] as const,
+  },
+
 
 };
 

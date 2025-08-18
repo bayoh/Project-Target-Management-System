@@ -4,7 +4,6 @@ import { useAuth } from '../../lib/auth';
 import { useActivityTracking } from '../../hooks/useActivityTracking';
 import { Search, Filter, Download, Eye, Calendar, Users, Activity, CalendarDays } from 'lucide-react';
 import UserActivityDetail from '../../components/admin/UserActivityDetail';
-import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../lib/queryKeys';
 import { executeQuery } from '../../lib/queries';
@@ -240,7 +239,6 @@ const UserActivity: React.FC = () => {
   }
 
   return (
-    <DashboardLayout>
     <div className="min-h-screen bg-gray-80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-4 py-4">
         {/* Header */}
@@ -631,7 +629,6 @@ const UserActivity: React.FC = () => {
         )}
       </div>
     </div>
-    </DashboardLayout>
   );
 };
 

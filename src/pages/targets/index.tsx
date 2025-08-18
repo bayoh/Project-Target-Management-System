@@ -10,7 +10,7 @@ import {
   TrendingUp,
   ChevronRight
 } from 'lucide-react';
-import { DashboardLayout } from '../../components/layout/DashboardLayout';
+
 import { PageHeader } from '../../components/layout/PageHeader';
 import { useTargetSummary, useRecentTargets, useTargetFilterOptions } from '../../hooks/useProjectQueries';
 import type { TargetFilters } from '../../types/queries';
@@ -73,20 +73,17 @@ export default function TargetsIndex() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-screen">
-          <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
-            <p className="mt-4 text-muted-foreground">Loading targets data...</p>
-          </div>
+      <div className="flex items-center justify-center h-screen">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+          <p className="mt-4 text-muted-foreground">Loading targets data...</p>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <PageHeader title="Targets Dashboard" description="Track progress towards key metrics across interventions and actions." />
 
         {/* Filters */}
@@ -365,8 +362,7 @@ export default function TargetsIndex() {
               </div>
             )}
           </div>
-        </div>
       </div>
-    </DashboardLayout>
+    </div>
   );
 }

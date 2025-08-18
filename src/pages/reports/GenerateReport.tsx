@@ -1,6 +1,5 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { ReportGenerator } from '../../components/reports/ReportGenerator';
 import { ChevronLeft } from 'lucide-react';
 import type { ReportTemplate } from '../../types/reports';
@@ -31,37 +30,32 @@ export function GenerateReport() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
     );
   }
 
   if (error || !template || !intervention) {
     return (
-      <DashboardLayout>
-        <div className="text-center py-12">
-          <h3 className="mt-2 text-sm font-medium text-gray-900">
-            {error || 'Template or intervention not found'}
-          </h3>
-          <div className="mt-6">
-            <button
-              onClick={() => navigate('/reports')}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-            >
-              Back to Reports
-            </button>
-          </div>
+      <div className="text-center py-12">
+        <h3 className="mt-2 text-sm font-medium text-gray-900">
+          {error || 'Template or intervention not found'}
+        </h3>
+        <div className="mt-6">
+          <button
+            onClick={() => navigate('/reports')}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+          >
+            Back to Reports
+          </button>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-4">
             <button
@@ -87,6 +81,5 @@ export function GenerateReport() {
           />
         </div>
       </div>
-    </DashboardLayout>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AlertCircle, Target, TrendingUp, Users, Briefcase } from 'lucide-react';
-import { Input } from '../../ui/input';
+import { Input } from '../../ui/Input';
 import { Select } from '../../ui/Select';
 import { Button } from '../../ui/button';
 
@@ -63,13 +63,13 @@ export function TargetForm({ onSubmit, onCancel, target }: TargetFormProps) {
     }
   };
 
-  const isJobTarget = formData.category === 'jobs';
+  // const isJobTarget = formData.category === 'jobs';
 
-  const categoryOptions = [
-    { value: '', label: 'Select a category' },
-    { value: 'jobs', label: 'Jobs' },
-    { value: 'other', label: 'Others' },
-  ];
+  // const categoryOptions = [
+  //   { value: '', label: 'Select a category' },
+  //   { value: 'jobs', label: 'Jobs' },
+  //   { value: 'other', label: 'Others' },
+  // ];
 
   return (
     <div className="space-y-4">
@@ -90,7 +90,7 @@ export function TargetForm({ onSubmit, onCancel, target }: TargetFormProps) {
     <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6 p-1 md:p-0">
 
       <div className="space-y-2">
-        <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label htmlFor="category" className="block text-sm font-medium text-gray-700">
           <Briefcase className="inline h-4 w-4 mr-1" />
           Category *
         </label>
@@ -107,7 +107,7 @@ export function TargetForm({ onSubmit, onCancel, target }: TargetFormProps) {
       </div>
 
       <div className="space-y-2">
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label htmlFor="description" className="block text-sm font-medium text-gray-700">
           <Target className="inline h-4 w-4 mr-1" />
           Description *
         </label>
@@ -123,7 +123,7 @@ export function TargetForm({ onSubmit, onCancel, target }: TargetFormProps) {
       </div>
 
       <div className="space-y-2">
-        <label htmlFor="metric" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label htmlFor="metric" className="block text-sm font-medium text-gray-700">
           <TrendingUp className="inline h-4 w-4 mr-1" />
           Metric *
         </label>
@@ -140,7 +140,7 @@ export function TargetForm({ onSubmit, onCancel, target }: TargetFormProps) {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="space-y-2">
-          <label htmlFor="baseline_value" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="baseline_value" className="block text-sm font-medium text-gray-700">
             Baseline Value *
           </label>
           <Input
@@ -155,7 +155,7 @@ export function TargetForm({ onSubmit, onCancel, target }: TargetFormProps) {
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="target_value" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="target_value" className="block text-sm font-medium text-gray-700">
             <Target className="inline h-4 w-4 mr-1 text-green-500" />
             Target Value *
           </label>
@@ -171,7 +171,7 @@ export function TargetForm({ onSubmit, onCancel, target }: TargetFormProps) {
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="current_value" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="current_value" className="block text-sm font-medium text-gray-700">
             <TrendingUp className="inline h-4 w-4 mr-1 text-blue-500" />
             Current Value
           </label>
@@ -196,7 +196,7 @@ export function TargetForm({ onSubmit, onCancel, target }: TargetFormProps) {
             
             <div className="space-y-4">
               <div className="space-y-2">
-                <label htmlFor="job_subcategory" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label htmlFor="job_subcategory" className="block text-sm font-medium text-gray-700">
                   Job Type
                 </label>
                 <Input
@@ -211,7 +211,7 @@ export function TargetForm({ onSubmit, onCancel, target }: TargetFormProps) {
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label htmlFor="women_target" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label htmlFor="women_target" className="block text-sm font-medium text-gray-700">
                     <Users className="inline h-4 w-4 mr-1 text-pink-500" />
                     Women's Target Jobs
                   </label>
@@ -226,7 +226,7 @@ export function TargetForm({ onSubmit, onCancel, target }: TargetFormProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="women_current" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label htmlFor="women_current" className="block text-sm font-medium text-gray-700">
                     <Users className="inline h-4 w-4 mr-1 text-pink-500" />
                     Women's Current Jobs
                   </label>
@@ -243,7 +243,7 @@ export function TargetForm({ onSubmit, onCancel, target }: TargetFormProps) {
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label htmlFor="youth_target" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label htmlFor="youth_target" className="block text-sm font-medium text-gray-700">
                     <Users className="inline h-4 w-4 mr-1 text-purple-500" />
                     Youth Target Jobs
                   </label>
@@ -258,7 +258,7 @@ export function TargetForm({ onSubmit, onCancel, target }: TargetFormProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="youth_current" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label htmlFor="youth_current" className="block text-sm font-medium text-gray-700">
                     <Users className="inline h-4 w-4 mr-1 text-purple-500" />
                     Youth Current Jobs
                   </label>

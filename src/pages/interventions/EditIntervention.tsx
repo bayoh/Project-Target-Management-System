@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { DashboardLayout } from '../../components/layout/DashboardLayout';
+
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { AlertTriangle, ChevronLeft, Upload, X } from 'lucide-react';
 import type { User } from '../../types/auth';
 import { canEditIntervention } from '../../lib/permissions';
 import { Select } from '../../components/ui/Select';
+import { useActivityTracking } from '../../hooks/useActivityTracking';
 
 interface FormData {
   name: string;
@@ -22,6 +23,7 @@ interface FormData {
 export function EditIntervention() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { trackUpdate } = useActivityTracking();
   const [formData, setFormData] = useState<FormData>({
     name: '',
     code: '',
@@ -125,6 +127,14 @@ export function EditIntervention() {
 
       if (updateError) throw updateError;
 
+      // Track intervention update
+      await trackUpdate('intervention', id!, {
+        name: formData.name,
+        code: formData.code,
+        status: formData.status,
+        budget: formData.budget
+      });
+
       // Handle file uploads if any
       for (const file of formData.attachments) {
         const fileName = `${id}/${crypto.randomUUID()}-${file.name}`;
@@ -185,39 +195,34 @@ export function EditIntervention() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
     );
   }
 
   if (error === 'You do not have permission to edit this intervention') {
     return (
-      <DashboardLayout>
-        <div className="max-w-4xl mx-auto p-6">
-          <div className="rounded-md bg-red-50 p-4">
-            <div className="flex">
-              <AlertTriangle className="h-5 w-5 text-red-400 mr-2" />
-              <div className="text-sm text-red-700">{error}</div>
-            </div>
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="rounded-md bg-red-50 p-4">
+          <div className="flex">
+            <AlertTriangle className="h-5 w-5 text-red-400 mr-2" />
+            <div className="text-sm text-red-700">{error}</div>
           </div>
-          <button
-            onClick={() => navigate(`/interventions/${id}`)}
-            className="mt-4 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-          >
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Back
-          </button>
         </div>
-      </DashboardLayout>
+        <button
+          onClick={() => navigate(`/interventions/${id}`)}
+          className="mt-4 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+        >
+          <ChevronLeft className="h-4 w-4 mr-2" />
+          Back
+        </button>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto">
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -456,8 +461,7 @@ export function EditIntervention() {
               </div>
             </div>
           </form>
-        </div>
       </div>
-    </DashboardLayout>
+    </div>
   );
 }

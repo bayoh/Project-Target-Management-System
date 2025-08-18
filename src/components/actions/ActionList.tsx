@@ -5,6 +5,7 @@ import type { Action, User } from '../../types/project';
 import { ActionForm } from './ActionForm';
 import { supabase } from '../../lib/supabase';
 import { canCreateAction, canEditAction, canDeleteAction } from '../../lib/permissions';
+import { useActivityTracking } from '../../hooks/useActivityTracking';
 
 interface ActionListProps {
   actions: Action[];
@@ -16,6 +17,7 @@ interface ActionListProps {
 
 export function ActionList({ actions, interventionId, onActionUpdate, users , showEdit}: ActionListProps) {
   const navigate = useNavigate();
+  const { trackDelete } = useActivityTracking();
   const [showAddForm, setShowAddForm] = useState(false);
   const [canCreate, setCanCreate] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
@@ -84,6 +86,14 @@ export function ActionList({ actions, interventionId, onActionUpdate, users , sh
     if (window.confirm('Are you sure you want to delete this action?')) {
       try {
         await supabase.from('actions').delete().eq('id', action.id);
+        
+        // Track action deletion
+        await trackDelete('action', action.id, {
+          name: action.name,
+          intervention_id: interventionId,
+          status: action.status
+        });
+        
         setDeletingAction(null);
         onActionUpdate();
       } catch (error) {

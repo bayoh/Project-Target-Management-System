@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { DashboardLayout } from '../components/layout/DashboardLayout';
+
 import { 
   TreePine, 
   Recycle, 
@@ -243,31 +243,26 @@ export function Dashboard() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <DashboardLayout>
-        <div className="min-h-[400px] flex items-center justify-center">
-          <div className="text-center">
-            <AlertTriangle className="mx-auto h-12 w-12 text-yellow-500" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">Error Loading Dashboard</h3>
-            <p className="mt-1 text-sm text-gray-500">{error instanceof Error ? error.message : 'An unexpected error occurred'}</p>
-          </div>
+      <div className="min-h-[400px] flex items-center justify-center">
+        <div className="text-center">
+          <AlertTriangle className="mx-auto h-12 w-12 text-yellow-500" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">Error Loading Dashboard</h3>
+          <p className="mt-1 text-sm text-gray-500">{error instanceof Error ? error.message : 'An unexpected error occurred'}</p>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
@@ -341,8 +336,6 @@ export function Dashboard() {
             </div>
           )}
         </div>
-      </div>
-      {/* <ProjectStats/> */}
-    </DashboardLayout>
+    </div>
   );
 }

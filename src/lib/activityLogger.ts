@@ -13,7 +13,8 @@ export type EntityType =
   | 'user'
   | 'help_section'
   | 'help_content'
-  | 'navigation';
+  | 'navigation'
+  | 'comment';
 
 export interface ActivityLogEntry {
   action_type: ActivityActionType;

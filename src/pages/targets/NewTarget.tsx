@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Target, AlertTriangle } from 'lucide-react';
-import { DashboardLayout } from '../../components/layout/DashboardLayout';
+
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Button } from '../../components/ui/button';
@@ -98,7 +98,6 @@ export default function NewTarget() {
   };
 
   return (
-    <DashboardLayout>
     <div className="max-w-4xl mx-auto p-6">
       <div className="flex items-center gap-2 mb-6">
         <Target className="h-6 w-6" />
@@ -265,6 +264,5 @@ export default function NewTarget() {
         </div>
       </form>
     </div>
-    </DashboardLayout>
   );
 }

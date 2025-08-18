@@ -62,7 +62,6 @@ export interface Action extends BaseEntity {
   comments: string[];
   tasks?: Task[];
   budget: number | null;
-  actual_budget: number | null;
   associated_projects: string[];
   implementing_partners: string[];
   indicators?: Indicator[];

@@ -1,39 +1,26 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { DashboardLayout } from '../../components/layout/DashboardLayout';
-import { 
+import { useState, useEffect, useMemo } from 'react';
+
+import {
   Plus,
-  ChevronRight,
-  Network,
-  List,
-  Calendar,
-  Clock,
-  DollarSign,
-  Users,
-  AlertTriangle,
-  Edit2,
-  Trash2,
-  CheckCircle2,
-  MoreVertical,
-  Target,
-  Eye,
   Filter,
-  X,
   Loader2,
   Search
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { projectApi, userApi } from '../../lib/api';
-import type { Action, User, Intervention } from '../../types/project';
+import { projectApi } from '../../lib/api';
+import type { Action } from '../../types/project';
 import { ConfirmationDialog } from '../../components/ui/ConfirmationDialog';
-import { Select } from '../../components/ui/Select';
 import toast from 'react-hot-toast';
 import { ActionModal } from '../../components/ui/ActionModal';
+import { ActionCard } from '../../components/ui/ActionCard';
 import { useActivityTracking } from '../../hooks/useActivityTracking';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../lib/queryKeys';
-import { executeQuery } from '../../lib/queries';
 import { useAuth } from '../../lib/auth';
+import { Button } from '../../components/ui/button';
+import { MetricsGrid, createActionMetrics } from '../../components/ui/MetricsGrid';
+import { FilterPanel, FilterConfig } from '../../components/ui/FilterPanel';
 
 interface ConfirmationState {
   isOpen: boolean;
@@ -43,7 +30,7 @@ interface ConfirmationState {
 }
 
 export function ActionDashboard() {
-  const { trackPageView } = useActivityTracking();
+  const { trackPageView, trackDelete } = useActivityTracking();
   const { user: sessionUser } = useAuth();
   const queryClient = useQueryClient();
   const [confirmation, setConfirmation] = useState<ConfirmationState>({
@@ -51,8 +38,8 @@ export function ActionDashboard() {
     type: 'delete',
     actionId: '',
   });
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
-  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  // const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  // const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     interventionId: '',
     leadId: '',
@@ -60,9 +47,9 @@ export function ActionDashboard() {
     search: '',
     intervention: '',
     lead: '',
-    supportingStaff: [],
-    implementingPartners: [],
-    associatedProjects: []
+    supportingStaff: [] as string[],
+    implementingPartners: [] as string[],
+    associatedProjects: [] as string[]
   });
   const [showFilters, setShowFilters] = useState(false);
   const navigate = useNavigate();
@@ -70,7 +57,7 @@ export function ActionDashboard() {
   const [selectedAction, setSelectedAction] = useState<Action | null>(null);
 
   // Fetch actions using TanStack Query
-  const { data: actions = [], isLoading: loading, error } = useQuery({
+  const { data: actions = [], isLoading: loading } = useQuery({
     queryKey: queryKeys.projects.actions(),
     queryFn: async () => {
       const { data, error } = await supabase
@@ -86,7 +73,7 @@ export function ActionDashboard() {
       return (data || []).map((action: any) => ({
         ...action,
         intervention: action.intervention || { id: '', name: 'Unknown Intervention', code: '' },
-        lead: action.lead || { id: '', email: 'Unassigned', full_name: 'Unassigned' },
+        lead: action.lead || { id: '', full_name: 'Unassigned' },
         supporting_staff: action.supporting_staff ? (typeof action.supporting_staff === 'string' ? action.supporting_staff.split(',').map((s: string) => s.trim()) : action.supporting_staff) : [],
         implementing_partners: action.implementing_partners ? (typeof action.implementing_partners === 'string' ? action.implementing_partners.split(',').map((s: string) => s.trim()) : action.implementing_partners) : [],
         associated_projects: action.associated_projects ? (typeof action.associated_projects === 'string' ? action.associated_projects.split(',').map((s: string) => s.trim()) : action.associated_projects) : [],
@@ -127,7 +114,7 @@ export function ActionDashboard() {
       if (error) throw error;
       return (data || []).map((user: any) => ({
         ...user,
-        full_name: user.full_name || user.email || 'Unknown User'
+        full_name: user.full_name || user.id || 'Unknown User'
       }));
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -135,11 +122,27 @@ export function ActionDashboard() {
 
   // Fetch projects for associated projects filter
   const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
+    queryKey: ['associated_projects'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('projects')
-        .select('id, name, code')
+        .from('associated_projects')
+        .select('*')
+        .order('name');
+      
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+
+
+  // Fetch partners for implementing partners filter
+  const { data: partners = [] } = useQuery({
+    queryKey: ['implementing_partners'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('implementing_partners')
+        .select('*')
         .order('name');
       
       if (error) throw error;
@@ -151,7 +154,15 @@ export function ActionDashboard() {
   // Delete action mutation
   const deleteActionMutation = useMutation({
     mutationFn: (actionId: string) => projectApi.deleteAction(actionId),
-    onSuccess: () => {
+    onSuccess: (_, actionId) => {
+      const deletedAction = actions.find(action => action.id === actionId);
+      if (deletedAction) {
+        trackDelete('action', actionId, {
+          name: deletedAction.name,
+          intervention_id: deletedAction.intervention_id,
+          status: deletedAction.status
+        });
+      }
       queryClient.invalidateQueries({ queryKey: queryKeys.projects.actions() });
       toast.success('Action deleted successfully');
     },
@@ -191,14 +202,14 @@ export function ActionDashboard() {
     }
   };
 
-  const handleStatusClick = (id: string, status: 'completed' | 'in_progress' | 'at_risk' | 'not_started') => {
-    setConfirmation({
-      isOpen: true,
-      type: 'status',
-      actionId: id,
-      newStatus: status,
-    });
-  };
+  // const handleStatusClick = (id: string, status: 'completed' | 'in_progress' | 'at_risk' | 'not_started') => {
+  //   setConfirmation({
+  //     isOpen: true,
+  //     type: 'status',
+  //     actionId: id,
+  //     newStatus: status,
+  //   });
+  // };
 
   const handleStatusChange = async () => {
     if (!confirmation.newStatus) return;
@@ -224,31 +235,30 @@ export function ActionDashboard() {
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle2 className="h-5 w-5 text-green-500" />;
-      case 'in_progress':
-        return <Clock className="h-5 w-5 text-blue-500" />;
-      case 'at_risk':
-        return <AlertTriangle className="h-5 w-5 text-amber-500" />;
-      case 'not_started':
-        return <X className="h-5 w-5 text-gray-500" />;
-      default:
-        return null;
-    }
-  };
+  // const getStatusIcon = (status: string) => {
+  //   switch (status) {
+  //     case 'completed':
+  //       return <CheckCircle2 className="h-5 w-5 text-green-500" />;
+  //     case 'in_progress':
+  //       return <Clock className="h-5 w-5 text-blue-500" />;
+  //     case 'at_risk':
+  //       return <AlertTriangle className="h-5 w-5 text-amber-500" />;
+  //     case 'not_started':
+  //       return <X className="h-5 w-5 text-gray-500" />;
+  //     default:
+  //       return null;
+  //   }
+  // };
 
   const filteredActions = (actions || []).filter((action: any) => {
     if (filters.interventionId && action.intervention_id !== filters.interventionId) return false;
-    if (filters.intervention && action.intervention_id !== filters.intervention) return false;
     if (filters.leadId && action.lead_id !== filters.leadId) return false;
-    if (filters.lead && action.lead_id !== filters.lead) return false;
+    // if (filters.lead && action.lead_id !== filters.lead) return false;
     if (filters.status && action.status !== filters.status) return false;
     if (filters.search) {
       const searchTerm = filters.search.toLowerCase();
-      const actionName = action.name || '';
-      const actionDescription = action.description || '';
+      const actionName = (action.name || '').toString();
+      const actionDescription = (action.description || '').toString();
       const matchesName = actionName.toLowerCase().includes(searchTerm);
       const matchesDescription = actionDescription.toLowerCase().includes(searchTerm);
       if (!matchesName && !matchesDescription) return false;
@@ -278,6 +288,73 @@ export function ActionDashboard() {
     return matchesSupportingStaff && matchesImplementingPartners && matchesAssociatedProjects;
   });
 
+  // Create filter configurations
+  const filterConfigs: FilterConfig[] = useMemo(() => [
+    {
+      key: 'interventionId',
+      label: 'Intervention',
+      placeholder: 'All Interventions',
+      options: interventions.map(intervention => ({
+        value: intervention.id,
+        label: intervention.name
+      }))
+    },
+    {
+      key: 'leadId',
+      label: 'Lead',
+      placeholder: 'All Leads',
+      options: users.map(user => ({
+        value: user.id,
+        label: user.full_name
+      }))
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      placeholder: 'All Statuses',
+      options: [
+        { value: 'not_started', label: 'Not Started' },
+        { value: 'in_progress', label: 'In Progress' },
+        { value: 'at_risk', label: 'At Risk' },
+        { value: 'completed', label: 'Completed' }
+      ]
+    },
+    {
+      key: 'associatedProjects',
+      label: 'Associated Projects',
+      placeholder: 'All Projects',
+      options: projects.map(project => ({
+        value: project.id,
+        label: project.name
+      })),
+      multiple: true
+    },
+    {
+      key: 'supportingStaff',
+      label: 'Supporting Staff',
+      placeholder: 'Supporting Staff',
+      options: [
+        ...new Set(
+          actions.flatMap(action => action.supporting_staff || [])
+        )
+      ].filter(Boolean).map(staff => ({
+        value: staff as string,
+        label: users.find(user => user.id === staff)?.full_name || staff as string
+      })),
+      multiple: true
+    },
+    {
+      key: 'implementingPartners',
+      label: 'Implementing Partners',
+      placeholder: 'Implementing Partners',
+      options: partners.map(partner => ({
+        value: partner.id as string,
+        label: partner.name as string
+      })),
+      multiple: true
+    }
+  ], [interventions, users, projects, actions, partners]);
+
   const getMetrics = () => {
     const safeActions = Array.isArray(filteredActions) ? filteredActions : [];
     const totalActions = safeActions.length;
@@ -292,11 +369,9 @@ export function ActionDashboard() {
 
   if (loading) {
     return (
-      <DashboardLayout>
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin text-gray-900" />
         </div>
-      </DashboardLayout>
     );
   }
 
@@ -332,8 +407,23 @@ export function ActionDashboard() {
 
         // Set default values for new action
         const newActionData = {
-          ...actionData,
+          intervention_id: actionData.intervention_id || '',
+          name: actionData.name || '',
+          code: actionData.code || 0,
+          description: actionData.description || null,
           status: actionData.status || 'not_started',
+          start_date: actionData.start_date || null,
+          actual_startDate: actionData.actual_startDate || null,
+          actual_endDate: actionData.actual_endDate || null,
+          end_date: actionData.end_date || null,
+          lead_id: actionData.lead_id || null,
+          supporting_staff: actionData.supporting_staff || [],
+          // issues: actionData.issues || [],
+          // needs: actionData.needs || [],
+          // comments: actionData.comments || [],
+          budget: actionData.budget || null,
+          associated_projects: actionData.associated_projects || [],
+          implementing_partners: actionData.implementing_partners || [],
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           created_by: sessionUser?.id
@@ -354,254 +444,64 @@ export function ActionDashboard() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="space-y-5 lg:space-y-6">
+    <div className="space-y-5 lg:space-y-6 p-3 md:p-4 lg:p-6">
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6 lg:mb-8">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-1">Actions Dashboard</h1>
             <p className="text-sm lg:text-base text-gray-600">Manage and track all actions across interventions</p>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <button
+            <Button
               onClick={() => setShowFilters(!showFilters)}
-              className={`inline-flex items-center justify-center px-4 py-2.5 border border-gray-200 rounded-lg shadow-sm text-sm font-medium transition-all duration-200 ${
-                showFilters 
-                  ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-md' 
-                  : 'bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300'
-              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+              variant={showFilters ? 'secondary' : 'outline'}
+              className="gap-2"
             >
-              <Filter className="h-4 w-4 mr-2" />
+              <Filter className="h-4 w-4" />
               {showFilters ? 'Hide Filters' : 'Show Filters'}
-            </button>
-            <button
-              onClick={() => handlenewActionClick()}
-              className="inline-flex items-center justify-center px-4 py-2.5 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <Plus className="h-4 w-4 mr-2" />
+            </Button>
+            <Button onClick={() => handlenewActionClick()} className="gap-2">
+              <Plus className="h-4 w-4" />
               New Action
-            </button>
+            </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 lg:gap-4 mb-5 lg:mb-6">
-          <div 
-            className="bg-white shadow-md rounded-xl p-4 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-300 border border-gray-100 group"
-            onClick={() => {
+        <MetricsGrid 
+          metrics={createActionMetrics(
+            metrics.totalActions,
+            metrics.statusCounts,
+            (status) => {
               setShowFilters(true);
-              setFilters(prev => ({ ...prev, status: '', intervention: '', lead: '' }));
-            }}
-          >
-            <div className="flex items-center">
-              <div className="p-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-sm group-hover:shadow-md transition-shadow">
-                <Target className="h-5 w-5 text-white" />
-              </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Actions</p>
-                <h3 className="text-lg font-bold text-gray-900">{metrics.totalActions}</h3>
-              </div>
-            </div>
-          </div>
-          <div 
-            className="bg-white shadow-md rounded-xl p-4 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-300 border border-gray-100 group"
-            onClick={() => {
-              setShowFilters(true);
-              setFilters(prev => ({ ...prev, status: 'completed', intervention: '', lead: '' }));
-            }}
-          >
-            <div className="flex items-center">
-              <div className="p-2.5 bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-sm group-hover:shadow-md transition-shadow">
-                <CheckCircle2 className="h-5 w-5 text-white" />
-              </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Completed</p>
-                <h3 className="text-lg font-bold text-gray-900">{metrics.statusCounts.completed}</h3>
-              </div>
-            </div>
-          </div>
-          <div 
-            className="bg-white shadow-md rounded-xl p-4 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-300 border border-gray-100 group"
-            onClick={() => {
-              setShowFilters(true);
-              setFilters(prev => ({ ...prev, status: 'in_progress', intervention: '', lead: '' }));
-            }}
-          >
-            <div className="flex items-center">
-              <div className="p-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-sm group-hover:shadow-md transition-shadow">
-                <Clock className="h-5 w-5 text-white" />
-              </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">On Track</p>
-                <h3 className="text-lg font-bold text-gray-900">{metrics.statusCounts.in_progress}</h3>
-              </div>
-            </div>
-          </div>
-          <div 
-            className="bg-white shadow-md rounded-xl p-4 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-300 border border-gray-100 group"
-            onClick={() => {
-              setShowFilters(true);
-              setFilters(prev => ({ ...prev, status: 'at_risk', intervention: '', lead: '' }));
-            }}
-          >
-            <div className="flex items-center">
-              <div className="p-2.5 bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg shadow-sm group-hover:shadow-md transition-shadow">
-                <AlertTriangle className="h-5 w-5 text-white" />
-              </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Off Track</p>
-                <h3 className="text-lg font-bold text-gray-900">{metrics.statusCounts.at_risk}</h3>
-              </div>
-            </div>
-          </div>
-          <div 
-            className="bg-white shadow-md rounded-xl p-4 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-300 border border-gray-100 group"
-            onClick={() => {
-              setShowFilters(true);
-              setFilters(prev => ({ ...prev, status: 'not_started', intervention: '', lead: '' }));
-            }}
-          >
-            <div className="flex items-center">
-              <div className="p-2.5 bg-gradient-to-br from-gray-500 to-gray-600 rounded-lg shadow-sm group-hover:shadow-md transition-shadow">
-                <X className="h-5 w-5 text-white" />
-              </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Not Started</p>
-                <h3 className="text-lg font-bold text-gray-900">{metrics.statusCounts.not_started}</h3>
-              </div>
-            </div>
-          </div>
-        </div>
+              setFilters(prev => ({ ...prev, status, intervention: '', lead: '' }));
+            }
+          )}
+        />
 
         {showFilters && (
-          <div className="bg-white shadow-lg rounded-xl p-5 border border-gray-100">
-            <div className="space-y-4">
-              {/* Search Bar */}
-              <div className="w-full">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search actions..."
-                    value={filters.search}
-                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
-                  />
-                </div>
-              </div>
-              
-              {/* Primary Filters */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <select
-                  value={filters.interventionId}
-                  onChange={(e) => setFilters(prev => ({ ...prev, interventionId: e.target.value }))}
-                  className="px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
-                >
-                  <option value="">All Interventions</option>
-                  {interventions?.map((intervention) => (
-                    <option key={intervention.id} value={intervention.id}>
-                      {intervention.name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={filters.leadId}
-                  onChange={(e) => setFilters(prev => ({ ...prev, leadId: e.target.value }))}
-                  className="px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
-                >
-                  <option value="">All Leads</option>
-                  {users?.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.full_name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={filters.status}
-                  onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                  className="px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
-                >
-                  <option value="">All Status</option>
-                  <option value="not_started">Not Started</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="completed">Completed</option>
-                  <option value="at_risk">At Risk</option>
-                </select>
-                <Select
-                  options={projects.map(project => ({ value: project.id, label: project.name }))}
-                  value={filters.associatedProjects}
-                  onChange={(value) => setFilters(prev => ({ ...prev, associatedProjects: value }))}
-                  placeholder="Associated Projects"
-                  multiple
-                  searchable
-                  allowClear
-                  className="min-w-0"
-                />
-              </div>
-              
-              {/* Secondary Filters */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Select
-                  options={[
-                    ...new Set(
-                      actions.flatMap(action => action.supporting_staff || [])
-                    )
-                  ].filter(Boolean).map(staff => ({ value: staff, label: staff }))}
-                  value={filters.supportingStaff}
-                  onChange={(value) => setFilters(prev => ({ ...prev, supportingStaff: value }))}
-                  placeholder="Supporting Staff"
-                  multiple
-                  searchable
-                  allowClear
-                  className="min-w-0"
-                />
-                <Select
-                  options={[
-                    ...new Set(
-                      actions.flatMap(action => action.implementing_partners || [])
-                    )
-                  ].filter(Boolean).map(partner => ({ value: partner, label: partner }))}
-                  value={filters.implementingPartners}
-                  onChange={(value) => setFilters(prev => ({ ...prev, implementingPartners: value }))}
-                  placeholder="Implementing Partners"
-                  multiple
-                  searchable
-                  allowClear
-                  className="min-w-0"
-                />
-              </div>
-              
-              {/* Clear All Filters */}
-              {(filters.search || filters.interventionId || filters.leadId || filters.status || 
-                filters.supportingStaff.length > 0 || filters.implementingPartners.length > 0 || 
-                filters.associatedProjects.length > 0) && (
-                <div className="flex justify-end pt-2 border-t border-gray-100">
-                  <button
-                    onClick={() => setFilters({
-                      interventionId: '',
-                      leadId: '',
-                      status: '',
-                      search: '',
-                      intervention: '',
-                      lead: '',
-                      supportingStaff: [],
-                      implementingPartners: [],
-                      associatedProjects: []
-                    })}
-                    className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    Clear All Filters
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+          <FilterPanel
+            filters={filters}
+            onFiltersChange={setFilters}
+            filterConfigs={filterConfigs}
+            searchPlaceholder="Search actions..."
+            onClearFilters={() => setFilters({
+              search: '',
+              interventionId: '',
+              leadId: '',
+              status: '',
+              intervention: '',
+              lead: '',
+              supportingStaff: [],
+              implementingPartners: [],
+              associatedProjects: []
+            })}
+          />
         )}
 
-        <div className="space-y-3">
+        <div className="space-y-6">
           {filteredActions.length === 0 ? (
             <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-100">
               <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <Target className="h-8 w-8 text-gray-400" />
+                <Search className="h-8 w-8 text-gray-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">No actions found</h3>
               <p className="text-sm text-gray-500 max-w-sm mx-auto">
@@ -613,94 +513,71 @@ export function ActionDashboard() {
               </p>
             </div>
           ) : (
-            filteredActions.map((action: any) => {
-              const intervention = (interventions || []).find((i: any) => i.id === action.intervention_id) || action.intervention;
-              const lead = (users || []).find((u: any) => u.id === action.lead_id) || action.lead;
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredActions.map((action: any) => {
+                  // const intervention = (interventions || []).find((i: any) => i.id === action.intervention_id) || action.intervention;
+                  // const lead = (users || []).find((u: any) => u.id === action.lead_id) || action.lead;
+                  
+                  return (
+                    <ActionCard
+                      key={action.id}
+                      action={action}
+                      users={users}
+                      interventions={interventions}
+                      onView={(action) => navigate(`/interventions/${action.intervention_id}/actions/${action.id}`)}
+                      onEdit={handleEditClick}
+                      onDelete={handleDeleteClick}
+                    />
+                  );
+                })}
+              </div>
               
-              return (
-                <div key={action.id} className="bg-white shadow-md rounded-xl p-5 hover:shadow-lg transition-all duration-300 border border-gray-100 group">
-                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-start space-x-3">
-                        <div className="flex-shrink-0 mt-1">
-                          {getStatusIcon(action.status)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">{action.name || 'Untitled Action'}</h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
-                            <div className="flex items-center text-sm text-gray-600">
-                              <span className="font-medium text-gray-700 mr-1">Intervention:</span>
-                              <span className="truncate">{intervention?.name || 'N/A'}</span>
-                            </div>
-                            <div className="flex items-center text-sm text-gray-600">
-                              <span className="font-medium text-gray-700 mr-1">Lead:</span>
-                              <span className="truncate">{lead?.full_name || lead?.email || 'N/A'}</span>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
-                            <div className="flex items-center text-sm text-gray-600">
-                              <Calendar className="h-4 w-4 mr-1.5 text-gray-400" />
-                              <span className="font-medium text-gray-700 mr-1">Start:</span>
-                              <span>{action.start_date ? (() => {
-                                try {
-                                  const date = typeof action.start_date === 'string' ? new Date(action.start_date) : action.start_date;
-                                  return date.toLocaleDateString();
-                                } catch {
-                                  return 'Invalid date';
-                                }
-                              })() : 'N/A'}</span>
-                            </div>
-                            <div className="flex items-center text-sm text-gray-600">
-                              <Calendar className="h-4 w-4 mr-1.5 text-gray-400" />
-                              <span className="font-medium text-gray-700 mr-1">End:</span>
-                              <span>{action.end_date ? (() => {
-                                try {
-                                  const date = typeof action.end_date === 'string' ? new Date(action.end_date) : action.end_date;
-                                  return date.toLocaleDateString();
-                                } catch {
-                                  return 'Invalid date';
-                                }
-                              })() : 'N/A'}</span>
-                            </div>
-                          </div>
-                          {action.description && (
-                            <p className="text-sm text-gray-600 leading-relaxed line-clamp-2">{action.description}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-row lg:flex-col xl:flex-row items-center gap-2 lg:ml-4">
-                      <button
-                        onClick={() => navigate(`/interventions/${action.intervention_id}/actions/${action.id}`)}
-                        className="flex-1 lg:flex-none inline-flex items-center justify-center px-3 py-2 border border-gray-200 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-                      >
-                        <Eye className="h-4 w-4 mr-1.5" />
-                        View
-                      </button>
-                      <button
-                        onClick={() => handleEditClick(action)}
-                        className="flex-1 lg:flex-none inline-flex items-center justify-center px-3 py-2 border border-blue-200 shadow-sm text-sm font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-                      >
-                        <Edit2 className="h-4 w-4 mr-1.5" />
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteClick(action.id)}
-                        className="flex-1 lg:flex-none inline-flex items-center justify-center px-3 py-2 border border-red-200 shadow-sm text-sm font-medium rounded-lg text-red-700 bg-red-50 hover:bg-red-100 hover:border-red-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200"
-                      >
-                        <Trash2 className="h-4 w-4 mr-1.5" />
-                        Delete
-                      </button>
-                    </div>
-                  </div>
+              {/* Pagination */}
+              <div className="flex items-center justify-center gap-2 pt-8">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900"
+                >
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="w-8 h-8 p-0 bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    1
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-8 h-8 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  >
+                    2
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-8 h-8 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  >
+                    3
+                  </Button>
                 </div>
-              );
-            })
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900"
+                >
+                  Next
+                </Button>
+              </div>
+            </>
           )}
         </div>
-      </div>
 
-      <ConfirmationDialog
+       <ConfirmationDialog
         isOpen={confirmation.isOpen}
         title={confirmation.type === 'delete' ? 'Delete Action' : 'Update Status'}
         message={confirmation.type === 'delete' 
@@ -725,6 +602,6 @@ export function ActionDashboard() {
         interventions={interventions}
         title={selectedAction ? 'Edit Action' : 'New Action'}
       />
-    </DashboardLayout>
+    </div>
   );
 }

@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../lib/queryKeys';
 import { executeQuery } from '../../lib/queries';
 import { useAuth } from '../../lib/auth';
+import { useActivityTracking } from '../../hooks/useActivityTracking';
 
 interface Project {
   id: string;
@@ -44,6 +45,7 @@ const fetchUsers = async (): Promise<User[]> => {
 
 export function ProjectPartnerManagement() {
   const { user } = useAuth();
+  const { trackDelete } = useActivityTracking();
   const queryClient = useQueryClient();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalType, setModalType] = useState<'project' | 'partner'>('project');
@@ -82,13 +84,27 @@ export function ProjectPartnerManagement() {
   // Mutations for CRUD operations
   const deleteProjectMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
+        .from('associated_projects')
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error) throw error;
+      
+      const { error: deleteError } = await supabase
         .from('associated_projects')
         .delete()
         .eq('id', id);
-      if (error) throw error;
+      if (deleteError) throw deleteError;
+      
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (deletedProject) => {
+      trackDelete('project', deletedProject.id, {
+        name: deletedProject.name,
+        description: deletedProject.description,
+        entity_type: 'project'
+      });
       queryClient.invalidateQueries({ queryKey: ['associated_projects'] });
       showSuccess('Project deleted successfully');
     },
@@ -100,13 +116,26 @@ export function ProjectPartnerManagement() {
 
   const deletePartnerMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
+        .from('implementing_partners')
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error) throw error;
+      
+      const { error: deleteError } = await supabase
         .from('implementing_partners')
         .delete()
         .eq('id', id);
-      if (error) throw error;
+      if (deleteError) throw deleteError;
+      
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (deletedPartner) => {
+      trackDelete('partner', deletedPartner.id, {
+        name: deletedPartner.name,
+        entity_type: 'partner'
+      });
       queryClient.invalidateQueries({ queryKey: ['implementing_partners'] });
       showSuccess('Partner deleted successfully');
     },

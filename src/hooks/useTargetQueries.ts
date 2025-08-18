@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { queryKeys } from '../lib/queryKeys';
+import { useActivityTracking } from './useActivityTracking';
 import { executeQuery } from '../lib/queries';
 import { PaginationParams, PaginatedResponse } from '../types/queries';
 
@@ -266,17 +267,38 @@ export const useUpdateTarget = () => {
 // Mutation to delete target
 export const useDeleteTarget = () => {
   const queryClient = useQueryClient();
+  const { trackDelete } = useActivityTracking();
 
   return useMutation({
     mutationFn: async (id: string) => {
+      // First, get the target data for tracking
+      const { data: targetData, error: fetchError } = await supabase
+        .from('action_targets')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
       const { error } = await supabase
         .from('action_targets')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
+      
+      return targetData;
     },
-    onSuccess: () => {
+    onSuccess: (targetData, targetId) => {
+      // Track target deletion
+      trackDelete('target', targetId, {
+        metric: targetData.metric,
+        category: targetData.category,
+        target_value: targetData.target_value,
+        current_value: targetData.current_value,
+        entity_type: 'target'
+      });
+      
       // Invalidate and refetch targets list
       queryClient.invalidateQueries({ queryKey: queryKeys.targets.list() });
     },

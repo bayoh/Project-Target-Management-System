@@ -78,7 +78,7 @@ export function IssueForm({ onSubmit, onCancel, issue, onIssueResolved }: IssueF
     <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6 p-1 md:p-0">
 
       <div className="space-y-2">
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label htmlFor="description" className="block text-sm font-medium text-gray-700">
           Description *
         </label>
         <Input
@@ -95,7 +95,7 @@ export function IssueForm({ onSubmit, onCancel, issue, onIssueResolved }: IssueF
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="status" className="block text-sm font-medium text-gray-700">
             <div className="flex items-center gap-1">
               {formData.status === 'open' && <AlertTriangle className="h-4 w-4 text-orange-500" />}
               {formData.status === 'in_progress' && <Clock className="h-4 w-4 text-blue-500" />}
@@ -115,7 +115,7 @@ export function IssueForm({ onSubmit, onCancel, issue, onIssueResolved }: IssueF
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="severity" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="severity" className="block text-sm font-medium text-gray-700">
             <div className="flex items-center gap-1">
               <AlertCircle className={`h-4 w-4 ${
                 formData.severity === 'high' ? 'text-orange-500' :
@@ -136,7 +136,7 @@ export function IssueForm({ onSubmit, onCancel, issue, onIssueResolved }: IssueF
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="date_identified" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="date_identified" className="block text-sm font-medium text-gray-700">
             <Calendar className="inline h-4 w-4 mr-1" />
             Date Identified *
           </label>
@@ -151,7 +151,7 @@ export function IssueForm({ onSubmit, onCancel, issue, onIssueResolved }: IssueF
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="date_resolved" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="date_resolved" className="block text-sm font-medium text-gray-700">
             <Calendar className="inline h-4 w-4 mr-1" />
             Date Resolved
           </label>
@@ -165,15 +165,15 @@ export function IssueForm({ onSubmit, onCancel, issue, onIssueResolved }: IssueF
         </div>
       </div>
 
-      <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+      <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200">
         <input
           id="is_blocker"
           type="checkbox"
           checked={formData.is_blocker}
           onChange={(e) => setFormData({ ...formData, is_blocker: e.target.checked })}
-          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded"
+          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
         />
-        <label htmlFor="is_blocker" className="block text-sm text-gray-900 dark:text-gray-100 font-medium">
+        <label htmlFor="is_blocker" className="block text-sm text-gray-900 font-medium">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-red-500" />
             This is a blocker issue
@@ -182,7 +182,7 @@ export function IssueForm({ onSubmit, onCancel, issue, onIssueResolved }: IssueF
       </div>
 
       <div className="space-y-2">
-        <label htmlFor="resolution_steps" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label htmlFor="resolution_steps" className="block text-sm font-medium">
           Resolution Steps
         </label>
         <textarea
@@ -191,7 +191,7 @@ export function IssueForm({ onSubmit, onCancel, issue, onIssueResolved }: IssueF
           onChange={(e) => setFormData({ ...formData, resolution_steps: e.target.value })}
           placeholder="Describe the steps taken to resolve this issue..."
           rows={4}
-          className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100 resize-none"
+          className="mt-1 block w-full rounded-lg border-gray-500 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 resize-none"
         />
       </div>
 

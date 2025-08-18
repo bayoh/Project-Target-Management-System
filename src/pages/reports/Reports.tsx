@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { DashboardLayout } from '../../components/layout/DashboardLayout';
+
 import { 
   Plus,
   FileText,
@@ -47,17 +47,14 @@ export function Reports() {
 
   if (isLoading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
           <button
@@ -106,7 +103,6 @@ export function Reports() {
             {/* Template listing section is intentionally commented out for now. */}
           </div>
         </div>
-      </div>
-    </DashboardLayout>
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DashboardLayout } from '../../components/layout/DashboardLayout';
+
 import { supabase } from '../../lib/supabase';
 import { User, Camera, Loader2, UserCircle, Lock } from 'lucide-react';
 
@@ -223,233 +223,228 @@ export function Profile() {
   }
 
   return (
-    <DashboardLayout>
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
-          <div className="flex items-center space-x-3">
-            <User className="h-6 w-6 text-blue-600" />
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Profile Settings</h1>
-              <p className="text-sm text-gray-600 mt-1">Manage your account information and preferences</p>
-            </div>
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Profile Information Section */}
+      <section aria-labelledby="profile-information-heading" className="bg-white shadow-lg rounded-xl overflow-hidden">
+        <div className="p-6 sm:p-8">
+          <div className="flex items-center space-x-3 mb-6 border-b border-gray-200 pb-4">
+            <User className="h-5 w-5 text-gray-500" />
+            <h1 id="profile-information-heading" className="text-lg font-semibold text-gray-900">Profile Information</h1>
           </div>
-        </div>
 
-        {/* Profile Information Section */}
-        <section aria-labelledby="profile-information-heading" className="bg-white shadow-lg rounded-xl overflow-hidden">
-          <div className="p-6 sm:p-8">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6">
-              {/* Avatar */}
-              <div className="relative">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 p-0.5">
-                  {profileData?.avatar_url ? (
-                    <img
-                      src={profileData.avatar_url}
-                      alt="Profile"
-                      className="w-full h-full rounded-full object-cover bg-white"
-                    />
-                  ) : (
-                    <div className="w-full h-full rounded-full bg-gray-100 flex items-center justify-center">
-                      <UserCircle className="h-10 w-10 text-gray-400" />
-                    </div>
-                  )}
-                  {uploading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full">
-                      <Loader2 className="h-5 w-5 animate-spin text-white" />
-                    </div>
-                  )}
-                </div>
-                <label
-                  htmlFor="avatar-upload"
-                  className={`absolute -bottom-0.5 -right-0.5 bg-blue-600 rounded-full p-1.5 shadow-sm cursor-pointer hover:bg-blue-700 transition-all duration-200 hover:scale-105 ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <Camera className="h-3 w-3 text-white" />
-                  <input
-                    id="avatar-upload"
-                    type="file"
-                    accept="image/png, image/jpeg, image/gif"
-                    className="sr-only"
-                    onChange={handleAvatarChange}
-                    disabled={uploading}
+          {/* Profile Header */}
+          <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6 mb-6">
+            {/* Avatar */}
+            <div className="relative">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl font-semibold shadow-lg relative overflow-hidden">
+                {formData.avatar_url ? (
+                  <img
+                    src={formData.avatar_url}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.nextElementSibling.style.display = 'flex';
+                    }}
                   />
-                </label>
-              </div>
-
-              {/* Basic Info */} 
-              <div className="text-center sm:text-left flex-1">
-                <h2 id="profile-information-heading" className="text-xl font-semibold text-gray-900">
-                  {formData.full_name || 'User Profile'}
-                </h2>
-                <p className="text-sm text-gray-600 mt-0.5">{formData.email}</p>
-                {formData.role && (
-                    <span className="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
-                        {formData.role.replace('_', ' ')}
-                    </span>
+                ) : (
+                  formData.full_name?.charAt(0)?.toUpperCase() || 'U'
+                )}
+                {uploading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full">
+                    <Loader2 className="h-5 w-5 animate-spin text-white" />
+                  </div>
                 )}
               </div>
+              <label
+                htmlFor="avatar-upload"
+                className={`absolute -bottom-0.5 -right-0.5 bg-blue-600 rounded-full p-1.5 shadow-sm cursor-pointer hover:bg-blue-700 transition-all duration-200 hover:scale-105 ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <Camera className="h-3 w-3 text-white" />
+                <input
+                  id="avatar-upload"
+                  type="file"
+                  accept="image/png, image/jpeg, image/gif"
+                  className="sr-only"
+                  onChange={handleAvatarChange}
+                  disabled={uploading}
+                />
+              </label>
             </div>
 
-            {/* Profile Form */}
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    id="full_name"
-                    autoComplete="name"
-                    value={formData.full_name}
-                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm placeholder-gray-400 transition-colors"
-                    placeholder="Your full name"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    autoComplete="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm placeholder-gray-400 transition-colors"
-                    placeholder="you@example.com"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number <span className="text-xs text-gray-500">(Optional)</span>
-                  </label>
-                  <input
-                    type="tel"
-                    id="phone"
-                    autoComplete="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm placeholder-gray-400 transition-colors"
-                    placeholder="+1 (555) 987-6543"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
-                    Role
-                  </label>
-                  <input
-                    type="text"
-                    id="role"
-                    value={formData.role.replace('_', ' ').replace(/\w/g, l => l.toUpperCase())} // Format role for display
-                    readOnly
-                    className="block w-full rounded-lg border-gray-300 shadow-sm bg-gray-50 text-sm text-gray-600 cursor-not-allowed"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-4 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={saving || uploading}
-                  className="inline-flex items-center justify-center px-5 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-md"
-                >
-                  {saving ? (
-                    <><Loader2 className="animate-spin h-4 w-4 mr-2" />Saving...</>
-                  ) : (
-                    'Save Changes'
-                  )}
-                </button>
-              </div>
-            </form>
+            {/* Basic Info */} 
+            <div className="text-center sm:text-left flex-1">
+              <h2 id="profile-information-heading" className="text-xl font-semibold text-gray-900">
+                {formData.full_name || 'User Profile'}
+              </h2>
+              <p className="text-sm text-gray-600 mt-0.5">{formData.email}</p>
+              {formData.role && (
+                  <span className="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                      {formData.role.replace('_', ' ')}
+                  </span>
+              )}
+            </div>
           </div>
-        </section>
 
-        {/* Password Change Section */}
-        <section aria-labelledby="password-heading" className="bg-white shadow-lg rounded-xl overflow-hidden">
-          <div className="p-6 sm:p-8">
-            <div className="flex items-center space-x-3 mb-6 border-b border-gray-200 pb-4">
-              <Lock className="h-5 w-5 text-gray-500" />
-              <h2 id="password-heading" className="text-lg font-semibold text-gray-900">Change Password</h2>
+          {/* Profile Form */}
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-1">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  id="full_name"
+                  autoComplete="name"
+                  value={formData.full_name}
+                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm placeholder-gray-400 transition-colors"
+                  placeholder="Your full name"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  autoComplete="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm placeholder-gray-400 transition-colors"
+                  placeholder="you@example.com"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone Number <span className="text-xs text-gray-500">(Optional)</span>
+                </label>
+                <input
+                  type="tel"
+                  id="phone"
+                  autoComplete="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm placeholder-gray-400 transition-colors"
+                  placeholder="+1 (555) 987-6543"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
+                  Role
+                </label>
+                <input
+                  type="text"
+                  id="role"
+                  value={formData.role.replace('_', ' ').replace(/\w/g, l => l.toUpperCase())} // Format role for display
+                  readOnly
+                  className="block w-full rounded-lg border-gray-300 shadow-sm bg-gray-50 text-sm text-gray-600 cursor-not-allowed"
+                />
+              </div>
             </div>
 
-            <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div className="pt-4 flex justify-end">
+              <button
+                type="submit"
+                disabled={saving || uploading}
+                className="inline-flex items-center justify-center px-5 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-md"
+              >
+                {saving ? (
+                  <><Loader2 className="animate-spin h-4 w-4 mr-2" />Saving...</>
+                ) : (
+                  'Save Changes'
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      {/* Password Change Section */}
+      <section aria-labelledby="password-heading" className="bg-white shadow-lg rounded-xl overflow-hidden">
+        <div className="p-6 sm:p-8">
+          <div className="flex items-center space-x-3 mb-6 border-b border-gray-200 pb-4">
+            <Lock className="h-5 w-5 text-gray-500" />
+            <h2 id="password-heading" className="text-lg font-semibold text-gray-900">Change Password</h2>
+          </div>
+
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div>
+              <label htmlFor="current-password" className="block text-sm font-medium text-gray-700 mb-1">
+                Current Password
+              </label>
+              <input
+                type="password"
+                id="current-password"
+                autoComplete="current-password"
+                value={passwordData.currentPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm placeholder-gray-400 transition-colors"
+                placeholder="Your current password"
+                required
+              />
+               <p className="mt-1 text-xs text-gray-500">Required to change your password. If forgotten, use password reset.</p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="current-password" className="block text-sm font-medium text-gray-700 mb-1">
-                  Current Password
+                <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mb-1">
+                  New Password
                 </label>
                 <input
                   type="password"
-                  id="current-password"
-                  autoComplete="current-password"
-                  value={passwordData.currentPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                  id="new-password"
+                  autoComplete="new-password"
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                   className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm placeholder-gray-400 transition-colors"
-                  placeholder="Your current password"
+                  placeholder="Minimum 8 characters"
                   required
+                  minLength={8}
                 />
-                 <p className="mt-1 text-xs text-gray-500">Required to change your password. If forgotten, use password reset.</p>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mb-1">
-                    New Password
-                  </label>
-                  <input
-                    type="password"
-                    id="new-password"
-                    autoComplete="new-password"
-                    value={passwordData.newPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm placeholder-gray-400 transition-colors"
-                    placeholder="Minimum 8 characters"
-                    required
-                    minLength={8}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1">
-                    Confirm New Password
-                  </label>
-                  <input
-                    type="password"
-                    id="confirm-password"
-                    autoComplete="new-password"
-                    value={passwordData.confirmPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm placeholder-gray-400 transition-colors"
-                    placeholder="Re-enter new password"
-                    required
-                    minLength={8}
-                  />
-                </div>
+              <div>
+                <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  id="confirm-password"
+                  autoComplete="new-password"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm placeholder-gray-400 transition-colors"
+                  placeholder="Re-enter new password"
+                  required
+                  minLength={8}
+                />
               </div>
+            </div>
 
-              <div className="pt-4 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={changingPassword}
-                  className="inline-flex items-center justify-center px-5 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-md"
-                >
-                  {changingPassword ? (
-                    <><Loader2 className="animate-spin h-4 w-4 mr-2" />Updating Password...</>
-                  ) : (
-                    'Update Password'
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </section>
-      </div>
-    </DashboardLayout>
+            <div className="pt-4 flex justify-end">
+              <button
+                type="submit"
+                disabled={changingPassword}
+                className="inline-flex items-center justify-center px-5 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-md"
+              >
+                {changingPassword ? (
+                  <><Loader2 className="animate-spin h-4 w-4 mr-2" />Updating Password...</>
+                ) : (
+                  'Update Password'
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -12,8 +12,10 @@ import {
   ListChecks,
   X,
   User,
+  FileArchive,
   UserCheck2Icon,
   FileArchiveIcon,
+  FileBadge2Icon,
   Link,
   ChevronLeft,
   ChevronRight,
@@ -26,18 +28,14 @@ import {
   ActivityIcon,
   UserCheck2,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useSystemSettings } from '../../hooks/useSystemSettingsQueries';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
-interface SystemSettings {
-  app_name: string;
-  tagline: string;
-  logo_url: string | null;
-}
+
 
 interface NavItem {
   icon: any;
@@ -47,14 +45,66 @@ interface NavItem {
   roles?: string[];
 }
 
+// Move navItems outside component to prevent recreation on every render
+const NAV_ITEMS: NavItem[] = [
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
+  
+  { icon: Folders, label: 'Clusters', path: '/clusters', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
+  { 
+    icon: FileArchiveIcon, 
+    label: 'Interventions', 
+    path: '/interventions',
+    roles: ['leadership', 'super_admin', 'supporting_staff', 'lead']
+  },
+  { 
+    icon: ActivityIcon, 
+    label: 'Actions', 
+    path: '/actions',
+    roles: ['leadership', 'super_admin', 'supporting_staff', 'lead']
+  },
+  { icon: UserCheck2Icon, label: 'My Tasks', path: '/userdashboard', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership']},
+  { icon: FileBadge2Icon, label: 'Reports', path: '/reports', roles: ['lead', 'super_admin', 'leadership'] },
+  { icon: BarChart2, label: 'Metrics Dashboard', path: '/iframe', roles: ['lead', 'super_admin', 'leadership'] },
+  // { icon: Briefcase, label: 'Jobs', path: '/jobs', roles: ['lead', 'super_admin', 'leadership'] },
+  { 
+    icon: Target,
+    label: 'Targets',
+    path: '/targets',
+    roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'],
+    subItems: [
+      { icon: LayoutDashboard, label: 'Dashboard', path: '/targets', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
+      { icon: ListChecks, label: 'Target Tracking', path: '/targets/tracking', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
+      { icon: Plus, label: 'New Target', path: '/targets/new', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] }
+    ]
+  },
+  
+  { icon: ShieldAlert, label: 'Issue Registry', path: '/issue', roles: ['supporting_staff','super_admin','leadership', 'lead']},
+  { 
+    icon: Settings, 
+    label: 'Settings', 
+    path: '/settings',
+    roles: ['super_admin', 'lead'],
+    subItems: [
+      { icon: User, label: 'User Management', path: '/settings/users', roles: ['super_admin'] },
+      { icon: UserCog, label: 'Role Management', path: '/settings/roles', roles: ['super_admin'] },
+      {icon: UserCheck2, label: 'User Activity', path: '/settings/user-activity', roles: ['super_admin']},
+      { icon: UserCheck2Icon, label: 'Batch Assignment', path: '/settings/assignment', roles: ['super_admin'] },
+      { icon: Link, label: 'Projects/partners', path: '/settings/projectspartners', roles: ['super_admin', 'lead'] },
+      { icon: ShieldAlert, label: 'Security Settings', path: '/settings/security', roles: ['super_admin'] },
+      { icon: Settings2Icon, label: 'Systems Settings', path: '/settings/system', roles: ['super_admin'] },
+      { icon: Upload, label: 'Data Import', path: '/settings/import', roles: ['super_admin'] },
+    ]
+  },
+  { icon: AmbulanceIcon, label: 'Help', path: '/help', roles: ['lead', 'super_admin', 'leadership', 'supporting_staff'] },
+];
+
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     const saved = localStorage.getItem('sidebarOpen');
     return saved !== null ? JSON.parse(saved) : true;
   });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [settings, setSettings] = useState<SystemSettings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: settings, isLoading: settingsLoading } = useSystemSettings();
   const [userRole, setUserRole] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -64,113 +114,70 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     localStorage.setItem('sidebarOpen', JSON.stringify(isSidebarOpen));
   }, [isSidebarOpen]);
 
-  // Load user role and system settings
+  // Load user role - optimized to prevent unnecessary re-fetching
   useEffect(() => {
-    const loadUserAndSettings = async () => {
+    const loadUser = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.user_metadata?.role) {
           setUserRole(user.user_metadata.role);
         }
-
-        const { data, error } = await supabase
-          .from('system_settings')
-          .select('*')
-          .single();
-
-        if (error) throw error;
-        setSettings(data);
       } catch (err) {
-        console.error('Error loading settings:', err);
-      } finally {
-        setLoading(false);
+        console.error('Error loading user:', err);
       }
     };
 
-    loadUserAndSettings();
-  }, []);
+    loadUser();
+  }, []); // Empty dependency array to prevent re-fetching
 
-  const handleLogout = async () => {
+  // Memoized event handlers to prevent recreation on every render
+  const handleLogout = useCallback(async () => {
     const {error } = await supabase.auth.signOut();
     // Redirect to login page after sign out
     // You can use the navigate function from react-router-dom to do this
     if(error) throw error;
 
     navigate('/login');
-  };
+  }, [navigate]);
 
-  const navItems: NavItem[] = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
+  // Memoized filtered navigation items to prevent recalculation on every render
+  const filteredNavItems = useMemo(() => {
+    if (!userRole) return [];
     
-    { icon: Folders, label: 'Clusters', path: '/clusters', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
-    { 
-      icon: FileArchiveIcon, 
-      label: 'Interventions', 
-      path: '/interventions',
-      roles: ['leadership', 'super_admin', 'supporting_staff', 'lead']
-    },
-    { 
-      icon: ActivityIcon, 
-      label: 'Actions', 
-      path: '/actions',
-      roles: ['leadership', 'super_admin', 'supporting_staff', 'lead']
-    },
-    { icon: UserCheck2Icon, label: 'My Tasks', path: '/userdashboard', roles: ['supporting_staff', 'lead', 'super_admin', 'leadership']},
-    { icon: BarChart2, label: 'Reports', path: '/reports', roles: ['lead', 'super_admin', 'leadership'] },
-    { icon: BarChart2, label: 'Metrics Dashboard', path: '/iframe', roles: ['lead', 'super_admin', 'leadership'] },
-    // { icon: Briefcase, label: 'Jobs', path: '/jobs', roles: ['lead', 'super_admin', 'leadership'] },
-    { 
-      icon: Target,
-      label: 'Targets',
-      path: '/targets',
-      roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'],
-      subItems: [
-        { icon: LayoutDashboard, label: 'Dashboard', path: '/targets', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
-        { icon: ListChecks, label: 'Target Tracking', path: '/targets/tracking', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] },
-        { icon: Plus, label: 'New Target', path: '/targets/new', roles: ['leadership', 'super_admin', 'supporting_staff', 'lead'] }
-      ]
-    },
-    
-    { icon: ShieldAlert, label: 'Issue Registry', path: '/issue', roles: ['supporting_staff','super_admin','leadership', 'lead']},
-    { 
-      icon: Settings, 
-      label: 'Settings', 
-      path: '/settings',
-      roles: ['super_admin', 'lead'],
-      subItems: [
-        { icon: User, label: 'User Management', path: '/settings/users', roles: ['super_admin'] },
-        { icon: UserCog, label: 'Role Management', path: '/settings/roles', roles: ['super_admin'] },
-        {icon: UserCheck2, label: 'User Activity', path: '/settings/user-activity', roles: ['super_admin']},
-        { icon: UserCheck2Icon, label: 'Batch Assignment', path: '/settings/assignment', roles: ['super_admin'] },
-        { icon: Link, label: 'Projects/partners', path: '/settings/projectspartners', roles: ['super_admin', 'lead'] },
-        { icon: ShieldAlert, label: 'Security Settings', path: '/settings/security', roles: ['super_admin'] },
-        { icon: Settings2Icon, label: 'Systems Settings', path: '/settings/system', roles: ['super_admin'] },
-        { icon: Upload, label: 'Data Import', path: '/settings/import', roles: ['super_admin'] },
-      ]
-    },
-    { icon: AmbulanceIcon, label: 'Help', path: '/help', roles: ['lead', 'super_admin', 'leadership', 'supporting_staff'] },
-  ];
-
-  // Filter navigation items based on user role
-  const filteredNavItems = navItems.filter(item => {
-    if (!userRole || !item.roles) return false;
-    if (item.roles.includes(userRole)) {
-      if (item.subItems) {
-        item.subItems = item.subItems.filter(subItem => 
-          subItem.roles && subItem.roles.includes(userRole)
-        );
+    return NAV_ITEMS.filter(item => {
+      if (!item.roles) return false;
+      if (item.roles.includes(userRole)) {
+        if (item.subItems) {
+          // Create a new object to avoid mutating the original
+          const filteredItem = { ...item };
+          filteredItem.subItems = item.subItems.filter(subItem => 
+            subItem.roles && subItem.roles.includes(userRole)
+          );
+          return filteredItem;
+        }
+        return true;
       }
-      return true;
-    }
-    return false;
-  });
+      return false;
+    }).map(item => {
+      if (item.subItems) {
+        return {
+          ...item,
+          subItems: item.subItems.filter(subItem => 
+            subItem.roles && subItem.roles.includes(userRole)
+          )
+        };
+      }
+      return item;
+    });
+  }, [userRole]);
 
-  const isActivePath = (path: string) => {
+  // Memoized isActivePath function to prevent recreation
+  const isActivePath = useCallback((path: string) => {
     if (path === '/') {
       return location.pathname === '/';
     }
     return location.pathname.startsWith(path);
-  };
+  }, [location.pathname]);
 
   // Close mobile menu when route changes
   useEffect(() => {
@@ -180,13 +187,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   // Add state for expanded menu items
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
-  const toggleSubmenu = (path: string) => {
+  // Memoized toggleSubmenu function
+  const toggleSubmenu = useCallback((path: string) => {
     setExpandedItems(prev => 
       prev.includes(path) 
         ? prev.filter(p => p !== path)
         : [...prev, path]
     );
-  };
+  }, []);
 
   // Update the navigation section
   return (
@@ -252,7 +260,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     className="w-full h-full object-contain transition-all duration-200" 
                   />
                 </div>
-              ) : loading ? (
+              ) : settingsLoading ? (
                 <div className={`${isSidebarOpen ? 'w-full' : 'mx-auto'}`}>
                   <Loader2 className="h-16 w-16 animate-spin text-gray-400" />
                 </div>

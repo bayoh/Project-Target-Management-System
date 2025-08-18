@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { SettingsSidebar } from '../../components/settings/SettingsSidebar';
 import { UserManagement } from '../../components/settings/UserManagement';
 import { RoleManagement } from '../../components/settings/RoleManagement';
@@ -36,13 +35,11 @@ export function Settings() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="flex h-full">
-        <SettingsSidebar activeSection={section} />
-        <div className="flex-1 overflow-auto p-6">
-          {renderSection()}
-        </div>
+    <div className="flex h-full">
+      <SettingsSidebar activeSection={section} />
+      <div className="flex-1 overflow-auto p-6">
+        {renderSection()}
       </div>
-    </DashboardLayout>
+    </div>
   );
 }
