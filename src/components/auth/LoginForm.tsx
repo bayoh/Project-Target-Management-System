@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Lock, Mail, ArrowRight } from 'lucide-react';
+import { Lock, Mail, ArrowRight, Shield } from 'lucide-react';
+import { useSystemSettings } from '../../hooks/useSystemSettingsQueries';
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
@@ -9,6 +10,7 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isMagicLink, setIsMagicLink] = useState(false);
+  const { data: settings } = useSystemSettings();
 
   const handleMagicLinkLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,31 +55,51 @@ export function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
-          </h2>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full">
+        {/* Logo and Header Section */}
+        <div className="text-center mb-10">
+          {settings?.logo_url ? (
+            <div className="mx-auto h-40 w-40 mb-2 flex items-center justify-center">
+              <img 
+                src={settings.logo_url} 
+                alt={settings.app_name || 'Application Logo'}
+                className="h-40 w-40 object-contain rounded-2xl shadow-lg"
+              />
+            </div>
+          ) : (
+            <div className="mx-auto h-24 w-24 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+              <Shield className="h-10 w-10 text-white" />
+            </div>
+          )}
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-2">
+            {settings?.app_name ? `Welcome to ${settings.app_name}` : 'Welcome Back'}
+          </h1>
+          <p className="text-gray-600 text-lg font-medium">
+            Sign in to access your dashboard
+          </p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={isMagicLink ? handleMagicLinkLogin : handlePasswordLogin}>
+
+        {/* Main Card */}
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
+        <form className="space-y-6" onSubmit={isMagicLink ? handleMagicLinkLogin : handlePasswordLogin}>
           {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-700">{error}</div>
+            <div className="rounded-xl bg-red-50 border border-red-200 p-4">
+              <div className="text-sm text-red-700 font-medium">{error}</div>
             </div>
           )}
           {success && (
-            <div className="rounded-md bg-green-50 p-4">
-              <div className="text-sm text-green-700">{success}</div>
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4">
+              <div className="text-sm text-emerald-700 font-medium">{success}</div>
             </div>
           )}
-          <div className="rounded-md shadow-sm -space-y-px">
+          <div className="space-y-4">
             <div>
-              <label htmlFor="email-address" className="sr-only">
+              <label htmlFor="email-address" className="block text-sm font-semibold text-gray-700 mb-2">
                 Email address
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <Mail className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
@@ -86,8 +108,8 @@ export function LoginForm() {
                   type="email"
                   autoComplete="email"
                   required
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  placeholder="Email address"
+                  className="block w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -95,11 +117,11 @@ export function LoginForm() {
             </div>
             {!isMagicLink && (
               <div>
-                <label htmlFor="password" className="sr-only">
+                <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
                   Password
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Lock className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
@@ -108,8 +130,8 @@ export function LoginForm() {
                     type="password"
                     autoComplete="current-password"
                     required
-                    className="appearance-none rounded-none relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                    placeholder="Password"
+                    className="block w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                    placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
@@ -118,40 +140,38 @@ export function LoginForm() {
             )}
           </div>
 
-          <div className="flex items-center justify-between">
-            {/* <div className="text-sm">
-              {!isMagicLink && (
-                <button
-                  type="button"
-                  onClick={() => window.location.href = '/reset-password'}
-                  className="font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  Forgot your password?
-                </button>
-              )}
-            </div> */}
-            <div className="text-sm">
-              <button
-                type="button"
-                onClick={() => setIsMagicLink(!isMagicLink)}
-                className="font-medium text-indigo-600 hover:text-indigo-500 flex items-center"
-              >
-                {isMagicLink ? 'Use password' : 'Use magic link to login'}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </button>
-            </div>
+          <div className="flex items-center justify-center">
+            <button
+              type="button"
+              onClick={() => setIsMagicLink(!isMagicLink)}
+              className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center transition-colors duration-200 group"
+            >
+              {isMagicLink ? 'Use password instead' : 'Use magic link to login'}
+              <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" />
+            </button>
           </div>
 
           <div>
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              className="w-full flex justify-center items-center py-3 px-4 border border-transparent text-base font-semibold rounded-xl text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
             >
-              {loading ? 'Signing in...' : isMagicLink ? 'Send Magic Link' : 'Sign in'}
+              {loading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Signing in...
+                </>
+              ) : (
+                isMagicLink ? 'Send Magic Link' : 'Sign in'
+              )}
             </button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );
