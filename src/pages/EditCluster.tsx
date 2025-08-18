@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { ChevronLeft, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Cluster } from '../types/project';
+import { useActivityTracking } from '../hooks/useActivityTracking';
 
 export function EditCluster() {
   const [cluster, setCluster] = useState<Cluster | null>(null);
@@ -14,6 +14,7 @@ export function EditCluster() {
   const [error, setError] = useState<string | null>(null);
   const { id } = useParams();
   const navigate = useNavigate();
+  const { trackUpdate } = useActivityTracking();
 
   useEffect(() => {
     loadCluster();
@@ -51,6 +52,13 @@ export function EditCluster() {
         .eq('id', id);
 
       if (error) throw error;
+      
+      // Track cluster update
+      await trackUpdate('cluster', id!, {
+        name,
+        description
+      });
+      
       navigate(`/clusters/${id}`);
     } catch (err: any) {
       console.error('Error updating cluster:', err);
@@ -62,40 +70,35 @@ export function EditCluster() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
     );
   }
 
   if (error || !cluster) {
     return (
-      <DashboardLayout>
-        <div className="min-h-[400px] flex items-center justify-center">
-          <div className="text-center">
-            <AlertTriangle className="mx-auto h-12 w-12 text-yellow-500" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">Error Loading Cluster</h3>
-            <p className="mt-1 text-sm text-gray-500">{error || 'Cluster not found'}</p>
-            <div className="mt-6">
-              <button
-                onClick={() => navigate('/clusters')}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-              >
-                Back to Clusters
-              </button>
-            </div>
+      <div className="min-h-[400px] flex items-center justify-center">
+        <div className="text-center">
+          <AlertTriangle className="mx-auto h-12 w-12 text-yellow-500" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">Error Loading Cluster</h3>
+          <p className="mt-1 text-sm text-gray-500">{error || 'Cluster not found'}</p>
+          <div className="mt-6">
+            <button
+              onClick={() => navigate('/clusters')}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+            >
+              Back to Clusters
+            </button>
           </div>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="max-w-4xl mx-auto">
-        <div className="space-y-6">
+    <div className="max-w-4xl mx-auto">
+      <div className="space-y-6">
           {/* Header */}
           <div className="flex items-center space-x-4">
             <button
@@ -162,8 +165,7 @@ export function EditCluster() {
               </div>
             </form>
           </div>
-        </div>
       </div>
-    </DashboardLayout>
+    </div>
   );
 }

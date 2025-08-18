@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import type { Cluster } from '../../types/project';
+import { useActivityTracking } from '../../hooks/useActivityTracking';
 
 interface ClusterFormProps {
   cluster?: Cluster;
@@ -14,6 +15,7 @@ export function ClusterForm({ cluster, onSubmit }: ClusterFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { trackCreate, trackUpdate } = useActivityTracking();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,6 +37,19 @@ export function ClusterForm({ cluster, onSubmit }: ClusterFormProps) {
             .single();
 
       if (submitError) throw submitError;
+      
+      // Track cluster creation or update
+      if (cluster) {
+        await trackUpdate('cluster', cluster.id, {
+          name,
+          description
+        });
+      } else {
+        await trackCreate('cluster', data.id, {
+          name,
+          description
+        });
+      }
       
       if (onSubmit && data) {
         onSubmit(data as Cluster);

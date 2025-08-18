@@ -127,7 +127,7 @@ export interface GeneratedReport {
   id: string;
   template_id: string;
   intervention_id: string;
-  data: any;
+  data: unknown;
   created_by: string;
   created_at: string;
 }

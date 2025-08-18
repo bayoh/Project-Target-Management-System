@@ -7,7 +7,7 @@ interface ActivityLog {
   action_type: string;
   entity_type: string;
   entity_id: string | null;
-  timestamp: string;
+  activity_timestamp: string;
   ip_address: string | null;
   user_agent: string | null;
   metadata: any;
@@ -58,9 +58,9 @@ const UserActivityDetail: React.FC<UserActivityDetailProps> = ({
         .from('user_activity_logs')
         .select('*', { count: 'exact' })
         .eq('user_id', userId)
-        .gte('timestamp', startDate.toISOString())
-        .lte('timestamp', endDate.toISOString())
-        .order('timestamp', { ascending: false })
+        .gte('activity_timestamp', startDate.toISOString())
+        .lte('activity_timestamp', endDate.toISOString())
+        .order('activity_timestamp', { ascending: false })
         .range((currentPage - 1) * pageSize, currentPage * pageSize - 1);
 
       if (entityFilter) {
@@ -151,7 +151,7 @@ const UserActivityDetail: React.FC<UserActivityDetailProps> = ({
     const csvContent = [
       ['Timestamp', 'Action', 'Entity Type', 'Entity ID', 'IP Address'].join(','),
       ...activities.map(activity => [
-        activity.timestamp,
+        activity.activity_timestamp,
         activity.action_type,
         activity.entity_type || '',
         activity.entity_id || '',
@@ -299,7 +299,7 @@ const UserActivityDetail: React.FC<UserActivityDetailProps> = ({
               {/* Activity Timeline */}
               <div className="relative">
                 {activities.map((activity, index) => {
-                  const { date, time } = formatTimestamp(activity.timestamp);
+                  const { date, time } = formatTimestamp(activity.activity_timestamp);
                   const isLast = index === activities.length - 1;
 
                   return (

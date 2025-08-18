@@ -9,6 +9,14 @@ export interface BaseEntity {
   updated_at: string;
 }
 
+export interface Project extends BaseEntity {
+  name: string;
+  description: string | null;
+  status: ProjectStatus;
+  start_date: string | null;
+  end_date: string | null;
+}
+
 export interface Cluster extends BaseEntity {
   name: string;
   code: number;
@@ -49,10 +57,13 @@ export interface Action extends BaseEntity {
   end_date: string | null;
   lead_id: string | null;
   supporting_staff: string[];
-  issues: [];
-  needs: [];
-  comments: [];
+  issues: string[];
+  needs: string[];
+  comments: string[];
   tasks?: Task[];
+  budget: number | null;
+  associated_projects: string[];
+  implementing_partners: string[];
   indicators?: Indicator[];
 }
 
@@ -83,7 +94,7 @@ export interface IndicatorReport extends BaseEntity {
   report_date: string;
   quantitative_value: number | null;
   qualitative_value: string | null;
-  supporting_documents: Record<string, any> | null;
+  supporting_documents: Record<string, unknown> | null;
 }
 
 export interface User extends BaseEntity {

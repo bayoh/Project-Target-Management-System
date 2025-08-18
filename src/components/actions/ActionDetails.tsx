@@ -22,11 +22,13 @@ import { AchievementForm } from './forms/AchievementForm';
 import { IssueForm } from './forms/IssueForm';
 import { NeedForm } from './forms/NeedForm';
 import { TargetForm } from './forms/TargetForm';
-import { format } from 'date-fns';
+
 import { useNavigate, useLocation} from 'react-router-dom'
 import { AchievementViewModal } from './AchievementViewModal';
 import { Button } from '../../components/ui/button'; // Corrected import path
 import { projectApi } from '../../lib/api';
+import { CommentsSection } from '../comments/CommentsSection';
+import { useActivityTracking } from '../../hooks/useActivityTracking';
 
 interface Partner {
   id: string;
@@ -112,6 +114,7 @@ interface DeleteConfirmationDialogProps {
 export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { trackCreate, trackUpdate, trackDelete } = useActivityTracking();
   const [activeTab, setActiveTab] = useState<'details' | 'achievements' | 'issues' | 'needs' | 'targets' | 'comments'>(() => {
     const tab = location.hash.slice(1);
     return ['details', 'achievements', 'issues', 'needs', 'targets', 'comments'].includes(tab) ? tab as any : 'details';
@@ -143,6 +146,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
   });
 
   const [showRiskAssessmentDialog, setShowRiskAssessmentDialog] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const deleteConfirmationDialog = ({ isOpen, itemName, itemType, onConfirm, onCancel }: DeleteConfirmationDialogProps) => {
     if (!isOpen) return null;
@@ -205,6 +209,10 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
     loadData();
     loadComments();
     getUserPermission();
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id ?? null);
+    })();
   }, [action.id]);
 
   const loadComments = async () => {
@@ -236,15 +244,23 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated user');
 
-      const { error: commentError } = await supabase
+      const { data: commentData, error: commentError } = await supabase
         .from('action_comments')
         .insert([{
           action_id: action.id,
           content: newComment,
           created_by: user.id
-        }]);
+        }])
+        .select('id')
+        .single();
 
       if (commentError) throw commentError;
+      
+      // Track comment creation activity
+      await trackCreate('comment', commentData.id, {
+        action_id: action.id,
+        content_preview: newComment.substring(0, 100)
+      });
       
       setNewComment('');
       await loadComments();
@@ -253,6 +269,27 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
       setError(err.message);
     } finally {
       setSubmittingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('action_comments')
+        .delete()
+        .eq('id', commentId);
+
+      if (error) throw error;
+      
+      // Track comment deletion activity
+      await trackDelete('comment', commentId, {
+        action_id: action.id
+      });
+      
+      await loadComments();
+    } catch (err) {
+      console.error('Error deleting comment:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete comment');
     }
   };
 
@@ -327,18 +364,23 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
       if (!user) throw new Error('No authenticated user');
 
       let table = '';
+      let entityType = '';
       switch (formType) {
         case 'achievement':
           table = 'action_achievements';
+          entityType = 'achievement';
           break;
         case 'issue':
           table = 'action_issues';
+          entityType = 'issue';
           break;
         case 'need':
           table = 'action_needs';
+          entityType = 'need';
           break;
         case 'target':
           table = 'action_targets';
+          entityType = 'target';
           break;
       }
 
@@ -353,17 +395,32 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
           .eq('id', editingItem.id);
 
         if (updateError) throw updateError;
+        
+        // Track update activity
+        await trackUpdate(entityType as any, editingItem.id, {
+          action_id: action.id,
+          description: formData.description || formData.name,
+          changes: Object.keys(formData)
+        });
       } else {
         // Create new item
-        const { error: saveError } = await supabase
+        const { data: newItem, error: saveError } = await supabase
           .from(table)
           .insert([{
             ...formData,
             action_id: action.id,
             created_by: user.id
-          }]);
+          }])
+          .select('id')
+          .single();
 
         if (saveError) throw saveError;
+        
+        // Track create activity
+        await trackCreate(entityType as any, newItem.id, {
+          action_id: action.id,
+          description: formData.description || formData.name
+        });
       }
 
       await loadData();
@@ -400,6 +457,14 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
         .eq('id', issue.id);
 
       if (updateError) throw updateError;
+      
+      // Track issue resolution activity
+      await trackUpdate('issue', issue.id, {
+        action_id: action.id,
+        status: 'resolved',
+        description: issue.description
+      });
+      
       await loadData();
       onUpdate();
       handleIssueResolved(); // Call the risk assessment dialog
@@ -425,6 +490,14 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
         .eq('id', need.id);
 
       if (updateError) throw updateError;
+      
+      // Track need fulfillment activity
+      await trackUpdate('need', need.id, {
+        action_id: action.id,
+        date_fulfilled: new Date().toISOString().split('T')[0],
+        description: need.description
+      });
+      
       await loadData();
       onUpdate();
     } catch (err: any) {
@@ -457,6 +530,15 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
         .eq('id', target.id);
 
       if (updateError) throw updateError;
+      
+      // Track target update activity
+      await trackUpdate('target', target.id, {
+        action_id: action.id,
+        current_value: newValue,
+        previous_value: target.current_value,
+        description: target.description
+      });
+      
       await loadData();
       onUpdate();
     } catch (err: any) {
@@ -605,25 +687,32 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
 
       {/* Risk Assessment Dialog */}
       {showRiskAssessmentDialog && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Issue Resolved</h3>
-            <p className="text-sm text-gray-500 mb-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center mr-3">
+                <ShieldAlert className="h-5 w-5 text-amber-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Risk Assessment</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-6 leading-relaxed">
               Is the action no longer at risk? If yes, the action status will be updated to 'In Progress'.
             </p>
-            <div className="flex justify-end space-x-3">
+            <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => handleConfirmRiskAssessment(false)}
+                className="w-full sm:w-auto order-2 sm:order-1"
               >
-                No
+                No, Still at Risk
               </Button>
               <Button
                 type="button"
                 onClick={() => handleConfirmRiskAssessment(true)}
+                className="w-full sm:w-auto order-1 sm:order-2 bg-green-600 hover:bg-green-700 text-white"
               >
-                Yes
+                Yes, No Longer at Risk
               </Button>
             </div>
           </div>
@@ -632,31 +721,34 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
 
       {/* Navigation Tabs */}
       <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          {[
-            { id: 'details', label: 'Details' },
-            { id: 'achievements', label: 'Achievements' },
-            { id: 'issues', label: 'Issues' },
-            { id: 'needs', label: 'Needs' },
-            { id: 'targets', label: 'Targets' },
-            { id: 'comments', label: 'Comments' }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id as any);
-                navigate(`#${tab.id}`, { replace: true });
-              }}
-              className={`
-                whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm
-                ${activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
-              `}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <nav className="-mb-px flex overflow-x-auto scrollbar-hide">
+          <div className="flex space-x-1 sm:space-x-4 min-w-max">
+            {[
+              { id: 'details', label: 'Details' },
+              { id: 'achievements', label: 'Achievements' },
+              { id: 'issues', label: 'Issues' },
+              { id: 'needs', label: 'Needs' },
+              { id: 'targets', label: 'Targets' },
+              { id: 'comments', label: 'Comments' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id as any);
+                  navigate(`#${tab.id}`, { replace: true });
+                }}
+                className={`
+                  whitespace-nowrap pb-2.5 sm:pb-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-all duration-200
+                  ${activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600 bg-blue-50/50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50/50'}
+                `}
+              >
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden">{tab.label.slice(0, 4)}</span>
+              </button>
+            ))}
+          </div>
         </nav>
       </div>
 
@@ -664,156 +756,191 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
       <div className="bg-white shadow-sm rounded-lg p-6">
         {activeTab === 'details' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="text-sm font-medium text-gray-700">Code</h4>
-                <p className="mt-1 text-sm text-gray-900">{action.code || "-"}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Code</h4>
+                <p className="text-sm font-medium text-gray-900 leading-relaxed">{action.code || "-"}</p>
               </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-700">Status</h4>
-                <span className={`mt-1 inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Status</h4>
+                <span className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-full ${
                   action.status === 'completed' ? 'bg-green-100 text-green-800' :
                   action.status === 'at_risk' ? 'bg-red-100 text-red-800' :
                   action.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
                   'bg-gray-100 text-gray-800'
                 }`}>
-                  {action.status.replace('_', ' ')}
+                  {action.status.replace('_', ' ').toUpperCase()}
                 </span>
               </div>
 
-              <div>
-                <h4 className="text-sm font-medium text-gray-700">Due Date</h4>
-                <div className="mt-1 flex items-center text-sm text-gray-900">
-                  <Calendar className="h-4 w-4 mr-1 text-gray-400" />
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Due Date</h4>
+                <div className="flex items-center text-sm font-medium text-gray-900">
+                  <Calendar className="h-4 w-4 mr-1.5 text-gray-400" />
                   {action.end_date ? new Date(action.end_date).toLocaleDateString() : 'No date set'}
                 </div>
               </div>
 
-              <div>
-                <h4 className="text-sm font-medium text-gray-700">Budget</h4>
-                <div className="mt-1 text-sm text-gray-900">
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Budget</h4>
+                <div className="text-sm font-medium text-gray-900">
                   {action.budget ? new Intl.NumberFormat('en-US', {
                     style: 'currency',
                     currency: 'USD'
-                  }).format(action.budget) : 'Not set'}
+                  }).format(action.budget) : 'Not specified'}
                 </div>
               </div>
 
-              <div>
-                <h4 className="text-sm font-medium text-gray-700">Implementing Partner</h4>
-                <div className="mt-1 text-sm text-gray-900">
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Implementing Partners</h4>
+                <div className="flex flex-wrap gap-1.5">
                    {action.implementing_partners && action.implementing_partners.length > 0 ? (
-                    <ul className="list-disc list-inside">
-                      {action.implementing_partners.map(id => (
-                        <li key={id}>{implementing_parnters.find(u => u.id === id)?.name}</li>
-                      ))}
-                    </ul>
+                      action.implementing_partners.map(id => {
+                        const partner = implementing_parnters.find(u => u.id === id);
+                        return partner ? (
+                          <span key={id} className="inline-block bg-blue-50 text-blue-700 text-xs px-2.5 py-1 rounded-md border border-blue-200 font-medium">
+                            {partner.name}
+                          </span>
+                        ) : null;
+                      })
                   ) : (
-                    <span className="text-gray-500">No partners</span>
+                    <span className="text-gray-500 text-sm">No partners assigned</span>
                   )}
                 </div>
               </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-700">Associated Project</h4>
-                <div className="mt-1 text-sm text-gray-900">
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Associated Projects</h4>
+                <div className="flex flex-wrap gap-1.5">
                 {action.associated_projects && action.associated_projects.length > 0 ? (
-                    <ul className="list-disc list-inside">
-                      {action.associated_projects.map(id => (
-                        <li key={id}>{associated_projects.find(u => u.id === id)?.name}</li>
-                      ))}
-                    </ul>
+                    action.associated_projects.map(id => {
+                      const project = associated_projects.find(u => u.id === id);
+                      return project ? (
+                        <span key={id} className="inline-block bg-green-50 text-green-700 text-xs px-2.5 py-1 rounded-md border border-green-200 font-medium">
+                          {project.name}
+                        </span>
+                      ) : null;
+                    })
                   ) : (
-                    <span className="text-gray-500">No linked projects</span>
+                    <span className="text-gray-500 text-sm">No projects linked</span>
                   )}
                 </div>
               </div>
 
-              <div>
-                <h4 className="text-sm font-medium text-gray-700">Lead</h4>
-                <div className="mt-1 flex items-center text-sm text-gray-900">
-                  <Users className="h-4 w-4 mr-1 text-gray-400" />
-                  {action.lead_id ? allUsers.find(u => u.id === action.lead_id)?.full_name : 'Unassigned'}
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Lead</h4>
+                <div className="flex items-center text-sm font-medium text-gray-900">
+                  <Users className="h-4 w-4 mr-1.5 text-gray-400" />
+                  {action.lead_id ? allUsers.find(u => u.id === action.lead_id)?.full_name : 'Not assigned'}
                 </div>
               </div>
 
-              <div>
-                <h4 className="text-sm font-medium text-gray-700">Supporting Staff</h4>
-                <div className="mt-1 text-sm text-gray-900">
+              <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
+                <h4 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Supporting Staff</h4>
+                <div className="flex flex-wrap gap-1.5">
                   {action.supporting_staff && action.supporting_staff.length > 0 ? (
-                    <ul className="list-disc list-inside">
-                      {action.supporting_staff.map(id => (
-                        <li key={id}>{allUsers.find(u => u.id === id)?.full_name}</li>
-                      ))}
-                    </ul>
+                    action.supporting_staff.map(id => {
+                      const staff = allUsers.find(u => u.id === id);
+                      return staff ? (
+                        <span key={id} className="inline-block bg-purple-50 text-purple-700 text-xs px-2.5 py-1 rounded-md border border-purple-200 font-medium">
+                          {staff.full_name}
+                        </span>
+                      ) : null;
+                    })
                   ) : (
-                    <span className="text-gray-500">No supporting staff assigned</span>
+                    <span className="text-gray-500 text-sm">No supporting staff</span>
                   )}
                 </div>
               </div>
             </div>
 
-            <div>
-              <h4 className="text-sm font-medium text-gray-700">Description</h4>
-              <p className="mt-1 text-sm text-gray-900">{action.description}</p>
+            <div className="pt-5 border-t border-gray-200">
+              <h4 className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-3">Description</h4>
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <p className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">{action.description}</p>
+              </div>
             </div>
           </div>
         )}
 
         {activeTab === 'achievements' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-gray-900">Recent Achievements</h3>
-              {showEdit && <button
-                onClick={() => {
-                  setFormType('achievement');
-                  setShowForm(true);
-                  setEditingItem(null);
-                }}
-                className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Achievement
-              </button>}
+          <div className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 gap-3">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Recent Achievements</h3>
+              {showEdit && (
+                <Button
+                  onClick={() => {
+                    setFormType('achievement');
+                    setShowForm(true);
+                    setEditingItem(null);
+                  }}
+                  className="flex items-center justify-center text-sm px-3 py-2"
+                  size="sm"
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Add Achievement
+                </Button>
+              )}
             </div>
-
+            
             {achievements.length === 0 ? (
-              <div className="text-center py-12">
-                <FileText className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No achievements</h3>
-                <p className="mt-1 text-sm text-gray-500">Get started by adding a new achievement.</p>
+              <div className="text-center py-8 sm:py-12">
+                <div className="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <FileText className="h-8 w-8 text-gray-400" />
+                </div>
+                <h3 className="text-sm font-medium text-gray-900 mb-2">No achievements yet</h3>
+                <p className="text-xs sm:text-sm text-gray-500 mb-6 max-w-sm mx-auto leading-relaxed">
+                  Get started by adding your first achievement to track progress.
+                </p>
+                {showEdit && (
+                  <Button
+                    onClick={() => {
+                      setFormType('achievement');
+                      setShowForm(true);
+                      setEditingItem(null);
+                    }}
+                    className="flex items-center justify-center text-sm px-4 py-2"
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Add Achievement
+                  </Button>
+                )}
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="grid gap-3 sm:gap-4">
                 {achievements.map((achievement) => (
                   <div
                     key={achievement.id}
-                    className="bg-gray-50 shadow-sm rounded-lg p-4 border border-gray-100 hover:border-gray-300 transition-colors"
+                    className="bg-gradient-to-r from-gray-50 to-gray-100/50 rounded-lg p-4 border border-gray-200 hover:shadow-sm transition-all duration-200"
                   >
-                    <div className="flex justify-between items-center">
-                      <div className="flex-1 cursor-pointer" onClick={() => setViewingAchievement(achievement)}>
-                        <h4 className="text-sm font-medium text-gray-900">{achievement.description}</h4>
-                        <p className="mt-1 text-sm text-gray-500">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setViewingAchievement(achievement)}>
+                        <h4 className="text-sm font-semibold text-gray-900 mb-1.5 leading-tight">{achievement.description}</h4>
+                        <div className="flex items-center text-xs text-gray-500">
+                          <Calendar className="h-3.5 w-3.5 mr-1.5" />
                           Achieved on {new Date(achievement.date_achieved).toLocaleDateString()}
-                        </p>
+                        </div>
                       </div>
-                      { showEdit && (
-                        <div className="flex items-center space-x-2 ml-4">
-                          <button
-                            type="button"
+                      {showEdit && (
+                        <div className="flex items-center space-x-1 flex-shrink-0">
+                          <Button
                             onClick={() => handleEdit(achievement, 'achievement')}
-                            className="text-sm text-blue-600 hover:text-blue-500 p-1 rounded hover:bg-blue-50"
+                            variant="outline"
+                            size="sm"
+                            className="p-1.5"
                             title="Edit Achievement"
                           >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
                             onClick={() => setDeleteConfirmation({ isOpen: true, item: achievement, itemType: 'achievement' })}
-                            className="text-sm text-red-600 hover:text-red-500 p-1 rounded hover:bg-red-50"
+                            variant="outline"
+                            size="sm"
+                            className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50"
                             title="Delete Achievement"
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -825,324 +952,343 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
         )}
 
         {activeTab === 'issues' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-gray-900">Issues</h3>
-              {showEdit && <button
-                onClick={() => {
-                  setFormType('issue');
-                  setShowForm(true);
-                  setEditingItem(null);
-                }}
-                className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Issue
-              </button>}
-            </div>
-
-            <div className="space-y-4">
-              {issues.map((issue) => (
-                <div
-                  key={issue.id}
-                  className="bg-gray-50 rounded-lg p-4"
+          <div className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 gap-3">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Issues</h3>
+              {showEdit && (
+                <Button
+                  onClick={() => {
+                    setFormType('issue');
+                    setShowForm(true);
+                    setEditingItem(null);
+                  }}
+                  className="flex items-center justify-center text-sm px-3 py-2"
+                  size="sm"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        issue.status === 'resolved' ? 'bg-green-100 text-green-800' :
-                        issue.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {issue.status}
-                      </span>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        issue.severity === 'critical' ? 'bg-red-100 text-red-800' :
-                        issue.severity === 'high' ? 'bg-orange-100 text-orange-800' :
-                        issue.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {issue.severity}
-                      </span>
-                      {issue.is_blocker && (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
-                          Blocker
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="text-sm text-gray-500">
-                        {new Date(issue.date_identified).toLocaleDateString()}
-                      </div>
-                      {issue.status !== 'resolved' && (
-                        <button
-                          onClick={() => handleQuickResolveIssue(issue)}
-                          className="text-green-600 hover:text-green-800"
-                          title="Mark as resolved"
-                        >
-                          <Check className="h-4 w-4" />
-                        </button>
-                      )}
-                      {showEdit && <button
-                        onClick={() => handleEdit(issue, 'issue')}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>}
-                      {showEdit && <button
-                        onClick={() => setDeleteConfirmation({ isOpen: true, item: issue, itemType: 'issue' })}
-                        className="text-red-600 hover:text-blue-800"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>}
-                    </div>
-                  </div>
-
-                  <h4 className="text-sm font-medium text-gray-900">
-                    {issue.description}
-                  </h4>
-
-                  {issue.resolution_steps && (
-                    <div className="mt-2">
-                      <h5 className="text-xs font-medium text-gray-700">Resolution Steps</h5>
-                      <p className="mt-1 text-sm text-gray-600">{issue.resolution_steps}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {issues.length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  No issues reported yet
-                </p>
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Add Issue
+                </Button>
               )}
             </div>
+
+            {issues.length === 0 ? (
+              <div className="text-center py-8 sm:py-12">
+                <div className="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <AlertTriangle className="h-8 w-8 text-gray-400" />
+                </div>
+                <h3 className="text-sm font-medium text-gray-900 mb-2">No issues reported</h3>
+                <p className="text-xs sm:text-sm text-gray-500 mb-6 max-w-sm mx-auto leading-relaxed">
+                  No issues have been reported for this action yet.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:gap-4">
+                {issues.map((issue) => (
+                  <div
+                    key={issue.id}
+                    className="bg-gradient-to-r from-gray-50 to-gray-100/50 rounded-lg p-4 border border-gray-200 hover:shadow-sm transition-all duration-200"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                          <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                            issue.status === 'resolved' ? 'bg-green-100 text-green-800' :
+                            issue.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {issue.status.replace('_', ' ').toUpperCase()}
+                          </span>
+                          <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                            issue.severity === 'critical' ? 'bg-red-100 text-red-800' :
+                            issue.severity === 'high' ? 'bg-orange-100 text-orange-800' :
+                            issue.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {issue.severity.toUpperCase()}
+                          </span>
+                          {issue.is_blocker && (
+                            <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                              BLOCKER
+                            </span>
+                          )}
+                        </div>
+                        <h4 className="text-sm font-semibold text-gray-900 mb-1.5 leading-tight">{issue.description}</h4>
+                        <div className="flex items-center text-xs text-gray-500">
+                          <Calendar className="h-3.5 w-3.5 mr-1.5" />
+                          Reported on {new Date(issue.date_identified).toLocaleDateString()}
+                        </div>
+                        {issue.resolution_steps && (
+                          <div className="mt-2.5">
+                            <h5 className="text-xs font-medium text-gray-700 mb-1">Resolution Steps</h5>
+                            <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 leading-relaxed">{issue.resolution_steps}</p>
+                          </div>
+                        )}
+                      </div>
+                      {showEdit && (
+                        <div className="flex items-center space-x-1 flex-shrink-0">
+                          {issue.status !== 'resolved' && (
+                            <Button
+                              onClick={() => handleQuickResolveIssue(issue)}
+                              variant="outline"
+                              size="sm"
+                              className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-50"
+                              title="Mark as resolved"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          <Button
+                            onClick={() => handleEdit(issue, 'issue')}
+                            variant="outline"
+                            size="sm"
+                            className="p-1.5"
+                            title="Edit Issue"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            onClick={() => setDeleteConfirmation({ isOpen: true, item: issue, itemType: 'issue' })}
+                            variant="outline"
+                            size="sm"
+                            className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50"
+                            title="Delete Issue"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'needs' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-gray-900">Needs Assessment</h3>
-              {showEdit && <button
-                onClick={() => {
-                  setFormType('need');
-                  setShowForm(true);
-                  setEditingItem(null);
-                }}
-                
-                className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Need
-              </button>
-              }
-
-            </div>
-
-            <div className="space-y-4">
-              {needs.map((need) => (
-                <div
-                  key={need.id}
-                  className="bg-gray-50 rounded-lg p-4"
+          <div className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 gap-3">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Needs</h3>
+              {showEdit && (
+                <Button
+                  onClick={() => {
+                    setFormType('need');
+                    setShowForm(true);
+                    setEditingItem(null);
+                  }}
+                  className="flex items-center justify-center text-sm px-3 py-2"
+                  size="sm"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      need.date_fulfilled ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {need.date_fulfilled ? 'Fulfilled' : 'Pending'}
-                    </span>
-                    <div className="flex items-center space-x-4">
-                      <div className="text-sm text-gray-500">
-                        Identified: {new Date(need.date_identified).toLocaleDateString()}
-                      </div>
-                      {!need.date_fulfilled && (
-                        <button
-                          onClick={() => handleQuickFulfillNeed(need)}
-                          className="text-green-600 hover:text-green-800"
-                          title="Mark as fulfilled"
-                        >
-                          <Check className="h-4 w-4" />
-                        </button>
-                      )}
-                      {showEdit && <button
-                        onClick={() => handleEdit(need, 'need')}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>}
-                       <button
-                        onClick={() => setDeleteConfirmation({ isOpen: true, item: need, itemType: 'need' })}
-                        className="text-red-600 hover:text-blue-800"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <h4 className="text-sm font-medium text-gray-900">
-                    {need.description}
-                  </h4>
-
-                  <div className="mt-2 grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <h5 className="text-xs font-medium text-gray-700">Resource Requirements</h5>
-                      {/* <p className="mt Continuing the ActionDetails.tsx file exactly where it left off: */}
-
-                      <p className="mt-1 text-gray-600">{need.resource_requirements}</p>
-                    </div>
-                    {need.budget_impact && (
-                      <div>
-                        <h5 className="text-xs font-medium text-gray-700">Budget Impact</h5>
-                        <p className="mt-1 text-gray-600">
-                          {new Intl.NumberFormat('en-US', {
-                            style: 'currency',
-                            currency: 'USD'
-                          }).format(need.budget_impact)}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              {needs.length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  No needs identified yet
-                </p>
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Add Need
+                </Button>
               )}
             </div>
+
+            {needs.length === 0 ? (
+              <div className="text-center py-8 sm:py-12">
+                <div className="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <Target className="h-8 w-8 text-gray-400" />
+                </div>
+                <h3 className="text-sm font-medium text-gray-900 mb-2">No needs identified</h3>
+                <p className="text-xs sm:text-sm text-gray-500 mb-6 max-w-sm mx-auto leading-relaxed">
+                  No resource needs have been identified for this action yet.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:gap-4">
+                {needs.map((need) => (
+                  <div
+                    key={need.id}
+                    className="bg-gradient-to-r from-gray-50 to-gray-100/50 rounded-lg p-4 border border-gray-200 hover:shadow-sm transition-all duration-200"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                          <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                            need.date_fulfilled ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {need.date_fulfilled ? 'FULFILLED' : 'PENDING'}
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 leading-tight">{need.description}</h4>
+                        <div className="space-y-1.5">
+                          <div className="flex items-center text-xs text-gray-500">
+                            <Calendar className="h-3.5 w-3.5 mr-1.5" />
+                            Identified: {new Date(need.date_identified).toLocaleDateString()}
+                          </div>
+                          {need.budget_impact && (
+                            <div className="flex items-center text-xs text-gray-500">
+                              <Target className="h-3.5 w-3.5 mr-1.5" />
+                              Budget Impact: {new Intl.NumberFormat('en-US', {
+                                style: 'currency',
+                                currency: 'USD'
+                              }).format(need.budget_impact)}
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-2.5">
+                          <h5 className="text-xs font-medium text-gray-700 mb-1">Resource Requirements</h5>
+                          <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">{need.resource_requirements}</p>
+                        </div>
+                      </div>
+                      {showEdit && (
+                        <div className="flex items-center space-x-1 flex-shrink-0">
+                          {!need.date_fulfilled && (
+                            <Button
+                              onClick={() => handleQuickFulfillNeed(need)}
+                              variant="outline"
+                              size="sm"
+                              className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-50"
+                              title="Mark as fulfilled"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          <Button
+                            onClick={() => handleEdit(need, 'need')}
+                            variant="outline"
+                            size="sm"
+                            className="p-1.5"
+                            title="Edit Need"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            onClick={() => setDeleteConfirmation({ isOpen: true, item: need, itemType: 'need' })}
+                            variant="outline"
+                            size="sm"
+                            className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50"
+                            title="Delete Need"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'targets' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-gray-900">Targets and Progress</h3>
-              {showEdit && <button
-                onClick={() => {
-                  setFormType('target');
-                  setShowForm(true);
-                  setEditingItem(null);
-                }}
-                className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Target
-              </button>}
-            </div>
-
-            <div className="space-y-4">
-              {targets.map((target) => (
-                <div
-                  key={target.id}
-                  className="bg-gray-50 rounded-lg p-4"
+          <div className="space-y-4 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Targets and Progress</h3>
+              {showEdit && (
+                <Button
+                  onClick={() => {
+                    setFormType('target');
+                    setShowForm(true);
+                    setEditingItem(null);
+                  }}
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-medium text-gray-900">
-                      {target.description}ß
-                    </h4>
-                    <div className="flex items-center space-x-4">
-                      {target.category === 'jobs' &&(<div className="text-sm text-gray-800">
-                        Type: {target.job_subcategory ? target.job_subcategory.charAt(0).toUpperCase() + target.job_subcategory.slice(1) : 'N/A'} Jobs
-                      </div>)}
-                      <div className="text-sm text-gray-500">
-                        Last updated: {new Date(target.last_updated).toLocaleDateString()}
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="number"
-                          value={target.current_value}
-                          onChange={(e) => {
-                            const newValue = parseFloat(e.target.value);
-                            if (!isNaN(newValue)) {
-                              handleQuickUpdateTarget(target, newValue);
-                            }
-                          }}
-                          className="w-20 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                          title="Update current value"
-                        />
-                        <span className="text-sm text-gray-500">{target.metric}</span>
-                      </div>
-                      <button
-                        onClick={() => handleEdit(target, 'target')}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirmation({ isOpen: true, item: target, itemType: 'target' })}
-                        className="text-red-600 hover:text-blue-800"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {renderTargetContent(target)}
-                </div>
-              ))}
-
-              {targets.length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  No targets set yet
-                </p>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Target
+                </Button>
               )}
             </div>
+
+            {targets.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">
+                  <Target className="h-6 w-6 text-gray-400" />
+                </div>
+                <p className="text-xs sm:text-sm text-gray-500 leading-relaxed">No targets set yet</p>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:gap-6">
+                {targets.map((target) => (
+                  <div
+                    key={target.id}
+                    className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 hover:shadow-md transition-all duration-200 hover:border-gray-300"
+                  >
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-2 leading-tight">
+                          {target.description}
+                        </h4>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                          {target.category === 'jobs' && (
+                            <span className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded-md font-medium text-xs">
+                              {target.job_subcategory ? target.job_subcategory.charAt(0).toUpperCase() + target.job_subcategory.slice(1) : 'N/A'} Jobs
+                            </span>
+                          )}
+                          <span className="text-gray-500 font-medium">
+                            Updated: {new Date(target.last_updated).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                        <div className="flex items-center space-x-2 bg-gray-50 rounded-lg px-3 py-2">
+                          <input
+                            type="number"
+                            value={target.current_value}
+                            onChange={(e) => {
+                              const newValue = parseFloat(e.target.value);
+                              if (!isNaN(newValue)) {
+                                handleQuickUpdateTarget(target, newValue);
+                              }
+                            }}
+                            className="w-16 bg-transparent border-none text-sm font-medium text-gray-900 focus:outline-none focus:ring-0"
+                            title="Update current value"
+                          />
+                          <span className="text-xs text-gray-500 font-medium">{target.metric}</span>
+                        </div>
+                        
+                        {showEdit && (
+                          <div className="flex items-center space-x-1">
+                            <Button
+                              onClick={() => handleEdit(target, 'target')}
+                              variant="outline"
+                              size="sm"
+                              className="p-1.5"
+                              title="Edit Target"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              onClick={() => setDeleteConfirmation({ isOpen: true, item: target, itemType: 'target' })}
+                              variant="outline"
+                              size="sm"
+                              className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50"
+                              title="Delete Target"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-3">
+                      {renderTargetContent(target)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'comments' && (
-          <div className="space-y-6">
-            {/* Comment Form */}
-            <form onSubmit={handleCommentSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="comment" className="sr-only">Add comment</label>
-                <textarea
-                  id="comment"
-                  rows={4}
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Add a comment..."
-                  className="board block w-full shadow-sm rounded-m border-solid border-gray-500 focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                />
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={submittingComment || !newComment.trim()}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                >
-                  {submittingComment ? 'Adding...' : 'Add Comment'}
-                </button>
-              </div>
-            </form>
-
-            {/* Comments List */}
-            <div className="space-y-4">
-              {comments.map((comment) => (
-                <div key={comment.id} className="bg-gray-50 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-900">
-                      {comment.user.full_name}
-                    </span>
-                    <span className="text-sm text-gray-500">
-                      {format(new Date(comment.created_at), 'PPp')}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 whitespace-pre-wrap">
-                    {comment.content}
-                  </p>
-                  
-                </div>
-              ))}
-
-              {comments.length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  No comments yet. Be the first to add one!
-                </p>
-              )}
-            </div>
+          <div className="space-y-4 p-4 sm:p-6">
+            <CommentsSection
+              title="Comments"
+              comments={comments as any}
+              value={newComment}
+              onChange={setNewComment}
+              onSubmit={handleCommentSubmit}
+              submitting={submittingComment}
+               currentUserId={currentUserId ?? undefined}
+               contentCreatorId={action.created_by}
+               onDelete={handleDeleteComment}
+               showAvatars={true}
+            />
           </div>
         )}
       </div>
@@ -1150,17 +1296,23 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
       {/* Forms */}
       {renderForm()}
       {deleteConfirmation.isOpen && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Confirm Delete</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Are you sure you want to delete this {deleteConfirmation.itemType}: "{deleteConfirmation.item?.description || deleteConfirmation.item?.name}"? This action cannot be undone.
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mr-3">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Confirm Delete</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+              Are you sure you want to delete this {deleteConfirmation.itemType}: <span className="font-medium text-gray-900">"{deleteConfirmation.item?.description || deleteConfirmation.item?.name}"</span>? This action cannot be undone.
             </p>
-            <div className="flex justify-end space-x-3">
+            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setDeleteConfirmation({ isOpen: false, item: null, itemType: null })}
+                className="w-full sm:w-auto px-4 py-2 text-sm font-medium"
               >
                 Cancel
               </Button>
@@ -1172,18 +1324,41 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                     try {
                       if (deleteConfirmation.itemType === 'target') {
                         await projectApi.deleteTarget(deleteConfirmation.item.id);
+                        trackDelete('target', {
+                          action_id: action.id,
+                          description: deleteConfirmation.item.description,
+                          metric: deleteConfirmation.item.metric,
+                          current_value: deleteConfirmation.item.current_value
+                        });
                       } 
                       
                       if (deleteConfirmation.itemType === 'achievement') {
                         await projectApi.deleteAchievement(deleteConfirmation.item.id);
+                        trackDelete('achievement', {
+                          action_id: action.id,
+                          description: deleteConfirmation.item.description,
+                          status: deleteConfirmation.item.status
+                        });
                       }
 
                       if (deleteConfirmation.itemType === 'issue') {
                         await projectApi.deleteIssue(deleteConfirmation.item.id);
+                        trackDelete('issue', {
+                          action_id: action.id,
+                          description: deleteConfirmation.item.description,
+                          status: deleteConfirmation.item.status,
+                          priority: deleteConfirmation.item.priority
+                        });
                       }
 
                       if (deleteConfirmation.itemType ===  'need'){
                         await projectApi.deleteNeeeds(deleteConfirmation.item.id)
+                        trackDelete('need', {
+                          action_id: action.id,
+                          description: deleteConfirmation.item.description,
+                          status: deleteConfirmation.item.status,
+                          priority: deleteConfirmation.item.priority
+                        });
                       }
 
                       // if (deleteConfirmation.itemType === 'comment'){
@@ -1201,6 +1376,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                   }
                   setDeleteConfirmation({ isOpen: false, item: null, itemType: null });
                 }}
+                className="w-full sm:w-auto px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-700"
               >
                 Delete
               </Button>

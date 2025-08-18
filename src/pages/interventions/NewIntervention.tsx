@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { DashboardLayout } from '../../components/layout/DashboardLayout';
+
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { queryKeys } from '../../lib/queryKeys';
 import { AlertTriangle, Upload, X, Calendar as CalendarIcon } from 'lucide-react'; // Added CalendarIcon for potential use
 import type { User, Cluster, Pathway } from '../../types/project';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Button } from '../../components/ui/button';
 import { Calendar } from '../../components/ui/Calendar';
+import { useActivityTracking } from '../../hooks/useActivityTracking';
 
 interface FormData {
   name: string;
@@ -23,6 +26,7 @@ interface FormData {
 }
 
 export function NewIntervention() {
+  const { trackPageView } = useActivityTracking();
   const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
@@ -36,76 +40,68 @@ export function NewIntervention() {
     attachments: []
   });
 
-  const [users, setUsers] = useState<User[]>([]);
-  const [clusters, setClusters] = useState<Cluster[]>([]);
-  const [pathways, setPathways] = useState<Pathway[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    loadUsers();
-    loadClusters();
-  }, []);
-
-  useEffect(() => {
-    if (formData.cluster_id) {
-      loadPathways(formData.cluster_id);
-    } else {
-      setPathways([]);
-      setFormData(prev => ({ ...prev, pathway_id: '' }));
-    }
-  }, [formData.cluster_id]);
-
-  const loadUsers = async () => {
-    try {
+  // Get users
+  const { data: users = [] } = useQuery({
+    queryKey: queryKeys.users.list(''),
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('email');
 
       if (error) throw error;
-      setUsers(data);
-    } catch (err) {
-      console.error('Error loading users:', err);
-    }
-  };
+      return data || [];
+    },
+  });
 
-  const loadClusters = async () => {
-    try {
+  // Get clusters
+  const { data: clusters = [] } = useQuery({
+    queryKey: queryKeys.clusters.list(''),
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('clusters')
         .select('*')
         .order('name');
 
       if (error) throw error;
-      setClusters(data);
-    } catch (err) {
-      console.error('Error loading clusters:', err);
-    }
-  };
+      return data || [];
+    },
+  });
 
-  const loadPathways = async (clusterId: string) => {
-    try {
+  // Get pathways for selected cluster
+  const { data: pathways = [] } = useQuery({
+    queryKey: queryKeys.pathways.list(formData.cluster_id),
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('pathways')
         .select('*')
-        .eq('cluster_id', clusterId)
+        .eq('cluster_id', formData.cluster_id)
         .order('name');
 
       if (error) throw error;
-      setPathways(data);
-    } catch (err) {
-      console.error('Error loading pathways:', err);
+      return data || [];
+    },
+    enabled: !!formData.cluster_id,
+  });
+
+  useEffect(() => {
+    trackPageView('New Intervention');
+  }, [trackPageView]);
+
+  useEffect(() => {
+    if (!formData.cluster_id) {
+      setFormData(prev => ({ ...prev, pathway_id: '' }));
     }
-  };
+  }, [formData.cluster_id]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    try {
+  // Create intervention mutation
+  const createInterventionMutation = useMutation({
+    mutationFn: async (interventionData: FormData) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated user');
 
@@ -113,14 +109,14 @@ export function NewIntervention() {
       const { data: intervention, error: interventionError } = await supabase
         .from('interventions')
         .insert([{
-          name: formData.name,
-          code: formData.code,
-          description: formData.description,
-          pathway_id: formData.pathway_id,
-          start_date: formData.start_date,
-          end_date: formData.end_date,
-          budget: formData.budget ? parseFloat(formData.budget) : null,
-          lead_id: formData.lead_id || null,
+          name: interventionData.name,
+          code: interventionData.code,
+          description: interventionData.description,
+          pathway_id: interventionData.pathway_id,
+          start_date: interventionData.start_date,
+          end_date: interventionData.end_date,
+          budget: interventionData.budget ? parseFloat(interventionData.budget) : null,
+          lead_id: interventionData.lead_id || null,
           created_by: user.id
         }])
         .select()
@@ -130,7 +126,7 @@ export function NewIntervention() {
       if (!intervention) throw new Error('Failed to create intervention');
 
       // Upload attachments
-      const attachmentPromises = formData.attachments.map(async (file) => {
+      const attachmentPromises = interventionData.attachments.map(async (file) => {
         const fileName = `${intervention.id}/${crypto.randomUUID()}-${file.name}`;
         const { error: uploadError } = await supabase.storage
           .from('intervention-documents')
@@ -154,10 +150,25 @@ export function NewIntervention() {
       });
 
       await Promise.all(attachmentPromises);
+      return intervention;
+    },
+    onSuccess: (intervention) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.interventions.list('') });
       navigate(`/interventions/${intervention.id}`);
-    } catch (err: any) {
+    },
+    onError: (err: any) => {
       console.error('Error creating intervention:', err);
       setError(err.message);
+    },
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      await createInterventionMutation.mutateAsync(formData);
     } finally {
       setLoading(false);
     }
@@ -180,8 +191,7 @@ export function NewIntervention() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
         <div className="space-y-6">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">New Intervention</h1>
@@ -205,7 +215,7 @@ export function NewIntervention() {
               <h3 className="text-lg font-medium text-gray-900">Basic Information</h3>
 
               <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                <div class="sm:col-span-3">
+                <div className="sm:col-span-3">
                   <Input
                     label="Code *"
                     type="text"
@@ -217,7 +227,7 @@ export function NewIntervention() {
                   />
                 </div>
                 
-                <div class="sm:col-span-3">
+                <div className="sm:col-span-3">
                   <Input
                     label="Name *"
                     type="text"
@@ -229,7 +239,7 @@ export function NewIntervention() {
                   />
                 </div>
 
-                <div class="sm:col-span-6">
+                <div className="sm:col-span-6">
                   <Input
                     label="Description"
                     type="textarea"
@@ -241,7 +251,7 @@ export function NewIntervention() {
                   />
                 </div>
 
-                <div class="sm:col-span-3">
+                <div className="sm:col-span-3">
                   <label htmlFor="cluster" className="block text-sm font-medium text-gray-700">
                     Cluster *
                   </label>
@@ -257,7 +267,7 @@ export function NewIntervention() {
                   />
                 </div>
 
-                <div class="sm:col-span-3">
+                <div className="sm:col-span-3">
                   <label htmlFor="pathway" className="block text-sm font-medium text-gray-700">
                     Pathway *
                   </label>
@@ -274,31 +284,43 @@ export function NewIntervention() {
                   />
                 </div>
 
-                <div class="sm:col-span-3">
+                <div className="sm:col-span-3">
                   <label htmlFor="start_date" className="block text-sm font-medium text-gray-700">
                     Start Date
                   </label>
                   <Calendar
                     id="start_date"
                     selected={formData.start_date ? new Date(formData.start_date) : null}
-                    onSelect={(date) => setFormData({ ...formData, start_date: date ? date.toISOString().split('T')[0] : '' })}
+                    onSelect={(date) => {
+                      if (date && date instanceof Date) {
+                        setFormData({ ...formData, start_date: date.toISOString().split('T')[0] });
+                      } else {
+                        setFormData({ ...formData, start_date: '' });
+                      }
+                    }}
                     className="mt-1"
                   />
                 </div>
 
-                <div class="sm:col-span-3">
+                <div className="sm:col-span-3">
                   <label htmlFor="end_date" className="block text-sm font-medium text-gray-700">
                     End Date
                   </label>
                   <Calendar
                     id="end_date"
                     selected={formData.end_date ? new Date(formData.end_date) : null}
-                    onSelect={(date) => setFormData({ ...formData, end_date: date ? date.toISOString().split('T')[0] : '' })}
+                    onSelect={(date) => {
+                      if (date && date instanceof Date) {
+                        setFormData({ ...formData, end_date: date.toISOString().split('T')[0] });
+                      } else {
+                        setFormData({ ...formData, end_date: '' });
+                      }
+                    }}
                     className="mt-1"
                   />
                 </div>
 
-                <div class="sm:col-span-3">
+                <div className="sm:col-span-3">
                   <label htmlFor="lead" className="block text-sm font-medium text-gray-700">
                     Lead
                   </label>
@@ -313,7 +335,7 @@ export function NewIntervention() {
                   />
                 </div>
 
-                <div class="sm:col-span-3">
+                <div className="sm:col-span-3">
                   <Input
                     label="Budget"
                     type="number"
@@ -321,8 +343,8 @@ export function NewIntervention() {
                     step="0.01"
                     value={formData.budget}
                     onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
-                    className="mt-1 pl-7" // Retain pl-7 for currency symbol spacing
-                    icon={<span className="text-gray-500 sm:text-sm">$</span>} // Pass icon as a prop
+                    className="mt-1 pl-7"
+                    icon={<span className="text-gray-500 sm:text-sm">$</span>}
                   />
                 </div>
               </div>
@@ -384,7 +406,7 @@ export function NewIntervention() {
 
             {/* Form Actions */}
             <div className="pt-8">
-              <div class="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3">
+              <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3">
                 <Button
                   type="button"
                   variant="outline"
@@ -411,8 +433,7 @@ export function NewIntervention() {
               </div>
             </div>
           </form>
-        </div>
       </div>
-    </DashboardLayout>
+    </div>
   );
 }

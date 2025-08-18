@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Briefcase, Users, Target, Settings, LucideProps,  } from 'lucide-react';
+import { Briefcase, Users, Target, Settings, LucideProps, User  } from 'lucide-react';
 import { jobsApi } from '../../lib/api'; 
 
 interface JobData { target: number; current: number };
@@ -176,7 +176,7 @@ export function JobsDashboard() {
           isActive={activeFilter === 'total'}
         />
         <StatCard 
-          icon={Users} 
+          icon={User} 
           title="Women Jobs" 
           value={getWomenJobs()} 
           bgColor="bg-[#b19acc]" 

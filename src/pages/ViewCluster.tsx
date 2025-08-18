@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { DashboardLayout } from '../components/layout/DashboardLayout';
+
 import { PathwayForm } from '../components/pathways/PathwayForm';
 import {
   ChevronLeft,
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Cluster, Pathway } from '../types/project';
+import { useActivityTracking } from '../hooks/useActivityTracking';
 
 export function ViewCluster() {
   const { id } = useParams();
@@ -21,6 +22,7 @@ export function ViewCluster() {
   const [showPathwayForm, setShowPathwayForm] = useState(false);
   const [editingPathway, setEditingPathway] = useState<Pathway | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const { trackCreate, trackUpdate, trackDelete } = useActivityTracking();
 
   useEffect(() => {
     loadCluster();
@@ -70,16 +72,32 @@ export function ViewCluster() {
           .eq('id', editingPathway.id);
 
         if (error) throw error;
+        
+        // Track pathway update
+        await trackUpdate('pathway', editingPathway.id, {
+          cluster_id: cluster?.id,
+          name: pathwayData.name,
+          description: pathwayData.description
+        });
       } else {
         // Create new pathway
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('pathways')
           .insert([{
             ...pathwayData,
             created_by: user.id
-          }]);
+          }])
+          .select()
+          .single();
 
         if (error) throw error;
+        
+        // Track pathway creation
+        await trackCreate('pathway', data.id, {
+          cluster_id: cluster?.id,
+          name: pathwayData.name,
+          description: pathwayData.description
+        });
       }
 
       await loadCluster();
@@ -99,6 +117,12 @@ export function ViewCluster() {
         .eq('id', pathwayId);
 
       if (error) throw error;
+      
+      // Track pathway deletion
+      await trackDelete('pathway', pathwayId, {
+        cluster_id: cluster?.id
+      });
+      
       await loadCluster();
       setShowDeleteConfirm(null);
     } catch (err: any) {
@@ -109,38 +133,34 @@ export function ViewCluster() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
     );
   }
 
   if (error || !cluster) {
     return (
-      <DashboardLayout>
-        <div className="min-h-[400px] flex items-center justify-center">
-          <div className="text-center">
-            <AlertTriangle className="mx-auto h-12 w-12 text-yellow-500" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">Error Loading Cluster</h3>
-            <p className="mt-1 text-sm text-gray-500">{error || 'Cluster not found'}</p>
-            <div className="mt-6">
-              <button
-                onClick={() => navigate('/clusters')}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-              >
-                Back to Clusters
-              </button>
-            </div>
+      <div className="min-h-[400px] flex items-center justify-center">
+        <div className="text-center">
+          <AlertTriangle className="mx-auto h-12 w-12 text-yellow-500" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">Error Loading Cluster</h3>
+          <p className="mt-1 text-sm text-gray-500">{error || 'Cluster not found'}</p>
+          <div className="mt-6">
+            <button
+              onClick={() => navigate('/clusters')}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+            >
+              Back to Clusters
+            </button>
           </div>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
+    <>
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -275,6 +295,6 @@ export function ViewCluster() {
           </div>
         </div>
       )}
-    </DashboardLayout>
+    </>
   );
 }

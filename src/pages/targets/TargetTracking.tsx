@@ -1,889 +1,732 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  Target, 
-  Filter, 
-  Plus, 
-  ChevronDown, 
-  ChevronUp, 
-  Search,
-  FileEdit,
-  Trash2,
-  CheckCircle2,
-  AlertCircle,
-  // AlertTriangle, // Removed as TrendingDown/Up is more specific for progress status
-  Clock,
-  Edit3, // For Quick Update
-  Eye, // For View Details
-  TrendingDown, // For at-risk/low progress
-  TrendingUp, // For good progress (not yet completed)
-  ListFilter // Alternative for Filters button icon
-}
- from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { usePaginatedTargets, useDeleteTarget, useUpdateTarget, TargetItem, TargetFilters } from '../../hooks/useTargetQueries';
+
+import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
-import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
-import { PageHeader } from '../../components/layout/PageHeader';
-import { DashboardLayout } from '../../components/layout/DashboardLayout';
-import { supabase } from '../../lib/supabase';
+import { Modal, ModalContent, ModalHeader, ModalTitle, ModalDescription, ModalFooter } from '../../components/ui/Modal';
+import { 
+  Target, 
+  Edit3, 
+  Trash2, 
+  Search, 
+  Filter, 
+  ChevronLeft, 
+  ChevronRight, 
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  LayoutGrid,
+  List,
+  X,
+  Save
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+import { useActivityTracking } from '../../hooks/useActivityTracking';
 
-interface TargetItem {
-  id: string;
-  description: string;
-  metric: string;
-  baseline_value: number;
-  target_value: number;
-  current_value: number;
-  last_updated: string;
-  category?: string;
-  women_target?: number;
-  women_current?: number;
-  youth_target?: number;
-  youth_current?: number;
-  action?: {
-    id: string;
-    name: string;
-    intervention?: {
-      id: string;
-      name: string;
-      pathway?: {
-        id: string;
-        name: string;
-        cluster?: {
-          id: string;
-          name: string;
-        }
-      }
+const ITEMS_PER_PAGE = 10;
+
+function TargetTracking() {
+  const { trackPageView } = useActivityTracking();
+  const [filters, setFilters] = useState<TargetFilters>({});
+  const [currentPage, setCurrentPage] = useState(0);
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [quickUpdateModal, setQuickUpdateModal] = useState<{ isOpen: boolean; target: TargetItem | null }>({ isOpen: false, target: null });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [searchTerm, setSearchTerm] = useState('');
+
+  React.useEffect(() => {
+    trackPageView('Target Tracking');
+  }, [trackPageView]);
+
+  const { data: paginatedData, isLoading, isError, error } = usePaginatedTargets(
+    filters,
+    {
+      page: currentPage + 1,
+      limit: ITEMS_PER_PAGE,
     }
-  };
-}
+  );
 
-interface FilterOptions {
-  clusterId: string;
-  pathwayId: string;
-  interventionId: string;
-  actionId: string;
-  category: string;
-  searchTerm: string;
-  sortBy: string;
-  sortDirection: 'asc' | 'desc';
-}
+  const { targets, totalCount } = useMemo(() => ({
+    targets: paginatedData?.data ?? [],
+    totalCount: paginatedData?.count ?? 0,
+  }), [paginatedData]);
 
-export default function TargetTracking() {
-  const [targets, setTargets] = useState<TargetItem[]>([]);
-  const [filteredTargets, setFilteredTargets] = useState<TargetItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [clusters, setClusters] = useState<{id: string, name: string}[]>([]);
-  const [pathways, setPathways] = useState<{id: string, name: string, cluster_id: string}[]>([]);
-  const [interventions, setInterventions] = useState<{id: string, name: string, pathway_id: string}[]>([]);
-  const [actions, setActions] = useState<{id: string, name: string, intervention_id: string}[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
-  const [showQuickUpdateModal, setShowQuickUpdateModal] = useState(false);
-  const [updatingTarget, setUpdatingTarget] = useState<TargetItem | null>(null);
-  const [updateValue, setUpdateValue] = useState('');
-  const [updateWomenValue, setUpdateWomenValue] = useState('');
-  const [updateYouthValue, setUpdateYouthValue] = useState('');
-  const [updatingLoading, setUpdatingLoading] = useState(false);
-  const [filters, setFilters] = useState<FilterOptions>({
-    clusterId: '',
-    pathwayId: '',
-    interventionId: '',
-    actionId: '',
-    category: '',
-    searchTerm: '',
-    sortBy: 'last_updated',
-    sortDirection: 'desc'
-  });
-  
-  const navigate = useNavigate();
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
-  useEffect(() => {
-    loadInitialData();
-  }, []);
+  const deleteTargetMutation = useDeleteTarget();
+  const updateTargetMutation = useUpdateTarget();
 
-  const loadInitialData = async () => {
-    setLoading(true);
-    await Promise.all([loadTargets(), loadFilterOptions()]);
-    setLoading(false);
+  const handleFilterChange = (filterName: keyof TargetFilters, value: string) => {
+    setFilters(prev => ({ ...prev, [filterName]: value }));
+    setCurrentPage(0);
   };
 
-  useEffect(() => {
-    applyAndSortFilters();
-  }, [targets, filters]);
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setFilters(prev => ({ ...prev, searchTerm: value }));
+    setCurrentPage(0);
+  };
 
-  const loadFilterOptions = async () => {
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleDeleteTarget = async (targetId: string) => {
+    const toastId = toast.loading('Deleting target...');
     try {
-      const [clustersData, pathwaysData, interventionsData, actionsData] = await Promise.all([
-        supabase.from('clusters').select('id, name').order('name'),
-        supabase.from('pathways').select('id, name, cluster_id').order('name'),
-        supabase.from('interventions').select('id, name, pathway_id').order('name'),
-        supabase.from('actions').select('id, name, intervention_id').order('name')
-      ]);
-
-      if (clustersData.error) throw clustersData.error;
-      if (pathwaysData.error) throw pathwaysData.error;
-      if (interventionsData.error) throw interventionsData.error;
-      if (actionsData.error) throw actionsData.error;
-
-      setClusters(clustersData.data || []);
-      setPathways(pathwaysData.data || []);
-      setInterventions(interventionsData.data || []);
-      setActions(actionsData.data || []);
-    } catch (err: any) {
-      console.error('Error loading filter options:', err);
+      await deleteTargetMutation.mutateAsync(targetId);
+      toast.success('Target deleted successfully', { id: toastId });
+    } catch (error) {
+      toast.error('Failed to delete target', { id: toastId });
+      console.error('Delete error:', error);
     }
   };
 
-  const loadTargets = async () => {
-    try {
-      // setLoading(true); // setLoading is handled by loadInitialData
-      setError(null);
-      
-      const { data, error } = await supabase
-        .from('action_targets')
-        .select(`
-          *,
-          action:actions(
-            id,
-            name,
-            intervention:interventions(
-              id,
-              name,
-              pathway:pathways(
-                id,
-                name,
-                cluster:clusters(
-                  id,
-                  name
-                )
-              )
-            )
-          )
-        `);
-
-      if (error) throw error;
-      
-      setTargets(data || []);
-    } catch (err: any) {
-      console.error('Error loading targets:', err);
-      setError(err.message);
-    } 
-    // finally { // setLoading is handled by loadInitialData
-    //   setLoading(false);
-    // }
-  };
-
-  const applyAndSortFilters = () => { // Renamed from applyFilters for clarity
-    let filtered = [...targets];
-
-    // Apply cluster filter
-    if (filters.clusterId) {
-      filtered = filtered.filter(target => 
-        target.action?.intervention?.pathway?.cluster?.id === filters.clusterId
-      );
+  const confirmDelete = (targetId: string, targetName: string) => {
+    if (window.confirm(`Are you sure you want to delete "${targetName}"? This action cannot be undone.`)) {
+      handleDeleteTarget(targetId);
     }
-
-    // Apply pathway filter
-    if (filters.pathwayId) {
-      filtered = filtered.filter(target => 
-        target.action?.intervention?.pathway?.id === filters.pathwayId
-      );
-    }
-
-    // Apply intervention filter
-    if (filters.interventionId) {
-      filtered = filtered.filter(target => 
-        target.action?.intervention?.id === filters.interventionId
-      );
-    }
-
-    // Apply action filter
-    if (filters.actionId) {
-      filtered = filtered.filter(target => 
-        target.action?.id === filters.actionId
-      );
-    }
-
-    // Apply category filter
-    if (filters.category) {
-      filtered = filtered.filter(target => 
-        target.category === filters.category
-      );
-    }
-
-    // Apply search term
-    if (filters.searchTerm) {
-      const searchLower = filters.searchTerm.toLowerCase();
-      filtered = filtered.filter(target => 
-        target.description.toLowerCase().includes(searchLower) ||
-        target.metric.toLowerCase().includes(searchLower) ||
-        target.action?.name.toLowerCase().includes(searchLower) ||
-        target.action?.intervention?.name.toLowerCase().includes(searchLower)
-      );
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      let valueA, valueB;
-      
-      switch (filters.sortBy) {
-        case 'description':
-          valueA = a.description.toLowerCase();
-          valueB = b.description.toLowerCase();
-          break;
-        case 'progress':
-          valueA = (a.current_value / a.target_value) * 100;
-          valueB = (b.current_value / b.target_value) * 100;
-          break;
-        case 'target_value':
-          valueA = a.target_value;
-          valueB = b.target_value;
-          break;
-        case 'current_value':
-          valueA = a.current_value;
-          valueB = b.current_value;
-          break;
-        case 'last_updated':
-        default:
-          valueA = new Date(a.last_updated).getTime();
-          valueB = new Date(b.last_updated).getTime();
-      }
-
-      if (filters.sortDirection === 'asc') {
-        return valueA > valueB ? 1 : -1;
-      } else {
-        return valueA < valueB ? 1 : -1;
-      }
-    });
-
-    setFilteredTargets(filtered);
   };
 
-  const handleSort = (field: string) => {
-    setFilters(prev => ({
-      ...prev,
-      sortBy: field,
-      sortDirection: prev.sortBy === field && prev.sortDirection === 'desc' ? 'desc' : 'asc' // Corrected logic: if current is desc, next is asc, else desc
-    }));
-  };
-
-  const calculateProgress = (current: number, target: number): number => {
-    if (target <= 0) return 0; // Avoid division by zero or negative target
-    return Math.min(Math.max((current / target) * 100, 0), 100); // Ensure progress is between 0 and 100
-  };
-
-  const getProgressColor = (progress: number): string => {
-    if (progress >= 100) return 'bg-green-500';
-    if (progress >= 75) return 'bg-sky-500'; // Changed from blue for better distinction
-    if (progress >= 50) return 'bg-yellow-500';
-    if (progress > 0) return 'bg-orange-500'; // For low progress
-    return 'bg-red-500'; // For zero or very low progress
-  };
-
-  const getProgressStatus = (target: TargetItem): { icon: React.ReactNode; text: string; color: string } => {
-    const progress = calculateProgress(target.current_value, target.target_value);
-    if (progress >= 100) return { icon: <CheckCircle2 className="h-5 w-5" />, text: 'Completed', color: 'text-green-600' };
-    if (progress >= 75) return { icon: <TrendingUp className="h-5 w-5" />, text: 'On Track', color: 'text-sky-600' };
-    if (progress >= 50) return { icon: <Clock className="h-5 w-5" />, text: 'In Progress', color: 'text-yellow-600' };
-    if (progress > 0) return { icon: <TrendingDown className="h-5 w-5" />, text: 'At Risk', color: 'text-orange-600' };
-    return { icon: <AlertCircle className="h-5 w-5" />, text: 'Needs Attention', color: 'text-red-600' };
-  };
-
-  const handleCreateTarget = () => {
-    navigate('/targets/new');
-  };
-
-  const handleEditTarget = (id: string) => {
-    navigate(`/targets/edit/${id}`);
-  };
-
-  const handleDeleteTarget = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this metric?')) return;
+  const validateForm = (formData: FormData, target: TargetItem) => {
+    const errors: Record<string, string> = {};
     
-    try {
-      const { error } = await supabase
-        .from('action_targets')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      
-      // Refresh the targets list
-      loadTargets();
-    } catch (err: any) {
-      console.error('Error deleting target:', err);
-      alert(`Error deleting target: ${err.message}`);
+    const currentValue = Number(formData.get('current_value'));
+    if (isNaN(currentValue) || currentValue < 0) {
+      errors.current_value = 'Current value must be a valid positive number';
     }
-  };
-
-  const handleViewDetails = (id: string) => {
-    navigate(`/targets/${id}`);
-  };
-
-  const renderSortIcon = (field: string) => {
-    if (filters.sortBy !== field) return null;
+    if (currentValue > target.target_value) {
+      errors.current_value = 'Current value cannot exceed target value';
+    }
     
-    return filters.sortDirection === 'asc' 
-      ? <ChevronUp className="h-4 w-4 inline ml-1" />
-      : <ChevronDown className="h-4 w-4 inline ml-1" />;
+    if (isJobTarget(target)) {
+      const womenCurrent = Number(formData.get('women_current'));
+      const youthCurrent = Number(formData.get('youth_current'));
+      
+      if (isNaN(womenCurrent) || womenCurrent < 0) {
+        errors.women_current = 'Women current value must be a valid positive number';
+      }
+      if (isNaN(youthCurrent) || youthCurrent < 0) {
+        errors.youth_current = 'Youth current value must be a valid positive number';
+      }
+      
+      if (womenCurrent + youthCurrent > currentValue) {
+        errors.women_current = 'Women + Youth values cannot exceed total current value';
+        errors.youth_current = 'Women + Youth values cannot exceed total current value';
+      }
+    }
+    
+    return errors;
   };
 
-  const isJobTarget = (target: TargetItem) => {
-    return target.category === 'jobs';
-  };
-
-  const handleUpdateSubmit = async (e: React.FormEvent) => {
+  const handleUpdateSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!updatingTarget) return;
+    if (!quickUpdateModal.target) return;
+
+    const formData = new FormData(e.currentTarget);
+    const errors = validateForm(formData, quickUpdateModal.target);
     
-    setUpdatingLoading(true);
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      toast.error('Please fix the validation errors');
+      return;
+    }
     
+    setFormErrors({});
+    const toastId = toast.loading('Updating target...');
     try {
-      const updateData: any = {
-        current_value: parseFloat(updateValue),
-        last_updated: new Date().toISOString()
+      const updates = {
+        id: quickUpdateModal.target.id,
+        current_value: Number(formData.get('current_value')),
+        women_current: Number(formData.get('women_current')),
+        youth_current: Number(formData.get('youth_current')),
       };
       
-      if (isJobTarget(updatingTarget)) {
-        updateData.women_current = updateWomenValue ? parseFloat(updateWomenValue) : 0;
-        updateData.youth_current = updateYouthValue ? parseFloat(updateYouthValue) : 0;
-      }
-      
-      const { error } = await supabase
-        .from('action_targets')
-        .update(updateData)
-        .eq('id', updatingTarget.id);
-
-      if (error) throw error;
-      
-      // Refresh the targets list
-      await loadTargets();
-      setShowQuickUpdateModal(false);
-    } catch (err: any) {
-      console.error('Error updating target:', err);
-      setError(err.message);
-    } finally {
-      setUpdatingLoading(false);
+      await updateTargetMutation.mutateAsync(updates);
+      toast.success('Target updated successfully', { id: toastId });
+      setQuickUpdateModal({ isOpen: false, target: null });
+    } catch (error) {
+      toast.error('Failed to update target', { id: toastId });
+      console.error('Update error:', error);
     }
   };
 
-//   {/* Quick Update Modal */}
-  {showQuickUpdateModal && updatingTarget && (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Update Metric Progress</h3>
-        <form onSubmit={handleUpdateSubmit}>
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="current-value" className="block text-sm font-medium text-gray-700 mb-1">
-                Current Value ({updatingTarget.metric})
-              </label>
-              <input
-                type="number"
-                id="current-value"
-                value={updateValue}
-                onChange={(e) => setUpdateValue(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                required
-                min="0"
-                step="0.01"
-              />
-              <div className="mt-1 text-sm text-gray-500">
-                Target: {updatingTarget.target_value.toLocaleString()} | Baseline: {updatingTarget.baseline_value.toLocaleString()}
-              </div>
-            </div>
-
-            {isJobTarget(updatingTarget) && (
-              <>
-                <div>
-                  <label htmlFor="women-value" className="block text-sm font-medium text-gray-700 mb-1">
-                    Women Current Value
-                  </label>
-                  <input
-                    type="number"
-                    id="women-value"
-                    value={updateWomenValue}
-                    onChange={(e) => setUpdateWomenValue(e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                    min="0"
-                    step="1"
-                  />
-                  <div className="mt-1 text-sm text-gray-500">
-                    Target: {updatingTarget.women_target?.toLocaleString() || 0}
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="youth-value" className="block text-sm font-medium text-gray-700 mb-1">
-                    Youth Current Value
-                  </label>
-                  <input
-                    type="number"
-                    id="youth-value"
-                    value={updateYouthValue}
-                    onChange={(e) => setUpdateYouthValue(e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                    min="0"
-                    step="1"
-                  />
-                  <div className="mt-1 text-sm text-gray-500">
-                    Target: {updatingTarget.youth_target?.toLocaleString() || 0}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="mt-6 flex items-center justify-end space-x-3">
-            <button
-              type="button"
-              onClick={() => setShowQuickUpdateModal(false)}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={updatingLoading}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {updatingLoading ? 'Updating...' : 'Update'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )}
-
-  //   const handleQuickUpdate = (id: string) => {
-  //   const target = targets.find(t => t.id === id);
-  //   if (!target) return;
-    
-  //   setUpdatingTarget(target);
-  //   setUpdateValue(target.current_value.toString());
-  //   if (isJobTarget(target)) {
-  //     setUpdateWomenValue(target.women_current?.toString() || '0');
-  //     setUpdateYouthValue(target.youth_current?.toString() || '0');
-  //   }
-  //   setShowQuickUpdateModal(true);
-  // };
-
-
   const uniqueCategories = useMemo(() => {
-    const categories = new Set(targets.map(t => t.category).filter(Boolean) as string[]);
-    return Array.from(categories).sort();
+    // This should be fetched from the server in a real app
+    return ['Category A', 'Category B', 'Category C'];
+  }, []);
+
+  const isJobTarget = (target: TargetItem) => target.category?.toLowerCase().includes('job');
+
+  // Calculate metrics for dashboard cards
+  const metrics = useMemo(() => {
+    const total = targets.length;
+    const completed = targets.filter(t => (t.current_value / t.target_value) >= 1).length;
+    const atRisk = targets.filter(t => {
+      const progress = t.current_value / t.target_value;
+      return progress < 0.5 && progress > 0;
+    }).length;
+    const notStarted = targets.filter(t => t.current_value === 0).length;
+    
+    return { total, completed, atRisk, notStarted };
   }, [targets]);
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-[calc(100vh-150px)]">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600"></div>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
-      <DashboardLayout>
-        <div className="container mx-auto px-4 py-8 text-center">
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-red-700 mb-2">Error Loading Metrics</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <Button onClick={loadInitialData} variant="outline">Try Again</Button>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Error loading targets</h3>
+          <p className="text-sm text-gray-500">{error?.message || 'An unexpected error occurred'}</p>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
-
 
   return (
-    <DashboardLayout>
     <TooltipProvider>
-    <div className="container mx-auto px-4 py-8">
-      <PageHeader
-        title="Metric Tracking"
-        description="Monitor, filter, and update metrics across all actions and interventions."
-        icon={<Target className="h-8 w-8 text-blue-600" />}
-        actions={[
-          {
-            label: 'Add New Metric',
-            icon: Plus,
-            onClick: handleCreateTarget,
-          }
-        ]}
-      />
-
-      {/* Filters and Actions */} 
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-8 ring-1 ring-gray-200">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
-          <div className="flex items-center space-x-3 flex-grow">
-            <Button
-              variant="outline"
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center whitespace-nowrap"
-            >
-              <ListFilter className="h-4 w-4 mr-2" />
-              {showFilters ? 'Hide' : 'Show'} Filters
-              {showFilters ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
-            </Button>
-            
-            <div className="relative flex-grow max-w-xs">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
+        <div className="space-y-6">
+          {/* Header Section */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center mb-4 sm:mb-0">
+              <Target className="h-8 w-8 text-blue-600 mr-3" />
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Target Tracking</h1>
+                <p className="text-sm text-gray-500">Monitor and manage your targets</p>
               </div>
-              <Input
-                type="text"
-                placeholder="Search metrics..."
-                value={filters.searchTerm}
-                onChange={(e) => setFilters(prev => ({ ...prev, searchTerm: e.target.value }))}
-                className="pl-10 w-full"
-              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+              >
+                <LayoutGrid className="h-4 w-4 mr-2" />
+                Grid
+              </Button>
+              <Button
+                variant={viewMode === 'table' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('table')}
+              >
+                <List className="h-4 w-4 mr-2" />
+                Table
+              </Button>
             </div>
           </div>
-          
-          {/* Add Target button moved to PageHeader actions */}
-        </div>
-        
-        {showFilters && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 pt-4 border-t border-gray-200 mt-4">
-            <div>
-              <label htmlFor="cluster-filter" className="block text-sm font-medium text-gray-700 mb-1">
-                Cluster
-              </label>
-              <Select 
-                value={filters.clusterId}
-                options={clusters.map(cluster => (
-                  {
-                    value: cluster.id,
-                    label: cluster.name
-                  }
-                ))}
-                onChange={(value) => typeof value === 'string' && setFilters(prev => ({ 
-                  ...prev, 
-                  clusterId: value,
-                  pathwayId: '',
-                  interventionId: '',
-                  actionId: ''
-                }))}
-              >
-                
-              </Select>
-            </div>
-            
-            <div>
-              <label htmlFor="pathway-filter" className="block text-sm font-medium text-gray-700 mb-1">
-                Pathway
-              </label>
-              <Select 
-                value={filters.pathwayId}
-                options={pathways
-                  .filter(pathway => !filters.clusterId || pathway.cluster_id === filters.clusterId)
-                  .map(pathway => (
-                    {
-                      value: pathway.id,
-                      label: pathway.name
-                    }
-                  ))}
-                onChange={(value) => typeof value === 'string' && setFilters(prev => ({ 
-                  ...prev, 
-                  pathwayId: value,
-                  interventionId: '',
-                  actionId: ''
-                }))}
-                disabled={!filters.clusterId}
-              >
-              </Select>
-            </div>
-            
-            <div>
-              <label htmlFor="intervention-filter" className="block text-sm font-medium text-gray-700 mb-1">
-                Intervention
-              </label>
-              <Select 
-                value={filters.interventionId}
-                onChange={(value) => typeof value === 'string' && setFilters(prev => ({ 
-                  ...prev, 
-                  interventionId: value,
-                  actionId: ''
-                }))}
-                options={interventions
-                  .filter(intervention => !filters.pathwayId || intervention.pathway_id === filters.pathwayId)
-                  .map(intervention => (
-                    {
-                      value: intervention.id,
-                      label: intervention.name,
-                    }
-                  ))}
-                disabled={!filters.pathwayId}
-              >
-              
-              </Select>
-            </div>
-            
-            <div>
-              <label htmlFor="action-filter" className="block text-sm font-medium text-gray-700 mb-1">
-                Action
-              </label>
-              <Select 
-                value={filters.actionId}
-                onChange={(value) => typeof value === 'string' && setFilters(prev => ({ ...prev, actionId: value }))}
-                disabled={!filters.interventionId}
-                options={actions
-                  .filter(action => !filters.interventionId || action.intervention_id === filters.interventionId)
-                  .map(action => (
-                    {
-                      value: action.id,
-                      label: action.name,
-                     
-                    }
-                  ))}
-              >
-                
-              </Select>
-            </div>
 
-            <div>
-              <label htmlFor="category-filter" className="block text-sm font-medium text-gray-700 mb-1">
-                Category
-              </label>
-              <Select 
-                value={filters.category}
-                onChange={(value) => typeof value === 'string' && setFilters(prev => ({ ...prev, category: value }))}
-                options={uniqueCategories.map(category => (
-                  {
-                    value: category,
-                    label: category
-                  }
-                ))}
-              >
-              </Select>
+          {/* Metrics Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+            <div className="bg-white rounded-lg shadow-sm p-4 flex items-center justify-between transition-all duration-300 hover:shadow-md">
+              <div className="flex items-center">
+                <div className="p-1.5 bg-blue-100 rounded-md">
+                  <Target className="h-5 w-5 text-blue-600" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-xs font-medium text-gray-500">Total Targets</p>
+                  <p className="text-xl font-bold text-gray-900">{metrics.total}</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm p-4 flex items-center justify-between transition-all duration-300 hover:shadow-md">
+              <div className="flex items-center">
+                <div className="p-1.5 bg-green-100 rounded-md">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-xs font-medium text-gray-500">Completed</p>
+                  <p className="text-xl font-bold text-gray-900">{metrics.completed}</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm p-4 flex items-center justify-between transition-all duration-300 hover:shadow-md">
+              <div className="flex items-center">
+                <div className="p-1.5 bg-yellow-100 rounded-md">
+                  <AlertCircle className="h-5 w-5 text-yellow-600" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-xs font-medium text-gray-500">At Risk</p>
+                  <p className="text-xl font-bold text-gray-900">{metrics.atRisk}</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm p-4 flex items-center justify-between transition-all duration-300 hover:shadow-md">
+              <div className="flex items-center">
+                <div className="p-1.5 bg-gray-100 rounded-md">
+                  <Clock className="h-5 w-5 text-gray-600" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-xs font-medium text-gray-500">Not Started</p>
+                  <p className="text-xl font-bold text-gray-900">{metrics.notStarted}</p>
+                </div>
+              </div>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Targets Table */} 
-      <div className="bg-white rounded-xl shadow-lg ring-1 ring-gray-200 overflow-hidden">
-        <Table>
-          <TableHeader className="bg-gray-50">
-            <TableRow>
-              <TableHead className="w-[150px] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort('description')}>Description {renderSortIcon('description')}</TableHead>
-              {/* <TableHead className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hierarchy</TableHead> */}
-              <TableHead className="w-[100px] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort('metric')}>Metric {renderSortIcon('metric')}</TableHead>
-              <TableHead className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort('category')}>Category {renderSortIcon('category')}</TableHead>
-              <TableHead className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort('target_value')}>Target {renderSortIcon('target_value')}</TableHead>
-              <TableHead className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort('current_value')}>Current {renderSortIcon('current_value')}</TableHead>
-              <TableHead className="w-[150px] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort('progress')}>Progress {renderSortIcon('progress')}</TableHead>
-              <TableHead className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</TableHead>
-              <TableHead className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort('last_updated')}>Last Updated {renderSortIcon('last_updated')}</TableHead>
-              <TableHead className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredTargets.length > 0 ? (
-              filteredTargets.map((target, index) => {
-                const progress = calculateProgress(target.current_value, target.target_value);
-                const status = getProgressStatus(target);
-                return (
-                  <TableRow key={target.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition-colors duration-150`}>
-                    <TableCell className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 max-w-xs truncate" title={target.description}>{target.description}</TableCell>
-                    {/* <TableCell className="px-4 py-3 whitespace-nowrap text-xs text-gray-500 max-w-xs truncate">
-                        <div className="font-medium text-gray-700">{target.action?.name || 'N/A'}</div>
-                        <div className="text-gray-500">{target.action?.intervention?.name || 'N/A'}</div>
-                        <div className="text-gray-400 text-[11px]">{target.action?.intervention?.pathway?.name || 'N/A'} &gt; {target.action?.intervention?.pathway?.cluster?.name || 'N/A'}</div>
-                    </TableCell> */}
-                    <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">{target.metric}</TableCell>
-                    <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 capitalize">
-                      {target.category ? <Badge variant={target.category === 'jobs' ? 'default' : 'secondary'}>{target.category}</Badge> : 'N/A'}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{target.target_value.toLocaleString()}</TableCell>
-                    <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{target.current_value.toLocaleString()}</TableCell>
-                    <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex items-center">
-                        <div className="w-full bg-gray-200 rounded-full h-2.5 mr-2">
-                          <div 
-                            className={`h-2.5 rounded-full ${getProgressColor(progress)} transition-all duration-500 ease-out`}
-                            style={{ width: `${progress}%` }}
-                          ></div>
-                        </div>
-                        <span className="font-medium">{Math.round(progress)}%</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className={`px-4 py-3 whitespace-nowrap text-sm font-medium ${status.color}`}>
-                      <div className="flex items-center">
-                        {status.icon}
-                        <span className="ml-2">{status.text}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{new Date(target.last_updated).toLocaleDateString()}</TableCell>
-                    <TableCell className="px-4 py-3 whitespace-nowrap text-sm font-medium text-center">
-                      <div className="flex items-center justify-center space-x-1.5">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-blue-100 text-blue-600" onClick={() => handleViewDetails(target.id)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent><p>View Details</p></TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-yellow-100 text-yellow-600" onClick={() => handleQuickUpdate(target.id)}>
-                              <Edit3 className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent><p>Quick Update</p></TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-green-100 text-green-600" onClick={() => handleEditTarget(target.id)}>
-                              <FileEdit className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent><p>Edit Metric</p></TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-red-100 text-red-600" onClick={() => handleDeleteTarget(target.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent><p>Delete Metric</p></TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            ) : (
-              <TableRow>
-                <TableCell colSpan={10} className="px-6 py-12 text-center">
-                  <Target className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-lg font-medium text-gray-900">No targets found</h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {filters.searchTerm || filters.clusterId || filters.pathwayId || filters.interventionId || filters.actionId || filters.category 
-                      ? 'Try adjusting your search or filter criteria.' 
-                      : 'Get started by creating a new metric.'}
-                  </p>
-                  {(filters.searchTerm || filters.clusterId || filters.pathwayId || filters.interventionId || filters.actionId || filters.category) && (
-                     <Button 
-                        variant="outline"
-                        className="mt-4"
-                        onClick={() => setFilters({
-                            clusterId: '', pathwayId: '', interventionId: '', actionId: '', category: '', 
-                            searchTerm: '', sortBy: 'last_updated', sortDirection: 'desc'
-                        })}
-                    >
-                        Clear Filters
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Quick Update Modal */} 
-      {showQuickUpdateModal && updatingTarget && (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 p-4 transition-opacity duration-300 ease-in-out" onClick={() => setShowQuickUpdateModal(false)}>
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg transform transition-all duration-300 ease-in-out scale-100" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-gray-800">Quick Update: <span className="font-normal text-blue-600">{updatingTarget.description}</span></h3>
-                <Button variant="ghost" size="icon" onClick={() => setShowQuickUpdateModal(false)} className="text-gray-400 hover:text-gray-600">
-                    <ChevronDown className="h-5 w-5 rotate-45" /> {/* Using ChevronDown rotated as a close icon */} 
-                </Button>
-            </div>
-            <form onSubmit={handleUpdateSubmit}>
-              <div className="space-y-6">
-                <div>
-                  <label htmlFor="current-value" className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Current Value <span className="text-gray-500">({updatingTarget.metric})</span>
-                  </label>
+          {/* Search and Filters */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4 space-y-3 lg:space-y-0">
+              <h2 className="text-lg font-semibold text-gray-900">Search & Filters</h2>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
-                    type="number"
-                    id="current-value"
-                    value={updateValue}
-                    onChange={(e) => setUpdateValue(e.target.value)}
-                    required
-                    min="0"
-                    step="any" // Allow decimals
+                    placeholder="Search targets..."
+                    value={searchTerm}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    className="pl-9 pr-3 py-2 w-full sm:w-64 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    aria-label="Search targets"
                   />
-                  <div className="mt-1.5 text-xs text-gray-500 flex justify-between">
-                    <span>Target: {updatingTarget.target_value.toLocaleString()}</span> 
-                    <span>Baseline: {updatingTarget.baseline_value.toLocaleString()}</span>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="px-4 py-2 text-blue-600 border-blue-300 hover:bg-blue-50 hover:border-blue-400 text-sm"
+                  aria-label="Open advanced filters"
+                >
+                  <Filter className="h-4 w-4 mr-1" />
+                  Filters
+                </Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label 
+                  htmlFor="category-filter" 
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Category
+                </label>
+                <Select
+                  id="category-filter"
+                  options={[
+                    { value: '', label: 'All Categories' },
+                    ...uniqueCategories.map(category => ({ value: category, label: category }))
+                  ]}
+                  value={filters.category || ''}
+                  onChange={(value) => handleFilterChange('category', value as string)}
+                  placeholder="Select Category"
+                  className="w-full text-sm"
+                  aria-label="Filter by category"
+                />
+              </div>
+              <div>
+                <label 
+                  htmlFor="status-filter" 
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Status
+                </label>
+                <Select
+                  id="status-filter"
+                  options={[
+                    { value: '', label: 'All Statuses' },
+                    { value: 'not_started', label: 'Not Started' },
+                    { value: 'in_progress', label: 'In Progress' },
+                    { value: 'completed', label: 'Completed' },
+                    { value: 'at_risk', label: 'At Risk' }
+                  ]}
+                  value={filters.searchTerm || ''}
+                  onChange={(value) => handleFilterChange('searchTerm', value as string)}
+                  placeholder="Select Status"
+                  className="w-full text-sm"
+                  aria-label="Filter by progress status"
+                />
+              </div>
+              <div className="flex items-end">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-full px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 text-sm border border-dashed border-gray-300 hover:border-gray-400"
+                  aria-label="Clear all filters"
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            </div>
+          </div>
+
+        {/* Desktop Table View */}
+        <div className="hidden md:block">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                  <TableHead className="font-semibold text-gray-900 py-4 px-6">Target Name</TableHead>
+                  <TableHead className="font-semibold text-gray-900 py-4 px-6">Progress</TableHead>
+                  <TableHead className="font-semibold text-gray-900 py-4 px-6">Status</TableHead>
+                  <TableHead className="font-semibold text-gray-900 py-4 px-6 text-center">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {targets.map((target) => {
+                  const progressPercentage = Math.round((target.current_value / target.target_value) * 100);
+                  const isCompleted = progressPercentage >= 100;
+                  const isAtRisk = progressPercentage < 50;
+                  
+                  return (
+                    <TableRow 
+                      key={target.id} 
+                      className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200 border-b border-gray-100 group"
+                    >
+                      <TableCell className="py-4 px-6">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-900 group-hover:text-blue-900 transition-colors duration-200">
+                            {target.description}
+                          </span>
+                          <span className="text-sm text-gray-500 mt-1">
+                            Target: {target.target_value.toLocaleString()}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-4 px-6">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-700">
+                              {target.current_value.toLocaleString()} / {target.target_value.toLocaleString()}
+                            </span>
+                            <span className={`text-sm font-bold ${
+                              isCompleted ? 'text-green-600' : 
+                              isAtRisk ? 'text-red-600' : 'text-blue-600'
+                            }`}>
+                              {progressPercentage}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
+                            <div 
+                              className={`h-3 rounded-full transition-all duration-500 ease-out ${
+                                isCompleted ? 'bg-gradient-to-r from-green-500 to-green-600' :
+                                isAtRisk ? 'bg-gradient-to-r from-red-500 to-red-600' :
+                                'bg-gradient-to-r from-blue-500 to-indigo-600'
+                              } shadow-sm`}
+                              style={{ width: `${Math.min(progressPercentage, 100)}%` }}
+                            >
+                              <div className="h-full w-full rounded-full bg-gradient-to-t from-transparent to-white opacity-30"></div>
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-4 px-6">
+                        <Badge 
+                          className={`px-3 py-1 text-xs font-semibold rounded-full border transition-all duration-200 ${
+                            isCompleted 
+                              ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200' 
+                              : isAtRisk 
+                              ? 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200'
+                              : 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200'
+                          }`}
+                        >
+                          {isCompleted ? 'Completed' : isAtRisk ? 'At Risk' : 'In Progress'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="py-4 px-6">
+                        <div className="flex items-center justify-center space-x-2">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="icon" 
+                                onClick={() => setQuickUpdateModal({ isOpen: true, target })}
+                                className="h-9 w-9 rounded-lg border-gray-300 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200 hover:shadow-md hover:scale-105"
+                              >
+                                <Edit3 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="bg-gray-900 text-white text-xs px-2 py-1 rounded">
+                              Quick Update
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="icon" 
+                                onClick={() => confirmDelete(target.id, target.description)}
+                                className="h-9 w-9 rounded-lg border-gray-300 hover:border-red-400 hover:bg-red-50 hover:text-red-600 transition-all duration-200 hover:shadow-md hover:scale-105"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="bg-gray-900 text-white text-xs px-2 py-1 rounded">
+                              Delete Target
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:hidden">
+          {targets.map((target) => {
+            const progressPercentage = Math.round((target.current_value / target.target_value) * 100);
+            const isCompleted = progressPercentage >= 100;
+            const isAtRisk = progressPercentage < 50;
+            
+            return (
+              <div 
+                key={target.id} 
+                className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] hover:border-blue-300"
+              >
+                <div className="space-y-4">
+                  {/* Header */}
+                  <div className="space-y-2">
+                    <h3 className="font-semibold text-gray-900 text-lg leading-tight">
+                      {target.description}
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      Target: {target.target_value.toLocaleString()}
+                    </p>
+                  </div>
+                  
+                  {/* Progress Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700">
+                        Progress
+                      </span>
+                      <span className={`text-lg font-bold ${
+                        isCompleted ? 'text-green-600' : 
+                        isAtRisk ? 'text-red-600' : 'text-blue-600'
+                      }`}>
+                        {progressPercentage}%
+                      </span>
+                    </div>
+                    
+                    <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
+                      <div 
+                        className={`h-3 rounded-full transition-all duration-500 ease-out ${
+                          isCompleted ? 'bg-gradient-to-r from-green-500 to-green-600' :
+                          isAtRisk ? 'bg-gradient-to-r from-red-500 to-red-600' :
+                          'bg-gradient-to-r from-blue-500 to-indigo-600'
+                        } shadow-sm`}
+                        style={{ width: `${Math.min(progressPercentage, 100)}%` }}
+                      >
+                        <div className="h-full w-full rounded-full bg-gradient-to-t from-transparent to-white opacity-30"></div>
+                      </div>
+                    </div>
+                    
+                    <div className="text-sm text-gray-600">
+                      {target.current_value.toLocaleString()} / {target.target_value.toLocaleString()}
+                    </div>
+                  </div>
+                  
+                  {/* Status Badge */}
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium text-gray-700 mr-2">Status:</span>
+                    <Badge 
+                      className={`px-3 py-1 text-xs font-semibold rounded-full border ${
+                        isCompleted 
+                          ? 'bg-green-100 text-green-800 border-green-200' 
+                          : isAtRisk 
+                          ? 'bg-red-100 text-red-800 border-red-200'
+                          : 'bg-blue-100 text-blue-800 border-blue-200'
+                      }`}
+                    >
+                      {isCompleted ? 'Completed' : isAtRisk ? 'At Risk' : 'In Progress'}
+                    </Badge>
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex items-center space-x-3 pt-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setQuickUpdateModal({ isOpen: true, target })}
+                      className="flex-1 h-9 rounded-lg border-gray-300 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200 hover:shadow-md"
+                    >
+                      <Edit3 className="h-4 w-4 mr-2" />
+                      Update
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => confirmDelete(target.id, target.description)}
+                      className="flex-1 h-9 rounded-lg border-gray-300 hover:border-red-400 hover:bg-red-50 hover:text-red-600 transition-all duration-200 hover:shadow-md"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </Button>
                   </div>
                 </div>
-
-                {isJobTarget(updatingTarget) && (
-                  <>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                        <label htmlFor="women-value" className="block text-sm font-medium text-gray-700 mb-1.5">
-                            Women Current
-                        </label>
-                        <Input
-                            type="number"
-                            id="women-value"
-                            value={updateWomenValue}
-                            onChange={(e) => setUpdateWomenValue(e.target.value)}
-                            min="0"
-                            step="1"
-                        />
-                        <div className="mt-1.5 text-xs text-gray-500">
-                            Target: {updatingTarget.women_target?.toLocaleString() || 'N/A'}
-                        </div>
-                        </div>
-                        <div>
-                        <label htmlFor="youth-value" className="block text-sm font-medium text-gray-700 mb-1.5">
-                            Youth Current
-                        </label>
-                        <Input
-                            type="number"
-                            id="youth-value"
-                            value={updateYouthValue}
-                            onChange={(e) => setUpdateYouthValue(e.target.value)}
-                            min="0"
-                            step="1"
-                        />
-                        <div className="mt-1.5 text-xs text-gray-500">
-                            Target: {updatingTarget.youth_target?.toLocaleString() || 'N/A'}
-                        </div>
-                        </div>
-                    </div>
-                  </>
-                )}
               </div>
-
-              <div className="mt-8 flex items-center justify-end space-x-3 border-t pt-6 border-gray-200">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowQuickUpdateModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={updatingLoading}
-                >
-                  {updatingLoading ? (
-                    <><Clock className="animate-spin h-4 w-4 mr-2" /> Updating...</>
-                  ) : 'Save Update'}
-                </Button>
-              </div>
-            </form>
-          </div>
+            );
+          })}
         </div>
-      )}
-    </div>
-    </TooltipProvider>
-    </DashboardLayout>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-2">
+              <div className="flex-1 flex justify-between sm:hidden">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 0}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage >= totalPages - 1}
+                >
+                  Next
+                </Button>
+              </div>
+              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Showing <span className="font-medium">{currentPage * ITEMS_PER_PAGE + 1}</span> to{' '}
+                    <span className="font-medium">
+                      {Math.min((currentPage + 1) * ITEMS_PER_PAGE, totalCount)}
+                    </span>{' '}
+                    of <span className="font-medium">{totalCount}</span> results
+                  </p>
+                </div>
+                <div>
+                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 0}
+                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                    >
+                      <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                    </Button>
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      // Calculate the starting page for the pagination window
+                      const startPage = Math.max(0, Math.min(currentPage - 2, totalPages - 5));
+                      const pageNum = startPage + i;
+                      
+                      // Only render if pageNum is within valid range
+                      if (pageNum >= totalPages) return null;
+                      
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handlePageChange(pageNum)}
+                          className="relative inline-flex items-center px-4 py-2 border text-sm font-medium"
+                        >
+                          {pageNum + 1}
+                        </Button>
+                      );
+                    }).filter(Boolean)}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage >= totalPages - 1}
+                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                    >
+                      <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                    </Button>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          )}
+
+        {quickUpdateModal.isOpen && quickUpdateModal.target && (
+          <Modal open={quickUpdateModal.isOpen} onOpenChange={(open) => setQuickUpdateModal({ isOpen: open, target: null })}>
+            <ModalContent>
+              <ModalHeader>
+                <ModalTitle>Quick Update: {quickUpdateModal.target.description}</ModalTitle>
+                <ModalDescription>Update the values for this target.</ModalDescription>
+              </ModalHeader>
+              <form onSubmit={handleUpdateSubmit}>
+                <div className="grid gap-4 py-4">
+                  <div className="space-y-2">
+                    <Input 
+                      name="current_value" 
+                      label={`Current Value (Target: ${quickUpdateModal.target.target_value})`}
+                      defaultValue={quickUpdateModal.target.current_value} 
+                      type="number" 
+                      min="0"
+                      max={quickUpdateModal.target.target_value}
+                      step="0.01"
+                      required
+                      error={formErrors.current_value}
+                      placeholder="Enter current progress value"
+                    />
+                  </div>
+                  {isJobTarget(quickUpdateModal.target) && (
+                    <>
+                      <div className="space-y-2">
+                        <Input 
+                          name="women_current" 
+                          label="Women Current Value"
+                          defaultValue={quickUpdateModal.target.women_current} 
+                          type="number" 
+                          min="0"
+                          step="0.01"
+                          error={formErrors.women_current}
+                          placeholder="Enter current value for women"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Input 
+                          name="youth_current" 
+                          label="Youth Current Value"
+                          defaultValue={quickUpdateModal.target.youth_current} 
+                          type="number" 
+                          min="0"
+                          step="0.01"
+                          error={formErrors.youth_current}
+                          placeholder="Enter current value for youth"
+                        />
+                      </div>
+                      <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                        <p className="text-sm text-blue-700">
+                          <strong>Note:</strong> Women + Youth values should not exceed the total current value.
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <ModalFooter>
+                  <Button 
+                    type="button" 
+                    variant="secondary" 
+                    onClick={() => {
+                      setQuickUpdateModal({ isOpen: false, target: null });
+                      setFormErrors({});
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    Save Changes
+                  </Button>
+                </ModalFooter>
+              </form>
+            </ModalContent>
+          </Modal>
+        )}
+        </div>
+      </TooltipProvider>
   );
 }
+
+export default TargetTracking;

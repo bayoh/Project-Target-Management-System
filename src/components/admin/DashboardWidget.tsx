@@ -69,20 +69,20 @@ const DashboardWidget: React.FC<DashboardWidgetProps> = ({
         supabase
           .from('user_activity_logs')
           .select('id')
-          .gte('timestamp', todayStart.toISOString())
+          .gte('activity_timestamp', todayStart.toISOString())
           .limit(5000),
         
         supabase
           .from('user_activity_logs')
           .select('id')
-          .gte('timestamp', weekStart.toISOString())
+          .gte('activity_timestamp', weekStart.toISOString())
           .limit(10000),
         
         supabase
           .from('user_activity_logs')
           .select('id')
-          .gte('timestamp', lastWeekStart.toISOString())
-          .lt('timestamp', weekStart.toISOString())
+          .gte('activity_timestamp', lastWeekStart.toISOString())
+          .lt('activity_timestamp', weekStart.toISOString())
           .limit(10000)
       ]);
       

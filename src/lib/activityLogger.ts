@@ -13,13 +13,14 @@ export type EntityType =
   | 'user'
   | 'help_section'
   | 'help_content'
-  | 'navigation';
+  | 'navigation'
+  | 'comment';
 
 export interface ActivityLogEntry {
   action_type: ActivityActionType;
   entity_type?: EntityType | null;
   entity_id?: string | null;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface SessionData {
@@ -30,9 +31,22 @@ export interface SessionData {
   is_active?: boolean;
 }
 
+// Shape used when inserting into user_activity_logs
+interface ActivityDBInsert {
+  user_id: string;
+  action_type: ActivityActionType;
+  entity_type: EntityType | null;
+  entity_id: string | null;
+  session_id: string | null;
+  ip_address: string | null;
+  user_agent: string;
+  metadata: Record<string, unknown>;
+  activity_timestamp: string;
+}
+
 class ActivityLogger {
   private currentSessionId: string | null = null;
-  private batchQueue: ActivityLogEntry[] = [];
+  private batchQueue: ActivityDBInsert[] = [];
   private batchTimeout: NodeJS.Timeout | null = null;
   private readonly BATCH_SIZE = 10;
   private readonly BATCH_DELAY = 2000; // 2 seconds
@@ -57,7 +71,7 @@ class ActivityLogger {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const logEntry: any = {
+      const logEntry: ActivityDBInsert = {
         user_id: user.id,
         action_type: entry.action_type,
         entity_type: entry.entity_type || null,
@@ -66,7 +80,7 @@ class ActivityLogger {
         ip_address: this.getCachedIP(),
         user_agent: navigator.userAgent,
         metadata: entry.metadata || {},
-        timestamp: new Date().toISOString()
+        activity_timestamp: new Date().toISOString()
       };
 
       // Add to batch queue for performance
@@ -74,7 +88,7 @@ class ActivityLogger {
       
       // Process batch if it reaches the size limit
       if (this.batchQueue.length >= this.BATCH_SIZE) {
-        await this.processBatch();
+        await this.flushActivities();
       } else {
         // Set timeout to process batch after delay
         this.scheduleBatchProcessing();
@@ -145,7 +159,7 @@ class ActivityLogger {
       await this.logActivity({ action_type: 'logout' });
       
       // Process any remaining batch items
-      await this.processBatch();
+      await this.flushActivities();
 
       // Update session record
       await supabase
@@ -172,7 +186,7 @@ class ActivityLogger {
   /**
    * Process the batch queue
    */
-  private async processBatch(): Promise<void> {
+  async flushActivities(): Promise<void> {
     if (this.batchQueue.length === 0 || this.isProcessingBatch) return;
 
     this.isProcessingBatch = true;
@@ -220,7 +234,7 @@ class ActivityLogger {
     if (this.batchTimeout) return; // Already scheduled
 
     this.batchTimeout = setTimeout(async () => {
-      await this.processBatch();
+      await this.flushActivities();
     }, this.BATCH_DELAY);
   }
 
@@ -290,46 +304,47 @@ class ActivityLogger {
   }
 
   /**
-   * Cleanup method to process remaining batch items and clear resources
+   * Cleanup resources used by the logger
    */
   async cleanup(): Promise<void> {
-    // Clear any pending timeouts
+    // If there's a pending batch, process it before cleaning up
+    if (this.batchQueue.length > 0) {
+      await this.flushActivities();
+    }
+    
+    // Clear any scheduled batch processing
     if (this.batchTimeout) {
       clearTimeout(this.batchTimeout);
       this.batchTimeout = null;
     }
     
-    // Process any remaining batch items
-    if (this.batchQueue.length > 0 && !this.isProcessingBatch) {
-      await this.processBatch();
-    }
-    
-    // Clear cached data
+    // Reset state
+    this.currentSessionId = null;
+    this.batchQueue = [];
+    this.isProcessingBatch = false;
+    this.failedRequestCount = 0;
     this.cachedIP = null;
     this.ipCacheExpiry = 0;
-    this.failedRequestCount = 0;
-    
-    // Clear batch queue to prevent memory leaks
-    this.batchQueue = [];
   }
+
 }
 
-// Create singleton instance
+
 export const activityLogger = new ActivityLogger();
 
 // Convenience functions for common activities
 export const logActivity = {
   // Entity CRUD operations
-  create: (entityType: EntityType, entityId: string, metadata?: Record<string, any>) => 
+  create: (entityType: EntityType, entityId: string, metadata?: Record<string, unknown>) => 
     activityLogger.logActivity({ action_type: 'create', entity_type: entityType, entity_id: entityId, metadata }),
   
-  update: (entityType: EntityType, entityId: string, metadata?: Record<string, any>) => 
+  update: (entityType: EntityType, entityId: string, metadata?: Record<string, unknown>) => 
     activityLogger.logActivity({ action_type: 'update', entity_type: entityType, entity_id: entityId, metadata }),
   
-  delete: (entityType: EntityType, entityId: string, metadata?: Record<string, any>) => 
+  delete: (entityType: EntityType, entityId: string, metadata?: Record<string, unknown>) => 
     activityLogger.logActivity({ action_type: 'delete', entity_type: entityType, entity_id: entityId, metadata }),
   
-  view: (entityType: EntityType, entityId?: string, metadata?: Record<string, any>) => 
+  view: (entityType: EntityType, entityId?: string, metadata?: Record<string, unknown>) => 
     activityLogger.logActivity({ action_type: 'view', entity_type: entityType, entity_id: entityId, metadata }),
   
   // Session management

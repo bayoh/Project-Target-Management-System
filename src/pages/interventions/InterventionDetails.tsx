@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { DashboardLayout } from '../../components/layout/DashboardLayout';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { supabase } from '../../lib/supabase';
+import { queryKeys } from '../../lib/queryKeys';
+import { executeQuery } from '../../lib/queries';
 import type { Intervention, User } from '../../types/project';
-import { ChevronLeft, Plus, MessageSquare, Upload, X, FileText, Download, Pencil } from 'lucide-react';
+import { ChevronLeft, Upload, X, Pencil } from 'lucide-react';
 import { ActionList } from '../../components/actions/ActionList';
-import { DocumentList, DocumentViewer} from '../../components/documents';
-import { format } from 'date-fns';
+import { DocumentList} from '../../components/documents';
+// removed unused: import { format } from 'date-fns';
 import { projectApi } from '../../lib/api';
+import { useActivityTracking } from '../../hooks/useActivityTracking';
+import { CommentsSection } from '../../components/comments/CommentsSection';
 
 interface Comment {
   id: string;
@@ -17,7 +22,7 @@ interface Comment {
   user: User;
 }
 
-interface Document {
+interface InterventionDocument {
   id: string;
   name: string;
   size: number;
@@ -29,106 +34,151 @@ interface Document {
 }
 
 export function InterventionDetails() {
+  const { trackPageView, trackDelete } = useActivityTracking();
   const { id } = useParams();
   const navigate = useNavigate();
-  const [intervention, setIntervention] = useState<Intervention | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const queryClient = useQueryClient();
   const [newComment, setNewComment] = useState('');
   const [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
 
-  useEffect(() => {
-    loadData();
-    getUser();
-  }, [id]);
+  // Get current user
+  const { data: user } = useQuery({
+    queryKey: queryKeys.auth.user(),
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user;
+    },
+  });
 
-  const getUser =  async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    console.log(user.user_metadata.role === 'super_admin')
-    setUser(user)
-    return user;
-  };
+  // Get intervention details
+  const { data: intervention, isLoading: interventionLoading, error: interventionError } = useQuery({
+    queryKey: queryKeys.interventions.detail(id!),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('interventions')
+        .select(`
+          *,
+          pathway:pathways(name),
+          lead:profiles!interventions_lead_id_fkey1(email, full_name),
+          actions(*)
+        `)
+        .eq('id', id)
+        .single();
 
-  const loadData = async () => {
-    try {
-      const [interventionData, usersData, commentsData, documentsData] = await Promise.all([
-        supabase
-          .from('interventions')
-          .select(`
-            *,
-            pathway:pathways(name),
-            lead:profiles!interventions_lead_id_fkey1(email, full_name),
-            actions(*)
-          `)
-          .eq('id', id)
-          .single(),
-        supabase
-          .from('profiles')
-          .select('*')
-          .order('email'),
-        supabase
-          .from('intervention_comments')
-          .select(`
-            *,
-            user:profiles!intervention_comments_created_by_fkey1(*)
-          `)
-          .eq('intervention_id', id)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('intervention_documents')
-          .select(`
-            *,
-            user:profiles!intervention_documents_created_by_fkey1(*)
-          `)
-          .eq('intervention_id', id)
-          .order('created_at', { ascending: false })
-      ]);
-
-      if (interventionData.error) throw interventionData.error;
-      if (usersData.error) throw usersData.error;
-      if (commentsData.error) throw commentsData.error;
-      if (documentsData.error) throw documentsData.error;
+      if (error) throw error;
 
       // Calculate start and end dates from actions
-      const actions = interventionData.data.actions || [];
+      const actions = data.actions || [];
       if (actions.length > 0) {
-        const actionDates = actions.reduce((dates, action) => {
+        const actionDates = actions.reduce((dates: Date[], action: any) => {
           if (action.start_date) dates.push(new Date(action.start_date));
           if (action.end_date) dates.push(new Date(action.end_date));
           return dates;
         }, []);
 
         if (actionDates.length > 0) {
-          interventionData.data.start_date = new Date(Math.min(...actionDates)).toISOString().split('T')[0];
-          interventionData.data.end_date = new Date(Math.max(...actionDates)).toISOString().split('T')[0];
+          data.start_date = new Date(Math.min(...actionDates.map((d: Date) => d.getTime()))).toISOString().split('T')[0];
+          data.end_date = new Date(Math.max(...actionDates.map((d: Date) => d.getTime()))).toISOString().split('T')[0];
         }
       }
 
-      setIntervention(interventionData.data);
-      setUsers(usersData.data);
-      setComments(commentsData.data);
-      setDocuments(documentsData.data);
-    } catch (err) {
-      console.error('Error loading data:', err);
-      setError('Failed to load intervention details');
-    } finally {
-      setLoading(false);
-    }
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  // Get users
+  const { data: users = [] } = useQuery({
+    queryKey: queryKeys.users.list(),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('email');
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Get comments
+  const { data: comments = [] } = useQuery({
+    queryKey: ['intervention-comments', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('intervention_comments')
+        .select(`
+          *,
+          user:profiles!intervention_comments_created_by_fkey1(*)
+        `)
+        .eq('intervention_id', id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
+  // Get documents
+  const { data: documents = [] } = useQuery({
+    queryKey: ['intervention-documents', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('intervention_documents')
+        .select(`
+          *,
+          user:profiles!intervention_documents_created_by_fkey1(*)
+        `)
+        .eq('intervention_id', id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
+  useEffect(() => {
+    trackPageView('Intervention Details');
+  }, [id, trackPageView]);
+
+  // Calculate completion percentage
+  const calculateProgress = () => {
+    if (!intervention?.actions || intervention.actions.length === 0) return 0;
+    const completedActions = intervention.actions.filter((action: any) => action.status === 'completed').length;
+    return Math.round((completedActions / intervention.actions.length) * 100);
   };
 
-    // Calculate completion percentage
-    const calculateProgress = () => {
-      if (!intervention?.actions || intervention.actions.length === 0) return 0;
-      const completedActions = intervention.actions.filter(action => action.status === 'completed').length;
-      return Math.round((completedActions / intervention.actions.length) * 100);
-    };
+  // Create comment mutation
+  const createCommentMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No authenticated user');
+
+      const { error } = await supabase
+        .from('intervention_comments')
+        .insert([{
+          intervention_id: id,
+          content,
+          created_by: user.id
+        }]);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setNewComment('');
+      queryClient.invalidateQueries({ queryKey: ['intervention-comments', id] });
+    },
+    onError: (err: any) => {
+      console.error('Error adding comment:', err);
+      setError(err.message);
+    },
+  });
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,24 +186,7 @@ export function InterventionDetails() {
 
     setSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated user');
-
-      const { error: commentError } = await supabase
-        .from('intervention_comments')
-        .insert([{
-          intervention_id: intervention.id,
-          content: newComment,
-          created_by: user.id
-        }]);
-
-      if (commentError) throw commentError;
-      
-      setNewComment('');
-      await loadData();
-    } catch (err: any) {
-      console.error('Error adding comment:', err);
-      setError(err.message);
+      await createCommentMutation.mutateAsync(newComment);
     } finally {
       setSubmitting(false);
     }
@@ -169,19 +202,17 @@ export function InterventionDetails() {
     setUploadingFiles(uploadingFiles.filter((_, i) => i !== index));
   };
 
-  const handleFileUpload = async () => {
-    if (!uploadingFiles.length || !intervention) return;
-    
-    setUploading(true);
-    try {
+  // Upload files mutation
+  const uploadFilesMutation = useMutation({
+    mutationFn: async (files: File[]) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated user');
 
       // Upload each file
-      for (const file of uploadingFiles) {
+      for (const file of files) {
         // Sanitize filename by replacing spaces and special characters
         const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const fileName = `${intervention.id}/${crypto.randomUUID()}-${sanitizedName}`;
+        const fileName = `${id}/${crypto.randomUUID()}-${sanitizedName}`;
         
         // Upload to storage
         const { error: uploadError } = await supabase.storage
@@ -194,7 +225,7 @@ export function InterventionDetails() {
         const { error: docError } = await supabase
           .from('intervention_documents')
           .insert([{
-            intervention_id: intervention.id,
+            intervention_id: id,
             name: file.name,
             size: file.size,
             type: file.type,
@@ -204,25 +235,32 @@ export function InterventionDetails() {
 
         if (docError) throw docError;
       }
-
-      // Reload documents
-      await loadData();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['intervention-documents', id] });
       setShowUploadModal(false);
       setUploadingFiles([]);
-    } catch (err: any) {
+    },
+    onError: (err: any) => {
       console.error('Error uploading files:', err);
       setError('Failed to upload files: ' + err.message);
+    },
+  });
+
+  const handleFileUpload = async () => {
+    if (!uploadingFiles.length || !intervention) return;
+    
+    setUploading(true);
+    try {
+      await uploadFilesMutation.mutateAsync(uploadingFiles);
     } finally {
       setUploading(false);
     }
   };
 
-  const handleDeleteDocument = async (documentId: string, documentUrl: string) => {
-    if (!window.confirm('Are you sure you want to delete this document?')) {
-      return;
-    }
-
-    try {
+  // Delete document mutation
+  const deleteDocumentMutation = useMutation({
+    mutationFn: async ({ documentId, documentUrl, documentName }: { documentId: string; documentUrl: string; documentName: string }) => {
       // Delete from storage
       const { error: storageError } = await supabase.storage
         .from('intervention-documents')
@@ -238,14 +276,35 @@ export function InterventionDetails() {
 
       if (dbError) throw dbError;
 
-      await loadData(); // Reload documents after deletion
-    } catch (err: any) {
+      // Track document deletion
+      await trackDelete('document', documentId, {
+        name: documentName,
+        intervention_id: id,
+        url: documentUrl
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['intervention-documents', id] });
+    },
+    onError: (err: any) => {
       console.error('Error deleting document:', err);
       setError('Failed to delete document: ' + err.message);
+    },
+  });
+
+  const handleDeleteDocument = async (documentId: string, documentUrl: string, documentName: string) => {
+    if (!window.confirm('Are you sure you want to delete this document?')) {
+      return;
+    }
+
+    try {
+      await deleteDocumentMutation.mutateAsync({ documentId, documentUrl, documentName });
+    } catch (err: any) {
+      // Error handling is done in the mutation
     }
   };
 
-  const handleDownload = async (document: Document) => {
+  const handleDownload = async (document: InterventionDocument) => {
     try {
       const { data, error } = await supabase.storage
         .from('intervention-documents')
@@ -255,12 +314,12 @@ export function InterventionDetails() {
 
       // Create download link
       const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
+      const a = window.document.createElement('a');
       a.href = url;
       a.download = document.name;
-      document.body.appendChild(a);
+      window.document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
+      window.document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Error downloading file:', err);
@@ -268,40 +327,35 @@ export function InterventionDetails() {
     }
   };
 
-  if (loading) {
+  if (interventionLoading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
     );
   }
 
-  if (error || !intervention) {
+  if (interventionError || !intervention) {
     return (
-      <DashboardLayout>
-        <div className="min-h-[400px] flex items-center justify-center">
-          <div className="text-center">
-            <h3 className="mt-2 text-sm font-medium text-gray-900">Error Loading Intervention</h3>
-            <p className="mt-1 text-sm text-gray-500">{error || 'Intervention not found'}</p>
-            <div className="mt-6">
-              <button
-                onClick={() => navigate(-1)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-              >
-                Go Back
-              </button>
-            </div>
+      <div className="min-h-[400px] flex items-center justify-center">
+        <div className="text-center">
+          <h3 className="mt-2 text-sm font-medium text-gray-900">Error Loading Intervention</h3>
+          <p className="mt-1 text-sm text-gray-500">{interventionError?.message || error || 'Intervention not found'}</p>
+          <div className="mt-6">
+            <button
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+            >
+              Go Back
+            </button>
           </div>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="max-w-7xl mx-auto space-y-6 px-4 sm:px-6 lg:px-8">
+    <div className="max-w-7xl mx-auto space-y-6 px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
           <div className="flex flex-col sm:flex-row items-start sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
@@ -321,7 +375,7 @@ export function InterventionDetails() {
               )}
             </div>
           </div>
-         { (user.user_metadata.role === 'super_admin' || user.id === intervention.lead_id) && <button
+         { (user?.user_metadata?.role === 'super_admin' || user?.id === intervention.lead_id) && <button
             onClick={() => navigate(`/interventions/${id}/edit`)}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
           >
@@ -381,11 +435,11 @@ export function InterventionDetails() {
             <div>
               <h3 className="text-sm font-medium text-gray-500">Budget</h3>
               <p className="mt-1 text-sm text-gray-900">
-                {intervention.actions?.reduce((total, action) => total + (action.budget || 0), 0)
+                {intervention.actions?.reduce((total: number, action: any) => total + (action.budget || 0), 0)
                   ? new Intl.NumberFormat('en-US', {
                       style: 'currency',
                       currency: 'USD'
-                    }).format(intervention.actions.reduce((total, action) => total + (action.budget || 0), 0))
+                    }).format(intervention.actions.reduce((total: number, action: any) => total + (action.budget || 0), 0))
                   : 'Not set'}
               </p>
             </div>
@@ -410,9 +464,13 @@ export function InterventionDetails() {
         <ActionList
           actions={intervention.actions || []}
           interventionId={intervention.id}
-          onActionUpdate={loadData}
+          onActionUpdate={() => {
+            queryClient.invalidateQueries({ queryKey: queryKeys.interventions.detail(id!) });
+            queryClient.invalidateQueries({ queryKey: ['intervention-documents', id] });
+            queryClient.invalidateQueries({ queryKey: ['intervention-comments', id] });
+          }}
           users={users}
-          showEdit={(user.user_metadata.role === 'super_admin' || user.id === intervention.lead_id)}
+          showEdit={(user?.user_metadata?.role === 'super_admin' || user?.id === intervention.lead_id)}
         />
 
         {/* Documents */}
@@ -434,95 +492,39 @@ export function InterventionDetails() {
               onDelete={(documentId) => {
                 const docToDelete = documents.find(doc => doc.id === documentId);
                 if (docToDelete) {
-                  handleDeleteDocument(documentId, docToDelete.url);
+                  handleDeleteDocument(documentId, docToDelete.url, docToDelete.name);
                 }
               }}
             />
-            {/* {documents.map((doc) => (
-              <div
-                key={doc.id}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-              >
-                <div className="flex flex-col sm:flex-row items-start sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
-                  <FileText className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{doc.name}</p>
-                    <p className="text-xs text-gray-500">
-                      Uploaded by {doc.user.full_name} on {format(new Date(doc.created_at), 'PPp')}
-                    </p>
-                  </div>
-                </div>
-                
-                <button
-                  onClick={() => handleDownload(doc)}
-                  className="text-blue-600 hover:text-blue-800"
-                >
-                  <Download className="h-5 w-5" />
-                </button>
-              </div>
-            ))}
-
-            {documents.length === 0 && (
-              <p className="text-center text-sm text-gray-500 py-4">
-                No documents uploaded yet
-              </p>
-            )} */}
           </div>
         </div>
 
         {/* Comments */}
-        <div className="bg-white shadow-sm rounded-lg p-4 sm:p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Comments</h2>
-
-          {/* Comment Form */}
-          <form onSubmit={handleCommentSubmit} className="mb-6">
-            <div>
-              <label htmlFor="comment" className="sr-only">Add comment</label>
-              <textarea
-                id="comment"
-                rows={3}
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Add a comment..."
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              />
-            </div>
-            <div className="mt-2 flex justify-end">
-              <button
-                type="submit"
-                disabled={submitting || !newComment.trim()}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                {submitting ? 'Adding...' : 'Add Comment'}
-              </button>
-            </div>
-          </form>
-
-          {/* Comments List */}
-          <div className="space-y-4">
-            {comments.map((comment) => (
-              <div key={comment.id} className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-900">
-                    {comment.user.full_name}
-                  </span>
-                  <span className="text-sm text-gray-500">
-                    {format(new Date(comment.created_at), 'PPp')}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600 whitespace-pre-wrap">
-                  {comment.content}
-                </p>
-              </div>
-            ))}
-
-            {comments.length === 0 && (
-              <p className="text-center text-sm text-gray-500 py-4">
-                No comments yet. Be the first to add one!
-              </p>
-            )}
-          </div>
-        </div>
+        <CommentsSection
+          title="Comments"
+          comments={comments}
+          value={newComment}
+          onChange={setNewComment}
+          onSubmit={handleCommentSubmit}
+          submitting={submitting}
+          currentUserId={user?.id}
+          contentCreatorId={intervention?.created_by}
+          onDelete={async (commentId) => {
+            // Only allow delete if user is authorized; server-side RLS should also enforce
+            await supabase
+              .from('intervention_comments')
+              .delete()
+              .eq('id', commentId);
+            
+            // Track the deletion
+            await trackDelete('comment', commentId, {
+              intervention_id: id,
+              entity_type: 'intervention'
+            });
+            
+            queryClient.invalidateQueries({ queryKey: ['intervention-comments', id] });
+          }}
+        />
 
        
 
@@ -612,8 +614,7 @@ export function InterventionDetails() {
             </div>
           </div>
         )}
-      </div>
-    </DashboardLayout>
+    </div>
   );
 }
 

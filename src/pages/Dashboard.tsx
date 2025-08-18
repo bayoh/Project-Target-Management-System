@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { DashboardLayout } from '../components/layout/DashboardLayout';
+import React, { useState, useMemo } from 'react';
+
 import { 
   TreePine, 
   Recycle, 
@@ -13,7 +13,11 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { ProjectStats } from '../components/dashboard/ProjectStats.tsx'
+import { useActivityTracking } from '../hooks/useActivityTracking';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { queryKeys } from '../lib/queryKeys';
+import { executeQuery } from '../lib/queries';
 
 interface DashboardStats {
   clusters: {
@@ -64,120 +68,124 @@ interface PathwayWithProgress {
   atRiskInterventions: number;
 }
 
+// Query function for dashboard data
+const fetchDashboardData = async () => {
+  // Fetch all required data in parallel using executeQuery
+  const [
+    clustersResult,
+    pathwaysResult,
+    interventionsResult,
+    actionsResult,
+    tasksResult
+  ] = await Promise.all([
+    executeQuery(supabase.from('clusters').select('*')),
+    executeQuery(supabase.from('pathways').select('*, cluster_id')),
+    executeQuery(supabase.from('interventions').select('*, pathway_id, status')),
+    executeQuery(supabase.from('actions').select('*, intervention_id, status')),
+    executeQuery(supabase.from('tasks').select('*, action_id, status'))
+  ]);
+
+  return {
+    clusters: clustersResult.data || [],
+    pathways: pathwaysResult.data || [],
+    interventions: interventionsResult.data || [],
+    actions: actionsResult.data || [],
+    tasks: tasksResult.data || []
+  };
+};
+
 export function Dashboard() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<DashboardStats>({
-    clusters: { total: 0, pathways: 0, interventions: 0 },
-    interventions: { total: 0, onTrack: 0, atRisk: 0, completed: 0, byStatus: {} },
-    actions: { total: 0, onTrack: 0, atRisk: 0, completed: 0, notStarted: 0, byStatus: {} },
-    tasks: { total: 0, pending: 0, inProgress: 0, completed: 0, delayed: 0, byStatus: {} }
+  const { trackPageView } = useActivityTracking();
+
+  // Use TanStack Query for data fetching
+  const { data: dashboardData, isLoading: loading, error } = useQuery({
+    queryKey: queryKeys.dashboard.adminData(),
+    queryFn: fetchDashboardData,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
-  const [clusters, setClusters] = useState<ClusterWithProgress[]>([]);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
+  // Process clusters and pathways using useMemo for performance
+  const { stats, clusters } = useMemo(() => {
+    if (!dashboardData) {
+      return {
+        stats: {
+          clusters: { total: 0, pathways: 0, interventions: 0 },
+          interventions: { total: 0, onTrack: 0, atRisk: 0, completed: 0, byStatus: {} },
+          actions: { total: 0, onTrack: 0, atRisk: 0, completed: 0, notStarted: 0, byStatus: {} },
+          tasks: { total: 0, pending: 0, inProgress: 0, completed: 0, delayed: 0, byStatus: {} }
+        },
+        clusters: []
+      };
+    }
 
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+    const { clusters: clustersData, pathways: pathwaysData, interventions: interventionsData, actions: actionsData, tasks: tasksData } = dashboardData;
 
-      // Fetch all required data in parallel
-      const [
-        clustersData,
-        pathwaysData,
-        interventionsData,
-        actionsData,
-        tasksData
-      ] = await Promise.all([
-        supabase.from('clusters').select('*'),
-        supabase.from('pathways').select('*, cluster_id'),
-        supabase.from('interventions').select('*, pathway_id, status'),
-        supabase.from('actions').select('*, intervention_id, status'),
-        supabase.from('tasks').select('*, action_id, status')
-      ]);
-
-      // Check for errors
-      if (clustersData.error) throw clustersData.error;
-      if (pathwaysData.error) throw pathwaysData.error;
-      if (interventionsData.error) throw interventionsData.error;
-      if (actionsData.error) throw actionsData.error;
-      if (tasksData.error) throw tasksData.error;
-
-      // Process clusters and pathways
-      const processedClusters = clustersData.data.map((cluster: any) => {
-        const clusterPathways = pathwaysData.data.filter(p => p.cluster_id === cluster.id);
-        const pathwaysWithProgress = clusterPathways.map(pathway => {
-          const pathwayInterventions = interventionsData.data.filter(i => i.pathway_id === pathway.id);
-          const completedCount = pathwayInterventions.filter(i => i.status === 'completed').length;
-          const atRiskCount = pathwayInterventions.filter(i => i.status === 'at_risk').length;
-          const progress = pathwayInterventions.length > 0 
-            ? (completedCount / pathwayInterventions.length) * 100 
-            : 0;
-
-          return {
-            id: pathway.id,
-            name: pathway.name,
-            icon: getPathwayIcon(pathway.name),
-            progress,
-            status: getPathwayStatus(completedCount, atRiskCount, pathwayInterventions.length),
-            interventionCount: pathwayInterventions.length,
-            completedInterventions: completedCount,
-            atRiskInterventions: atRiskCount
-          };
-        });
+    // Process clusters and pathways
+    const processedClusters = clustersData.map((cluster: any) => {
+      const clusterPathways = pathwaysData.filter(p => p.cluster_id === cluster.id);
+      const pathwaysWithProgress = clusterPathways.map(pathway => {
+        const pathwayInterventions = interventionsData.filter(i => i.pathway_id === pathway.id);
+        const completedCount = pathwayInterventions.filter(i => i.status === 'completed').length;
+        const atRiskCount = pathwayInterventions.filter(i => i.status === 'at_risk').length;
+        const progress = pathwayInterventions.length > 0 
+          ? (completedCount / pathwayInterventions.length) * 100 
+          : 0;
 
         return {
-          id: cluster.id,
-          name: cluster.name,
-          color: getClusterColor(cluster.name),
-          pathways: pathwaysWithProgress
+          id: pathway.id,
+          name: pathway.name,
+          icon: getPathwayIcon(pathway.name),
+          progress,
+          status: getPathwayStatus(completedCount, atRiskCount, pathwayInterventions.length),
+          interventionCount: pathwayInterventions.length,
+          completedInterventions: completedCount,
+          atRiskInterventions: atRiskCount
         };
       });
 
-      // Calculate statistics
-      const newStats: DashboardStats = {
-        clusters: {
-          total: clustersData.data.length,
-          pathways: pathwaysData.data.length,
-          interventions: interventionsData.data.length
-        },
-        interventions: {
-          total: interventionsData.data.length,
-          onTrack: interventionsData.data.filter(i => i.status === 'in_progress').length,
-          atRisk: interventionsData.data.filter(i => i.status === 'at_risk').length,
-          completed: interventionsData.data.filter(i => i.status === 'completed').length,
-          byStatus: countByStatus(interventionsData.data)
-        },
-        actions: {
-          total: actionsData.data.length,
-          onTrack: actionsData.data.filter(a => a.status === 'in_progress').length,
-          atRisk: actionsData.data.filter(a => a.status === 'at_risk').length,
-          completed: actionsData.data.filter(a => a.status === 'completed').length,
-          notStarted: actionsData.data.filter(a => a.status === 'not_started').length,
-          byStatus: countByStatus(actionsData.data)
-        },
-        tasks: {
-          total: tasksData.data.length,
-          pending: tasksData.data.filter(t => t.status === 'pending').length,
-          inProgress: tasksData.data.filter(t => t.status === 'in_progress').length,
-          completed: tasksData.data.filter(t => t.status === 'completed').length,
-          delayed: tasksData.data.filter(t => t.status === 'delayed').length,
-          byStatus: countByStatus(tasksData.data)
-        }
+      return {
+        id: cluster.id,
+        name: cluster.name,
+        color: getClusterColor(cluster.name),
+        pathways: pathwaysWithProgress
       };
+    });
 
-      setStats(newStats);
-      setClusters(processedClusters);
-    } catch (err: any) {
-      console.error('Error loading dashboard data:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Calculate statistics
+    const newStats: DashboardStats = {
+      clusters: {
+        total: clustersData.length,
+        pathways: pathwaysData.length,
+        interventions: interventionsData.length
+      },
+      interventions: {
+        total: interventionsData.length,
+        onTrack: interventionsData.filter(i => i.status === 'in_progress').length,
+        atRisk: interventionsData.filter(i => i.status === 'at_risk').length,
+        completed: interventionsData.filter(i => i.status === 'completed').length,
+        byStatus: countByStatus(interventionsData)
+      },
+      actions: {
+        total: actionsData.length,
+        onTrack: actionsData.filter(a => a.status === 'in_progress').length,
+        atRisk: actionsData.filter(a => a.status === 'at_risk').length,
+        completed: actionsData.filter(a => a.status === 'completed').length,
+        notStarted: actionsData.filter(a => a.status === 'not_started').length,
+        byStatus: countByStatus(actionsData)
+      },
+      tasks: {
+        total: tasksData.length,
+        pending: tasksData.filter(t => t.status === 'pending').length,
+        inProgress: tasksData.filter(t => t.status === 'in_progress').length,
+        completed: tasksData.filter(t => t.status === 'completed').length,
+        delayed: tasksData.filter(t => t.status === 'delayed').length,
+        byStatus: countByStatus(tasksData)
+      }
+    };
+
+    return { stats: newStats, clusters: processedClusters };
+  }, [dashboardData]);
 
   const countByStatus = (items: any[]): Record<string, number> => {
     return items.reduce((acc: Record<string, number>, item) => {
@@ -235,39 +243,26 @@ export function Dashboard() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <DashboardLayout>
-        <div className="min-h-[400px] flex items-center justify-center">
-          <div className="text-center">
-            <AlertTriangle className="mx-auto h-12 w-12 text-yellow-500" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">Error Loading Dashboard</h3>
-            <p className="mt-1 text-sm text-gray-500">{error}</p>
-            <div className="mt-6">
-              <button
-                onClick={loadDashboardData}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-              >
-                Retry
-              </button>
-            </div>
-          </div>
+      <div className="min-h-[400px] flex items-center justify-center">
+        <div className="text-center">
+          <AlertTriangle className="mx-auto h-12 w-12 text-yellow-500" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">Error Loading Dashboard</h3>
+          <p className="mt-1 text-sm text-gray-500">{error instanceof Error ? error.message : 'An unexpected error occurred'}</p>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
@@ -341,8 +336,6 @@ export function Dashboard() {
             </div>
           )}
         </div>
-      </div>
-      {/* <ProjectStats/> */}
-    </DashboardLayout>
+    </div>
   );
 }

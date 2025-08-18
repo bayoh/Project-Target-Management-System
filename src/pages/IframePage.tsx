@@ -1,10 +1,8 @@
 import React from 'react';
-import { DashboardLayout } from '../components/layout/DashboardLayout';
 
 export function IframePage() {
   return (
-    <DashboardLayout>
-      <div className="w-full h-[calc(100vh-8rem)] overflow-hidden">
+    <div className="w-full h-[calc(100vh-8rem)] overflow-hidden">
         <div className="relative w-full h-full">
           <iframe
             src="https://lookerstudio.google.com/embed/reporting/a09043c6-81a0-4f5d-985e-74730e761865/page/p_oz4vwb5gud"
@@ -22,6 +20,5 @@ export function IframePage() {
           />
         </div>
       </div>
-    </DashboardLayout>
   );
 }

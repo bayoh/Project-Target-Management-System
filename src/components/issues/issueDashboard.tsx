@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { ArrowUpDown, Calendar, Users, Target, Eye, Edit, AlertTriangle, Trophy, MessageSquare, ChevronRight, Check, CalendarCheck2,CalendarPlusIcon } from 'lucide-react';
 import type { Action, Intervention } from '../../types/project';
 import { useNavigate } from 'react-router-dom';
 import { Select } from '../../components/ui/Select'
 import { Input } from '../../components/ui/Input'
+import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '../../lib/queryKeys';
+import { executeQuery } from '../../lib/queries';
+import { useAuth } from '../../lib/auth';
 
 interface DashboardItem {
   id: string;
@@ -41,17 +45,62 @@ const formatDate = (date: string | null) => {
 
 export function IssueDashboard() {
   const navigate = useNavigate();
-  const [items, setItems] = useState<DashboardItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
   const [statusFilter, setStatusFilter] = useState('all');
   const [severityFilter, setSeverityFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [metrics, setMetrics] = useState({
-    total: 0,
-    bySeverity: { high: 0, medium: 0, low: 0 },
-    byStatus: { open: 0, in_progress: 0, resolved: 0, closed: 0 }
+
+  // Fetch issues using TanStack Query
+  const { data: issues = [], isLoading: loading, error } = useQuery({
+    queryKey: queryKeys.projects.issues(),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('action_issues')
+        .select(`
+          *,
+          action:actions(name, intervention:interventions(name, id, pathway:pathways(name, id, cluster:clusters(name))))
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: !!user,
   });
+
+  // Transform issues data into dashboard items
+  const items: DashboardItem[] = useMemo(() => {
+    return issues.map((issue: any) => ({
+      id: issue.id,
+      name: issue.name,
+      description: issue.description,
+      severity: issue.severity,
+      status: issue.status,
+      date_identified: issue.date_identified,
+      date_resolved: issue.date_resolved,
+      resource_requirements: issue.resource_requirements,
+      budget_impact: issue.budget_impact,
+      action_id: issue.action_id,
+      action: issue.action
+    }));
+  }, [issues]);
+
+  // Calculate metrics
+  const metrics = useMemo(() => ({
+    total: items.length,
+    bySeverity: {
+      high: items.filter(item => item.severity === 'high').length,
+      medium: items.filter(item => item.severity === 'medium').length,
+      low: items.filter(item => item.severity === 'low').length
+    },
+    byStatus: {
+      open: items.filter(item => item.status === 'open').length,
+      in_progress: items.filter(item => item.status === 'in_progress').length,
+      resolved: items.filter(item => item.status === 'resolved').length,
+      closed: items.filter(item => item.status === 'closed').length
+    }
+  }), [items]);
 
   // Card component for metrics
   const MetricCard: React.FC<{
@@ -67,16 +116,16 @@ export function IssueDashboard() {
       type="button"
       onClick={onClick}
       disabled={!onClick}
-      className={`${bgColor} p-5 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 ease-in-out flex flex-col items-center justify-center min-h-[150px] w-full text-left ${onClick ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50' : 'cursor-default'} ${isActive ? 'ring-2 ring-blue-600 ring-offset-2 shadow-blue-200' : ''}`}
+      className={`${bgColor} p-3 md:p-4 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 ease-in-out flex flex-col items-center justify-center min-h-[100px] md:min-h-[120px] w-full text-left border border-gray-200 ${onClick ? 'cursor-pointer hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50' : 'cursor-default'} ${isActive ? 'ring-2 ring-blue-600 ring-offset-1 bg-blue-50 border-blue-300' : 'hover:border-gray-300'}`}
     >
       {isActive && (
-        <div className="absolute top-2 right-2 p-1 bg-blue-600 rounded-full">
-          <Check className="w-3 h-3 text-white" />
+        <div className="absolute top-1.5 right-1.5 p-0.5 bg-blue-600 rounded-full">
+          <Check className="w-2.5 h-2.5 text-white" />
         </div>
       )}
-      <div className="p-3 rounded-full bg-opacity-20 mb-3">{icon}</div>
-      <div className={`text-3xl font-extrabold ${colorClass}`}>{value}</div>
-      <div className="text-sm text-gray-500 mt-1 font-medium tracking-wide">{title}</div>
+      <div className="mb-2">{icon}</div>
+      <div className={`text-xl md:text-2xl font-bold ${colorClass}`}>{value}</div>
+      <div className="text-xs md:text-sm text-gray-600 mt-1 font-medium text-center leading-tight">{title}</div>
     </button>
   );
 
@@ -102,20 +151,20 @@ export function IssueDashboard() {
     };
 
     return (
-      <div className="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 ease-in-out p-6 space-y-4 transform hover:-translate-y-1">
-        <div className="flex flex-col sm:flex-row items-start justify-between gap-3 mb-3">
-          <div className="flex flex-wrap gap-2">
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getSeverityPillClasses(item.severity)}`}>
-              <AlertTriangle className={`w-3 h-3 mr-1.5 ${item.severity === 'high' ? 'text-red-500' : item.severity === 'medium' ? 'text-yellow-500' : 'text-green-500'}`} />
+      <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 ease-in-out p-4 md:p-5 space-y-3 border border-gray-200 hover:border-gray-300 transform hover:-translate-y-0.5">
+        <div className="flex flex-col sm:flex-row items-start justify-between gap-2 mb-3">
+          <div className="flex flex-wrap gap-1.5">
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${getSeverityPillClasses(item.severity)}`}>
+              <AlertTriangle className={`w-3 h-3 mr-1 ${item.severity === 'high' ? 'text-red-500' : item.severity === 'medium' ? 'text-yellow-500' : 'text-green-500'}`} />
               {item.severity.charAt(0).toUpperCase() + item.severity.slice(1)}
             </span>
             {item.action && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-300">
+              <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-purple-100 text-purple-700 border border-purple-300">
                 {item.action.intervention?.pathway.cluster.name || 'N/A Intervention'}
               </span>
             )}
           </div>
-          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getStatusPillClasses(item.status)}`}>
+          <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${getStatusPillClasses(item.status)} flex-shrink-0`}>
             {item.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
           </span>
         </div>
@@ -128,26 +177,35 @@ export function IssueDashboard() {
           <ChevronRight className="w-5 h-5 inline-block ml-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         </h3> */}
         
-        {item.description && (
-          <p className="text-md text-gray-600 line-clamp-3 leading-relaxed">{item.description}</p>
-        )}
-        <div className="border-t border-gray-200 pt-4 flex flex-col sm:flex-row items-center justify-between text-sm text-gray-500 gap-4">
-          <div className="flex items-center text-gray-500">
-            <CalendarPlusIcon className="h-4 w-4 mr-2 text-gray-400" />
-            <span>{formatDate(item.date_identified)}</span>
-          </div>
-          {item.date_resolved && <div className="flex items-center text-gray-500">
-            <CalendarCheck2 className="h-4 w-4 mr-2 text-gray-400" />
-            <span>{formatDate(item.date_resolved)}</span>
-          </div>}
-          <div className="flex items-center space-x-3">
-
+        <div className="space-y-2">
+          <h3 className="text-base md:text-lg font-semibold text-gray-900 leading-tight">{item.name}</h3>
+          {item.description && (
+            <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">{item.description}</p>
+          )}
+        </div>
+        
+        <div className="border-t border-gray-100 pt-3 space-y-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-gray-500 gap-2">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center">
+                <CalendarPlusIcon className="h-3.5 w-3.5 mr-1.5 text-gray-400" />
+                <span className="font-medium">Identified:</span>
+                <span className="ml-1">{formatDate(item.date_identified)}</span>
+              </div>
+              {item.date_resolved && (
+                <div className="flex items-center">
+                  <CalendarCheck2 className="h-3.5 w-3.5 mr-1.5 text-gray-400" />
+                  <span className="font-medium">Resolved:</span>
+                  <span className="ml-1">{formatDate(item.date_resolved)}</span>
+                </div>
+              )}
+            </div>
             <button
               onClick={() => navigate(`/interventions/${item.action.intervention.id}/actions/${item.action_id}#issues`)}
-              className="flex items-center text-gray-600 hover:text-gray-800 transition-colors font-medium px-3 py-1.5 rounded-md hover:bg-gray-100"
-              title="Edit"
+              className="flex items-center text-blue-600 hover:text-blue-800 transition-colors font-medium px-2.5 py-1.5 rounded-md hover:bg-blue-50 text-xs border border-blue-200 hover:border-blue-300"
+              title="View Details"
             >
-              <Eye className="h-4 w-4 mr-1.5" /> View
+              <Eye className="h-3.5 w-3.5 mr-1" /> View
             </button>
           </div>
         </div>
@@ -155,121 +213,42 @@ export function IssueDashboard() {
     );
   };
 
-  useEffect(() => {
-    loadUserItems();
-  }, []);
+  // Filter items based on search and filters
+  const filteredItems = useMemo(() => {
+    return items.filter(item => {
+      const matchesSearch = searchQuery === '' || 
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
+      const matchesSeverity = severityFilter === 'all' || item.severity === severityFilter;
+      
+      return matchesSearch && matchesStatus && matchesSeverity;
+    });
+  }, [items, searchQuery, statusFilter, severityFilter]);
 
-  const loadUserItems = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated user');
-  
-      const { data: issues, error: issuesError } = await supabase
-        .from('action_issues')
-        .select(`
-          *,
-          action:actions(name, intervention:interventions(name, id, pathway:pathways(name, id, cluster:clusters(name))))
-        `)
-        .order('created_at', { ascending: false });
-  
-      if (issuesError) throw issuesError;
 
-      const dashboardItems = issues.map(issue => ({
-        id: issue.id,
-        name: issue.name,
-        description: issue.description,
-        severity: issue.severity,
-        status: issue.status,
-        date_identified: issue.date_identified,
-        date_resolved: issue.date_resolved,
-        action_id: issue.action_id,
-        action: issue.action
-      }));
-
-      // Calculate metrics
-      const metrics = {
-        total: dashboardItems.length,
-        bySeverity: {
-          high: dashboardItems.filter(item => item.severity === 'high').length,
-          medium: dashboardItems.filter(item => item.severity === 'medium').length,
-          low: dashboardItems.filter(item => item.severity === 'low').length
-        },
-        byStatus: {
-          open: dashboardItems.filter(item => item.status === 'open').length,
-          in_progress: dashboardItems.filter(item => item.status === 'in_progress').length,
-          resolved: dashboardItems.filter(item => item.status === 'resolved').length,
-          closed: dashboardItems.filter(item => item.status === 'closed').length
-        }
-      };
-
-      setMetrics(metrics);
-  
-      // Transform data into unified format with relationships
-      // const dashboardItems: DashboardItem[] = [
-      //   ...(issues || []).map(item => ({
-      //     ...item,
-      //     type: 'issues' as const,
-      //     role: 'lead' as const,
-      //     relatedActions: (actions || [])
-      //       .filter(action => action.intervention_id === item.id)
-      //       .map(action => ({
-      //         ...action,
-      //         type: 'action' as const,
-      //         role: action.lead_id === user.id ? 'lead' as const : 'supporting' as const
-      //       }))
-      //   })),
-      //   ...(actions || [])
-      //     .filter(action => !interventions?.some(int => int.id === action.intervention_id))
-      //     .map(item => ({
-      //       ...item,
-      //       type: 'action' as const,
-      //       role: item.lead_id === user.id ? 'lead' as const : 'supporting' as const
-      //     }))
-      // ];
-  
-      setItems(dashboardItems);
-      console.log('Dashboard items loaded:', dashboardItems);
-    } catch (err: any) {
-      console.error('Error loading dashboard items:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filteredItems = items.filter(item => {
-    const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
-    const matchesSeverity = severityFilter === 'all' || item.severity === severityFilter;
-    const matchesSearch = searchQuery === '' || 
-      (item.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-      ((item.description?.toLowerCase() || '').includes(searchQuery.toLowerCase()));
-    return matchesStatus && matchesSeverity && matchesSearch;
-  });
-
-  const formatDate = (date: string | null) => {
-    if (!date) return 'Not set';
-    return new Date(date).toLocaleDateString();
-  };
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-150px)] bg-gray-50 p-4">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600 mb-4"></div>
-        <p className="text-lg font-medium text-gray-700">Loading issues dashboard...</p>
-        <p className="text-sm text-gray-500">Please wait a moment.</p>
+      <div className="flex flex-col justify-center items-center h-64 bg-white rounded-lg shadow-md border border-gray-200 mx-4 md:mx-6">
+        <div className="animate-spin rounded-full h-10 w-10 border-2 border-blue-200 border-t-blue-600 mb-4"></div>
+        <p className="text-sm text-gray-600 font-medium">Loading issues...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-150px)] bg-red-50 p-6 rounded-lg shadow-md">
-        <AlertTriangle className="h-16 w-16 text-red-500 mb-4" />
-        <h3 className="text-2xl font-semibold text-red-700 mb-2">Oops! Something Went Wrong</h3>
-        <p className="text-red-600 text-center mb-6 max-w-md">We encountered an error while trying to load the issue data: <br /><strong>{error}</strong></p>
+      <div className="text-center py-12 bg-white rounded-lg shadow-md border border-gray-200 mx-4 md:mx-6">
+        <div className="p-3 bg-red-100 rounded-lg w-fit mx-auto mb-4">
+          <AlertTriangle className="h-8 w-8 text-red-500" />
+        </div>
+        <h3 className="text-base font-semibold text-gray-900 mb-2">Error Loading Issues</h3>
+        <p className="text-sm text-gray-600 max-w-md mx-auto leading-relaxed">{(error as Error).message}</p>
         <button 
-          onClick={loadUserItems} 
-          className="px-6 py-2.5 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
+          onClick={() => window.location.reload()} 
+          className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
         >
           Try Again
         </button>
@@ -278,20 +257,28 @@ export function IssueDashboard() {
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 bg-gray-50 min-h-screen">
-      <header className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-800 tracking-tight">Issue Registry</h1>
-        <p className="text-gray-600 mt-1">Track, manage, and resolve project issues effectively.</p>
+    <div className="p-3 sm:p-4 lg:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+      <header className="mb-4 lg:mb-6">
+        <div className="flex items-center gap-2 lg:gap-3 mb-2">
+          <div className="p-2 bg-blue-600 rounded-lg">
+            <MessageSquare className="w-5 h-5 text-white" />
+          </div>
+          <h1 className="text-xl lg:text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">Issue Registry</h1>
+        </div>
+        <p className="text-gray-600 text-xs sm:text-sm md:text-base">Track, manage, and resolve project issues effectively.</p>
       </header>
 
       {/* Metrics Section */}
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold text-gray-700 mb-4">Key Metrics</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      <section className="mb-6">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+          <div className="w-1 h-5 bg-blue-600 rounded-full"></div>
+          Key Metrics
+        </h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 lg:mb-6">
           <MetricCard
             title="Total Issues"
             value={metrics.total}
-            icon={<MessageSquare className="w-8 h-8 text-blue-500 bg-blue-100 p-1.5 rounded-full" />}
+            icon={<div className="p-2 bg-blue-100 rounded-lg"><MessageSquare className="w-4 h-4 text-blue-600" /></div>}
             colorClass="text-blue-600"
             bgColor="bg-white"
             onClick={() => {
@@ -303,7 +290,7 @@ export function IssueDashboard() {
           <MetricCard
             title="High Severity"
             value={metrics.bySeverity.high}
-            icon={<AlertTriangle className="w-8 h-8 text-red-500 bg-red-100 p-1.5 rounded-full" />}
+            icon={<div className="p-2 bg-red-100 rounded-lg"><AlertTriangle className="w-4 h-4 text-red-600" /></div>}
             colorClass="text-red-600"
             bgColor="bg-white"
             onClick={() => setSeverityFilter('high')}
@@ -312,7 +299,7 @@ export function IssueDashboard() {
           <MetricCard
             title="Open Issues"
             value={metrics.byStatus.open}
-            icon={<AlertTriangle className="w-8 h-8 text-orange-500 bg-orange-100 p-1.5 rounded-full" />}
+            icon={<div className="p-2 bg-orange-100 rounded-lg"><AlertTriangle className="w-4 h-4 text-orange-600" /></div>}
             colorClass="text-orange-600"
             bgColor="bg-white"
             onClick={() => setStatusFilter('open')}
@@ -321,7 +308,7 @@ export function IssueDashboard() {
           <MetricCard
             title="Resolved/Closed"
             value={metrics.byStatus.resolved + metrics.byStatus.closed}
-            icon={<Trophy className="w-8 h-8 text-teal-500 bg-teal-100 p-1.5 rounded-full" />}
+            icon={<div className="p-2 bg-teal-100 rounded-lg"><Trophy className="w-4 h-4 text-teal-600" /></div>}
             colorClass="text-teal-600"
             bgColor="bg-white"
             onClick={() => {
@@ -333,25 +320,28 @@ export function IssueDashboard() {
       </section>
 
       {/* Filters and Search Section */}
-      <section className="mb-8 p-6 bg-white rounded-xl shadow-lg">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-          <div className="md:col-span-1">
-            <label htmlFor="search-issues" className="block text-sm font-medium text-gray-700 mb-1.5">Search Issues</label>
+      <section className="mb-4 lg:mb-6 p-3 sm:p-4 md:p-5 bg-white rounded-lg shadow-md border border-gray-200">
+        <div className="flex items-center gap-2 mb-3 sm:mb-4">
+          <div className="w-1 h-4 bg-gray-600 rounded-full"></div>
+          <h3 className="text-sm sm:text-base font-semibold text-gray-800">Filters & Search</h3>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 items-end">
+          <div className="sm:col-span-2 md:col-span-1">
+            <label htmlFor="search-issues" className="block text-xs font-medium text-gray-700 mb-1.5 uppercase tracking-wide">Search Issues</label>
             <Input
               id="search-issues"
               type="text"
               placeholder="Search by name or description..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-sm shadow-sm rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full text-xs sm:text-sm shadow-sm rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 h-8 sm:h-9"
             />
           </div>
           <div>
-            <label htmlFor="severity-filter" className="block text-sm font-medium text-gray-700 mb-1.5">Filter by Severity</label>
+            <label htmlFor="severity-filter" className="block text-xs font-medium text-gray-700 mb-1.5 uppercase tracking-wide">Severity</label>
             <Select
-              id="severity-filter"
               value={severityFilter}
-              onChange={(value) => setSeverityFilter(value)}
+              onValueChange={(value) => setSeverityFilter(value)}
               placeholder="All Severities"
               options={[
                 { value: 'all', label: 'All Severities' },
@@ -359,15 +349,14 @@ export function IssueDashboard() {
                 { value: 'medium', label: 'Medium' },
                 { value: 'low', label: 'Low' },
               ]}
-              className="w-full text-sm"
+              className="w-full text-xs sm:text-sm h-8 sm:h-9"
             />
           </div>
           <div>
-            <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 mb-1.5">Filter by Status</label>
+            <label htmlFor="status-filter" className="block text-xs font-medium text-gray-700 mb-1.5 uppercase tracking-wide">Status</label>
             <Select
-              id="status-filter"
               value={statusFilter}
-              onChange={(value) => setStatusFilter(value)}
+              onValueChange={(value) => setStatusFilter(value)}
               placeholder="All Statuses"
               options={[
                 { value: 'all', label: 'All Statuses' },
@@ -376,7 +365,7 @@ export function IssueDashboard() {
                 { value: 'resolved', label: 'Resolved' },
                 { value: 'closed', label: 'Closed' },
               ]}
-              className="w-full text-sm"
+              className="w-full text-xs sm:text-sm h-8 sm:h-9"
             />
           </div>
         </div>
@@ -385,21 +374,25 @@ export function IssueDashboard() {
       {/* Issues Grid Section */}
       <section>
         <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-700">
-                Issue List <span className="text-base font-normal text-gray-500">({filteredItems.length} found)</span>
-            </h2>
+          <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <div className="w-1 h-5 bg-gray-600 rounded-full"></div>
+            Issue List 
+            <span className="text-sm font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded-md">({filteredItems.length} found)</span>
+          </h2>
         </div>
         {filteredItems.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-5">
             {filteredItems.map((item) => (
               <IssueCard key={item.id} item={item} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-16 bg-white rounded-xl shadow-lg mt-6">
-            <AlertTriangle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-800">No Issues Found</h3>
-            <p className="mt-2 text-sm text-gray-500 max-w-md mx-auto">
+          <div className="text-center py-12 bg-white rounded-lg shadow-md border border-gray-200 mt-4">
+            <div className="p-3 bg-gray-100 rounded-lg w-fit mx-auto mb-4">
+              <AlertTriangle className="h-8 w-8 text-gray-400" />
+            </div>
+            <h3 className="text-base font-semibold text-gray-800 mb-2">No Issues Found</h3>
+            <p className="text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
               There are no issues matching your current filters. Try adjusting your search or filter criteria, or check back later.
             </p>
           </div>
