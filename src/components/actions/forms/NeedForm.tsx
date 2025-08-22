@@ -13,9 +13,6 @@ interface NeedFormProps {
     date_fulfilled?: string;
     resource_requirements: string;
     budget_impact?: number;
-    status?: string;
-    priority?: string;
-    fulfillment_details?: string;
   };
 }
 
@@ -26,9 +23,6 @@ export function NeedForm({ onSubmit, onCancel, need }: NeedFormProps) {
     date_fulfilled: need?.date_fulfilled || null,
     resource_requirements: need?.resource_requirements || '',
     budget_impact: need?.budget_impact?.toString() || '',
-    status: need?.status || 'open',
-    priority: need?.priority || 'medium',
-    fulfillment_details: need?.fulfillment_details || ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,8 +82,11 @@ export function NeedForm({ onSubmit, onCancel, need }: NeedFormProps) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
-        <Select
-          label="Status *"
+        {/* <div className='space-y-2'>
+          <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+            Status *
+          </label>
+          <Select
           options={[
             { value: 'open', label: 'Open' },
             { value: 'in_progress', label: 'In Progress' },
@@ -100,17 +97,7 @@ export function NeedForm({ onSubmit, onCancel, need }: NeedFormProps) {
           className="w-full"
         />
 
-        <Select
-          label="Priority *"
-          options={[
-            { value: 'low', label: 'Low' },
-            { value: 'medium', label: 'Medium' },
-            { value: 'high', label: 'High' },
-          ]}
-          value={formData.priority}
-          onChange={(value) => setFormData({ ...formData, priority: value as any })}
-          className="w-full"
-        />
+        </div> */}
 
         <div className="space-y-2">
           <label htmlFor="date_identified" className="block text-sm font-medium text-gray-700">
@@ -177,16 +164,6 @@ export function NeedForm({ onSubmit, onCancel, need }: NeedFormProps) {
           />
         </div>
       </div>
-
-      <Input
-        label="Fulfillment Details"
-        id="fulfillment_details"
-        type="textarea"
-        rows={3}
-        value={formData.fulfillment_details}
-        onChange={(e) => setFormData({ ...formData, fulfillment_details: e.target.value })}
-        className="w-full"
-      />
 
       <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-200">
         <Button type="button" variant="outline" onClick={onCancel} className="sm:w-auto w-full">

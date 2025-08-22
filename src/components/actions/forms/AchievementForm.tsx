@@ -286,7 +286,15 @@ export function AchievementForm({ onSubmit, onCancel, achievement }: Achievement
     setError(null);
 
     try {
-      await onSubmit(formData);
+      // Strip server-managed fields and normalize evidence_file
+      const { id, created_at, updated_at, ...cleanData } = formData;
+      const sanitizedData = {
+        ...cleanData,
+        // Ensure evidence_file is always an array of strings
+        evidence_file: Array.isArray(formData.evidence_file) ? formData.evidence_file : []
+      };
+      
+      await onSubmit(sanitizedData);
     } catch (err: any) {
       setError(err.message);
     } finally {

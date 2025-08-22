@@ -384,12 +384,16 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
           break;
       }
 
+      // Strip server-managed fields from formData
+      const { id, created_at, updated_at, created_by, action_id, ...cleanFormData } = formData;
+
       if (editingItem) {
         // Update existing item
         const { error: updateError } = await supabase
           .from(table)
           .update({
-            ...formData,
+            ...cleanFormData,
+            action_id: action.id,
             updated_at: new Date().toISOString()
           })
           .eq('id', editingItem.id);
@@ -407,7 +411,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
         const { data: newItem, error: saveError } = await supabase
           .from(table)
           .insert([{
-            ...formData,
+            ...cleanFormData,
             action_id: action.id,
             created_by: user.id
           }])
