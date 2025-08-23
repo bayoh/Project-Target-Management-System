@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 import { supabase } from '../../lib/supabase';
-import { User, Camera, Loader2, UserCircle, Lock } from 'lucide-react';
+import { User, Camera, Loader2, Lock } from 'lucide-react';
 
 interface ProfileData {
   id: string;
@@ -17,6 +17,7 @@ interface FormData {
   email: string;
   phone: string;
   role: string;
+  avatar_url?: string;
 }
 
 interface PasswordData {
@@ -77,7 +78,8 @@ export function Profile() {
         full_name: profileInfo.full_name,
         email: profileInfo.email,
         phone: profileInfo.phone,
-        role: profileInfo.role
+        role: profileInfo.role,
+        avatar_url: profileInfo.avatar_url
       });
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -214,11 +216,9 @@ export function Profile() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-screen">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
     );
   }
 
@@ -244,7 +244,10 @@ export function Profile() {
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
-                      e.currentTarget.nextElementSibling.style.display = 'flex';
+                      const nextElement = e.currentTarget.nextElementSibling as HTMLElement;
+                      if (nextElement) {
+                        nextElement.style.display = 'flex';
+                      }
                     }}
                   />
                 ) : (

@@ -23,6 +23,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let currentSessionId: string | null = null;
     let isInitialized = false;
     
+    // Add timeout to prevent infinite loading
+    const loadingTimeout = setTimeout(() => {
+      if (isMounted) {
+        console.warn('Auth loading timeout reached, setting loading to false');
+        setLoading(false);
+      }
+    }, 5000); // 5 second timeout
+    
     const cleanupSession = async () => {
       if (currentSessionId) {
         try {
@@ -55,24 +63,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
     
     const getSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error('Error getting session:', error);
-      }
-      
-      if (isMounted) {
-        setUser(session?.user || null);
-        setIsAdmin(session?.user?.user_metadata?.role === 'admin' || session?.user?.user_metadata?.role === 'super_admin');
-      }
-      
-      // Start activity tracking session if user is logged in
-      if (session?.user && !isInitialized) {
-        await startNewSession(session.user.id);
-        isInitialized = true;
-      }
-      
-      if (isMounted) {
-        setLoading(false);
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Error getting session:', error);
+        }
+        
+        if (isMounted) {
+          setUser(session?.user || null);
+          setIsAdmin(session?.user?.user_metadata?.role === 'admin' || session?.user?.user_metadata?.role === 'super_admin');
+        }
+        
+        // Start activity tracking session if user is logged in (non-blocking)
+        if (session?.user && !isInitialized) {
+          startNewSession(session.user.id).catch(error => {
+            console.error('Failed to start session, continuing anyway:', error);
+          });
+          isInitialized = true;
+        }
+        
+        if (isMounted) {
+          clearTimeout(loadingTimeout);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Critical error in getSession:', error);
+        if (isMounted) {
+          clearTimeout(loadingTimeout);
+          setLoading(false);
+        }
       }
     };
 
@@ -84,14 +103,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsAdmin(session?.user?.user_metadata?.role === 'super_admin' || session?.user?.user_metadata?.role === 'admin');
       }
       
-      // Handle login/logout activity tracking
+      // Handle login/logout activity tracking (non-blocking)
       if (event === 'SIGNED_IN' && session?.user) {
-        await startNewSession(session.user.id);
+        startNewSession(session.user.id).catch(error => {
+          console.error('Failed to start session on sign in:', error);
+        });
       } else if (event === 'SIGNED_OUT') {
-        await cleanupSession();
+        cleanupSession().catch(error => {
+          console.error('Failed to cleanup session on sign out:', error);
+        });
       }
       
       if (isMounted) {
+        clearTimeout(loadingTimeout);
         setLoading(false);
       }
     });
@@ -99,9 +123,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Cleanup on unmount
     return () => {
       isMounted = false;
+      clearTimeout(loadingTimeout);
       subscription.unsubscribe();
       // Cleanup session on unmount
-      cleanupSession();
+      cleanupSession().catch(error => {
+        console.error('Failed to cleanup session on unmount:', error);
+      });
     };
   }, []);
 

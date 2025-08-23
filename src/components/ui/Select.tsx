@@ -97,17 +97,16 @@ export function Select({
                   {option.prefix && <span className="text-gray-500">{option.prefix}</span>}
                   <span>{option.label}</span>
                   {multiple && (
-                    <button
-                      type="button"
+                    <span
                       onClick={(e) => {
                         e.stopPropagation();
                         const newValue = selectedValues.filter(v => v !== option.value);
                         onChange(multiple ? newValue : newValue[0] || '');
                       }}
-                      className="ml-1 text-gray-400 hover:text-gray-600"
+                      className="ml-1 text-gray-400 hover:text-gray-600 cursor-pointer"
                     >
                       ×
-                    </button>
+                    </span>
                   )}
                 </span>
               ))}
@@ -118,13 +117,12 @@ export function Select({
         </span>
         <div className="flex items-center gap-2">
           {allowClear && selectedOptions.length > 0 && (
-            <button
-              type="button"
+            <div
               onClick={(e) => {
                 e.stopPropagation();
                 onChange('');
               }}
-              className="p-1 hover:bg-gray-100 rounded-full"
+              className="p-1 hover:bg-gray-100 rounded-full cursor-pointer"
             >
               <svg
                 className="w-4 h-4 text-gray-400"
@@ -139,7 +137,7 @@ export function Select({
                   d="M6 18L18 6M6 6l12 12"
                 />
               </svg>
-            </button>
+            </div>
           )}
           <ChevronDown
             className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isOpen ? 'transform rotate-180' : ''}`}

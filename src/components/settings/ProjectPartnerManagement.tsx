@@ -3,7 +3,6 @@ import { supabase } from '../../lib/supabase';
 import { userApi } from '../../lib/api';
 import {  User  } from '../../types/auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '../../lib/queryKeys';
 import { executeQuery } from '../../lib/queries';
 import { useAuth } from '../../lib/auth';
 import { useActivityTracking } from '../../hooks/useActivityTracking';
@@ -26,14 +25,14 @@ interface Partner {
 // Query functions
 const fetchProjects = async (): Promise<Project[]> => {
   const result = await executeQuery(
-    supabase.from('associated_projects').select('*')
+    async () => await supabase.from('associated_projects').select('*')
   );
   return result.data || [];
 };
 
 const fetchPartners = async (): Promise<Partner[]> => {
   const result = await executeQuery(
-    supabase.from('implementing_partners').select('*')
+    async () => await supabase.from('implementing_partners').select('*')
   );
   return result.data || [];
 };
@@ -100,10 +99,10 @@ export function ProjectPartnerManagement() {
       return data;
     },
     onSuccess: (deletedProject) => {
-      trackDelete('project', deletedProject.id, {
+      trackDelete('intervention', deletedProject.id, {
         name: deletedProject.name,
         description: deletedProject.description,
-        entity_type: 'project'
+        entity_type: 'intervention'
       });
       queryClient.invalidateQueries({ queryKey: ['associated_projects'] });
       showSuccess('Project deleted successfully');
@@ -132,9 +131,9 @@ export function ProjectPartnerManagement() {
       return data;
     },
     onSuccess: (deletedPartner) => {
-      trackDelete('partner', deletedPartner.id, {
+      trackDelete('user', deletedPartner.id, {
         name: deletedPartner.name,
-        entity_type: 'partner'
+        entity_type: 'user'
       });
       queryClient.invalidateQueries({ queryKey: ['implementing_partners'] });
       showSuccess('Partner deleted successfully');
@@ -231,11 +230,11 @@ const handleModalSubmit = async (e: React.FormEvent) => {
 
   try {
     const table = modalType === 'project' ? 'associated_projects' : 'implementing_partners';
-    let result;
+// Remove unused result variable since it's not needed
 
     if (editingItem) {
       // Update existing item
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from(table)
         .update(formData)
         .eq('id', editingItem.id)
@@ -243,17 +242,17 @@ const handleModalSubmit = async (e: React.FormEvent) => {
         .single();
 
       if (error) throw error;
-      result = data;
+// Remove line since result variable is not needed and was causing an error
     } else {
       // Create new item
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from(table)
         .insert(formData)
         .select()
         .single();
 
       if (error) throw error;
-      result = data;
+// Remove this line since we don't need to store the result
     }
 
     showSuccess(`${modalType} ${editingItem ? 'updated' : 'created'} successfully`);
