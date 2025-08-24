@@ -22,6 +22,30 @@ interface DashboardItem {
   relatedActions?: DashboardItem[];
 }
 
+// Row types for queries
+type InterventionRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  start_date: string | null;
+  code: string | null;
+  end_date: string | null;
+};
+
+type ActionRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  code: string | null;
+  status: string;
+  start_date: string | null;
+  end_date: string | null;
+  lead_id: string | null;
+  supporting_staff: string[] | null;
+  intervention_id: string | null;
+};
+
 interface FilterState {
   status: string;
   type: string;
@@ -114,50 +138,68 @@ const EmptyState = memo(({ hasFilters, onClearFilters }: { hasFilters: boolean; 
 // Query function for user dashboard items
 const fetchUserDashboardItems = async (userId: string): Promise<DashboardItem[]> => {
   // Fetch interventions where user is lead
-  const interventionsResult = await executeQuery(
-    supabase
+  const interventionsResult = await executeQuery<InterventionRow[]>(async () => {
+    return supabase
       .from('interventions')
       .select('id, name, description, status, start_date, code, end_date')
-      .eq('lead_id', userId)
-  );
+      .eq('lead_id', userId);
+  });
 
   // Fetch actions with intervention details where user is lead or supporting staff
-  const actionsResult = await executeQuery(
-    supabase
+  const actionsResult = await executeQuery<ActionRow[]>(async () => {
+    return supabase
       .from('actions')
-      .select('id, name, description, code, status, start_date, end_date, lead_id, supporting_staff, intervention_id, intervention:interventions(id, name)')
-      .or(`lead_id.eq.${userId},supporting_staff.cs.{${userId}}`)
-  );
+      .select('id, name, description, code, status, start_date, end_date, lead_id, supporting_staff, intervention_id')
+      .or(`lead_id.eq.${userId},supporting_staff.cs.{${userId}}`);
+  });
 
-  const interventions = interventionsResult.data || [];
-  console.log(interventions, 'interventions');
-  const actions = actionsResult.data || [];
-  console.log(actions, 'actions')
-  // Transform data into unified format with relationships
-  const dashboardItems: DashboardItem[] = [
-    ...interventions.map(item => ({
-      ...item,
-      type: 'intervention' as const,
+  const interventions = interventionsResult.data ?? [];
+  const actions = actionsResult.data ?? [];
+
+  const interventionItems: DashboardItem[] = interventions.map((item): DashboardItem => ({
+    id: item.id,
+    name: item.name,
+    description: item.description,
+    code: item.code,
+    status: item.status,
+    start_date: item.start_date,
+    end_date: item.end_date,
+    intervention_id: null,
+    type: 'intervention',
+    role: 'lead',
+    relatedActions: actions
+      .filter((action: ActionRow) => action.intervention_id === item.id)
+      .map((action: ActionRow): DashboardItem => ({
+        id: action.id,
+        name: action.name,
+        description: action.description,
+        code: action.code,
+        status: action.status,
+        start_date: action.start_date,
+        end_date: action.end_date,
+        intervention_id: action.intervention_id,
+        type: 'action',
+        role: action.lead_id === userId ? 'lead' : 'supporting',
+      })),
+  }));
+
+  const standaloneActionItems: DashboardItem[] = actions
+    .filter((action: ActionRow) => !interventions.some((int) => int.id === action.intervention_id))
+    .map((item: ActionRow): DashboardItem => ({
+      id: item.id,
+      name: item.name,
+      description: item.description,
       code: item.code,
-      role: 'lead' as const,
-      relatedActions: actions
-        .filter(action => action.intervention_id === item.id)
-        .map(action => ({
-          ...action,
-          type: 'action' as const,
-          role: action.lead_id === userId ? 'lead' as const : 'supporting' as const
-        }))
-    })),
-    ...actions
-      .filter(action => !interventions.some(int => int.id === action.intervention_id))
-      .map(item => ({
-        ...item,
-        type: 'action' as const,
-        code: item.code,
-        intervention_id: item.intervention_id,
-        role: item.lead_id === userId ? 'lead' as const : 'supporting' as const
-      }))
-  ];
+      status: item.status,
+      start_date: item.start_date,
+      end_date: item.end_date,
+      intervention_id: item.intervention_id,
+      type: 'action',
+      role: item.lead_id === userId ? 'lead' : 'supporting',
+    }));
+
+  // Combine results
+  const dashboardItems: DashboardItem[] = [...interventionItems, ...standaloneActionItems];
 
   return dashboardItems;
 };
@@ -175,8 +217,8 @@ export const UserDashboard = memo(() => {
   });
   
   const [sort, setSort] = useState<SortState>({
-    field: 'start_date',
-    direction: 'desc'
+    field: 'type',
+    direction: 'asc'
   });
   
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -192,15 +234,16 @@ export const UserDashboard = memo(() => {
   }, [filters.search]);
 
   // Use TanStack Query for data fetching with retry logic
-  const { data: items = [], isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery<DashboardItem[]>({
     queryKey: ['userDashboardItems', user?.id],
     queryFn: () => fetchUserDashboardItems(user!.id),
     enabled: !!user?.id,
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
+  const items: DashboardItem[] = data ?? [];
   
   // Memoized callback functions
   const handleFilterChange = useCallback((key: keyof FilterState, value: string) => {
@@ -240,8 +283,8 @@ export const UserDashboard = memo(() => {
   }, []);
 
   // Enhanced filtering and sorting logic
-  const filteredAndSortedItems = useMemo(() => {
-    const filtered = items.filter(item => {
+  const filteredAndSortedItems = useMemo<DashboardItem[]>(() => {
+    const filtered = items.filter((item: DashboardItem) => {
       const statusMatch = filters.status === 'all' || item.status === filters.status;
       const typeMatch = filters.type === 'all' || item.type === filters.type;
       const roleMatch = filters.role === 'all' || item.role === filters.role;
@@ -256,14 +299,14 @@ export const UserDashboard = memo(() => {
     });
     
     // Apply sorting
-    filtered.sort((a, b) => {
-      let aValue: string | Date | number = a[sort.field] as string | Date | number;
-      let bValue: string | Date | number = b[sort.field] as string | Date | number;
+    filtered.sort((a: DashboardItem, b: DashboardItem) => {
+      let aValue: string | number = a[sort.field] as string | number;
+      let bValue: string | number = b[sort.field] as string | number;
       
       // Handle date sorting
       if (sort.field === 'start_date' || sort.field === 'end_date') {
-        aValue = aValue ? new Date(aValue).getTime() : 0;
-        bValue = bValue ? new Date(bValue).getTime() : 0;
+        aValue = aValue ? new Date(aValue as string).getTime() : 0;
+        bValue = bValue ? new Date(bValue as string).getTime() : 0;
       }
       
       // Handle string sorting
@@ -279,7 +322,7 @@ export const UserDashboard = memo(() => {
     
     return filtered;
   }, [items, filters, searchDebounced, sort]);
-  
+
   // Check if any filters are active
   const hasActiveFilters = useMemo(() => {
     return filters.status !== 'all' || 
@@ -307,7 +350,7 @@ export const UserDashboard = memo(() => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header Section */}
         <div className="bg-white rounded-xl shadow-sm p-6">
@@ -538,14 +581,14 @@ export const UserDashboard = memo(() => {
               <div className="mb-4">
                 <h3 
                   id={`item-title-${item.id}`}
-                  className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors"
+                  className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors line-clamp-2"
                 >
                   {item.name}
                 </h3>
                 {item.description && (
                   <p 
                     id={`item-description-${item.id}`}
-                    className="text-gray-600 text-sm leading-relaxed line-clamp-3"
+                    className="text-gray-600 text-sm leading-relaxed line-clamp-2"
                   >
                     {item.description}
                   </p>
@@ -572,10 +615,10 @@ export const UserDashboard = memo(() => {
 
               {/* Action Buttons */}
               <div className="flex flex-wrap gap-2 mb-4" role="group" aria-label="Item actions">
-                {item.type === 'intervention' ? (
+                {item.type === 'action' ? (
                   <>
                     <button
-                      onClick={() => navigate(`/interventions/${item.id}/issues`)}
+                      onClick={() => navigate(`/interventions/${item.intervention_id}/actions/${item.id}#issues`)}
                       className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200 transition-all duration-200 hover:scale-105 hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       aria-label={`View issues for ${item.name}`}
                     >
@@ -583,7 +626,7 @@ export const UserDashboard = memo(() => {
                       Issues
                     </button>
                     <button
-                      onClick={() => navigate(`/interventions/${item.id}/achievements`)}
+                      onClick={() => navigate(`/interventions/${item.intervention_id}/actions/${item.id}#achievements`)}
                       className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200 transition-all duration-200 hover:scale-105 hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       aria-label={`View achievements for ${item.name}`}
                     >
@@ -591,7 +634,7 @@ export const UserDashboard = memo(() => {
                       Achievements
                     </button>
                     <button
-                      onClick={() => navigate(`/interventions/${item.id}/targets`)}
+                      onClick={() => navigate(`/interventions/${item.intervention_id}/actions/${item.id}#targets`)}
                       className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200 transition-all duration-200 hover:scale-105 hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       aria-label={`View targets for ${item.name}`}
                     >
@@ -599,7 +642,7 @@ export const UserDashboard = memo(() => {
                       Targets
                     </button>
                     <button
-                      onClick={() => navigate(`/interventions/${item.id}/comments`)}
+                      onClick={() => navigate(`/interventions/${item.intervention_id}/actions/${item.id}#comments`)}
                       className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200 transition-all duration-200 hover:scale-105 hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       aria-label={`View comments for ${item.name}`}
                     >
@@ -609,7 +652,7 @@ export const UserDashboard = memo(() => {
                   </>
                 ) : (
                   <>
-                    <button
+                    {/* <button
                       onClick={() => navigate(`/actions/${item.id}/issues`)}
                       className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       aria-label={`View issues for ${item.name}`}
@@ -640,14 +683,14 @@ export const UserDashboard = memo(() => {
                     >
                       <MessageSquare className="h-3 w-3 mr-1" aria-hidden="true" />
                       Comments
-                    </button>
+                    </button> */}
                   </>
                 )}
               </div>
               
               {/* View Details Button */}
               <button
-                onClick={() => navigate(item.type === 'intervention' ? `/interventions/${item.id}` : `/actions/${item.intervention_id}`)}
+                onClick={() => navigate(item.type === 'intervention' ? `/interventions/${item.id}` : `/interventions/${item.intervention_id}/actions/${item.id}`)}
                 className="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 hover:scale-105 hover:shadow-sm"
                 aria-label={`View details for ${item.name}`}
               >
@@ -730,7 +773,7 @@ export const UserDashboard = memo(() => {
                           
                           <div className="flex flex-wrap gap-1" role="group" aria-label={`Actions for ${action.name}`}>
                             <button
-                              onClick={() => navigate(`/actions/${action.id}/issues`)}
+                              onClick={() => navigate(`/interventions/${item.intervention_id}/actions/${action.id}#issues`)}
                               className="inline-flex items-center px-2 py-1 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none"
                               aria-label={`View issues for ${action.name}`}
                             >
@@ -738,7 +781,7 @@ export const UserDashboard = memo(() => {
                               Issues
                             </button>
                             <button
-                              onClick={() => navigate(`/actions/${action.id}/achievements`)}
+                              onClick={() => navigate(`/interventions/${item.intervention_id}/actions/${action.id}#achievements`)}
                               className="inline-flex items-center px-2 py-1 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 transition-colors focus:ring-2 focus:ring-green-500 focus:outline-none"
                               aria-label={`View achievements for ${action.name}`}
                             >
@@ -746,7 +789,7 @@ export const UserDashboard = memo(() => {
                               Achievements
                             </button>
                             <button
-                              onClick={() => navigate(`/actions/${action.id}/targets`)}
+                              onClick={() => navigate(`/interventions/${item.intervention_id}/actions/${action.id}#targets`)}
                               className="inline-flex items-center px-2 py-1 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 transition-colors focus:ring-2 focus:ring-purple-500 focus:outline-none"
                               aria-label={`View targets for ${action.name}`}
                             >
@@ -754,7 +797,7 @@ export const UserDashboard = memo(() => {
                               Targets
                             </button>
                             <button
-                              onClick={() => navigate(`/actions/${action.id}/comments`)}
+                              onClick={() => navigate(`/interventions/${item.intervention_id}/actions/${action.id}#comments`)}
                               className="inline-flex items-center px-2 py-1 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 transition-colors focus:ring-2 focus:ring-orange-500 focus:outline-none"
                               aria-label={`View comments for ${action.name}`}
                             >
