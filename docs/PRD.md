@@ -111,11 +111,13 @@ The system provides end-to-end management of clusters, pathways, interventions, 
 - Create and manage actions within interventions
 - Assign action leads and supporting staff
 - Track action status and progress
-- Task management within actions
+- Manager achievements
+- Manager Issues, Needs and target(jobs, other)
+- Comments on actions
 
 #### User Stories
-1. As an Action Lead, I want to create and assign tasks
-2. As a Team Member, I want to update task progress
+1. As an Action Lead, I want to create and assign supporting staffs
+2. As a Team Member, I want to update achievements, issues, need and targets
 3. As a Project Manager, I want to view action analytics
 
 #### Acceptance Criteria

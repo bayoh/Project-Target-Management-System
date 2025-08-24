@@ -1,12 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
-import { useActivityTracking } from '../../hooks/useActivityTracking';
 import { Search, Filter, Download, Eye, Calendar, Users, Activity, CalendarDays } from 'lucide-react';
 import UserActivityDetail from '../../components/admin/UserActivityDetail';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../lib/queryKeys';
 import { executeQuery } from '../../lib/queries';
+// Add shared UI imports
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/Input';
+import { Select as UiSelect } from '../../components/ui/Select';
+import { Badge } from '../../components/ui/badge';
+import { Card, CardContent } from '../../components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
 
 interface UserActivitySummary {
   user_id: string;
@@ -34,7 +40,6 @@ interface ActivityFilters {
 
 const UserActivity: React.FC = () => {
   const { user, isAdmin } = useAuth();
-  const { trackPageView } = useActivityTracking();
   const [filters, setFilters] = useState<ActivityFilters>({
     search: '',
     role: '',
@@ -49,7 +54,7 @@ const UserActivity: React.FC = () => {
   const [sortField, setSortField] = useState<keyof UserActivitySummary>('last_activity');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(10);
 
   // Fetch user activity data using TanStack Query
   const { data: users = [], isLoading: loading, error } = useQuery({
@@ -166,6 +171,15 @@ const UserActivity: React.FC = () => {
     return { status: 'inactive', color: 'bg-red-500', text: 'Inactive' };
   };
 
+  // Quick summary counts for segmented controls
+  const statusCounts = useMemo(() => {
+    const all = users.length;
+    const active = users.filter(u => getActivityStatus(u.last_activity).status === 'active').length;
+    const moderate = users.filter(u => getActivityStatus(u.last_activity).status === 'moderate').length;
+    const inactive = users.filter(u => getActivityStatus(u.last_activity).status === 'inactive').length;
+    return { all, active, moderate, inactive };
+  }, [users]);
+
   // Format date helper
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Never';
@@ -239,58 +253,85 @@ const UserActivity: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-80">
+    <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-4 py-4">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">User Activity Dashboard</h1>
+        <div className="mb-4">
+          <h1 className="text-3xl font-bold text-gray-900 mb-1">User Activity Dashboard</h1>
           <p className="text-gray-600">Monitor user engagement and system usage</p>
         </div>
 
+        {/* Segmented controls for Active/Inactive */}
+        {/* <Card className="mb-6">
+          <CardContent className="py-4">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={filters.activityStatus === '' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilters({ ...filters, activityStatus: '' })}
+              >
+                All <Badge className="ml-2" variant="secondary">{statusCounts.all}</Badge>
+              </Button>
+              <Button
+                variant={filters.activityStatus === 'active' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilters({ ...filters, activityStatus: 'active' })}
+              >
+                Active <Badge className="ml-2" variant="secondary">{statusCounts.active}</Badge>
+              </Button>
+              <Button
+                variant={filters.activityStatus === 'moderate' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilters({ ...filters, activityStatus: 'moderate' })}
+              >
+                Moderate <Badge className="ml-2" variant="secondary">{statusCounts.moderate}</Badge>
+              </Button>
+              <Button
+                variant={filters.activityStatus === 'inactive' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilters({ ...filters, activityStatus: 'inactive' })}
+              >
+                Inactive <Badge className="ml-2" variant="secondary">{statusCounts.inactive}</Badge>
+              </Button>
+            </div>
+          </CardContent>
+        </Card> */}
+
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center">
-              <Users className="h-8 w-8 text-blue-500" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Users</p>
-                <p className="text-2xl font-bold text-gray-900">{users.length}</p>
+              <Users className="h-6 w-6 text-blue-500" />
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-600">Total Users</p>
+                <p className="text-xl font-bold text-gray-900">{users.length}</p>
               </div>
             </div>
           </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center">
-              <Activity className="h-8 w-8 text-green-500" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Active Users</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {users.filter(u => getActivityStatus(u.last_activity).status === 'active').length}
-                </p>
+              <Activity className="h-6 w-6 text-green-500" />
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-600">Active Users</p>
+                <p className="text-xl font-bold text-gray-900">{statusCounts.active}</p>
               </div>
             </div>
           </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center">
-              <Calendar className="h-8 w-8 text-yellow-500" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Recent Users</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {users.filter(u => ['active', 'recent'].includes(getActivityStatus(u.last_activity).status)).length}
-                </p>
+              <Calendar className="h-6 w-6 text-yellow-500" />
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-600">Recent Users</p>
+                <p className="text-xl font-bold text-gray-900">{users.filter(u => ['active', 'recent'].includes(getActivityStatus(u.last_activity).status)).length}</p>
               </div>
             </div>
           </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center">
-              <Eye className="h-8 w-8 text-red-500" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Inactive Users</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {users.filter(u => getActivityStatus(u.last_activity).status === 'inactive').length}
-                </p>
+              <Eye className="h-6 w-6 text-red-500" />
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-600">Inactive Users</p>
+                <p className="text-xl font-bold text-gray-900">{statusCounts.inactive}</p>
               </div>
             </div>
           </div>
@@ -303,99 +344,91 @@ const UserActivity: React.FC = () => {
               <Filter className="h-5 w-5 text-gray-500 mr-2" />
               <h3 className="text-lg font-medium text-gray-900">Advanced Filters</h3>
             </div>
-            
             {/* First row of filters */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
               {/* Search */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
+                <Input
                   placeholder="Search users..."
-                  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   value={filters.search}
                   onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                  className="pl-10"
+                  icon={<Search className="h-4 w-4 text-gray-400" />}
                 />
               </div>
 
               {/* Role Filter */}
-              <select
-                className="px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              <UiSelect
+                options={[
+                  { value: '', label: 'All Roles' },
+                  { value: 'super_admin', label: 'Super Admin' },
+                  { value: 'leadership', label: 'Leadership' },
+                  { value: 'lead', label: 'Lead' },
+                  { value: 'supporting_staff', label: 'Supporting Staff' },
+                ]}
                 value={filters.role}
-                onChange={(e) => setFilters({ ...filters, role: e.target.value })}
-              >
-                <option value="">All Roles</option>
-                <option value="super_admin">Super Admin</option>
-                <option value="leadership">Leadership</option>
-                <option value="lead">Lead</option>
-                <option value="supporting_staff">Supporting Staff</option>
-              </select>
+                onChange={(val) => setFilters({ ...filters, role: Array.isArray(val) ? (val[0] || '') : (val || '') })}
+              />
 
               {/* Activity Status Filter */}
-              <select
-                className="px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              <UiSelect
+                options={[
+                  { value: '', label: 'All Activity Levels' },
+                  { value: 'active', label: 'Active (Last 7 days)' },
+                  { value: 'moderate', label: 'Moderate (7-30 days)' },
+                  { value: 'inactive', label: 'Inactive (30+ days)' },
+                ]}
                 value={filters.activityStatus}
-                onChange={(e) => setFilters({ ...filters, activityStatus: e.target.value })}
-              >
-                <option value="">All Activity Levels</option>
-                <option value="active">Active (Last 7 days)</option>
-                <option value="moderate">Moderate (7-30 days)</option>
-                <option value="inactive">Inactive (30+ days)</option>
-              </select>
+                onChange={(val) => setFilters({ ...filters, activityStatus: Array.isArray(val) ? (val[0] || '') : (val || '') })}
+              />
 
               {/* Page Size */}
-              <select
-                className="px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
+              <UiSelect
+                options={[
+                  { value: '10', label: '10 per page' },
+                  { value: '20', label: '20 per page' },
+                  { value: '50', label: '50 per page' },
+                  { value: '100', label: '100 per page' },
+                ]}
+                value={String(pageSize)}
+                onChange={(val) => {
+                  const v = Array.isArray(val) ? (val[0] || '20') : (val || '20');
+                  setPageSize(Number(v));
                   setCurrentPage(1);
                 }}
-              >
-                <option value={10}>10 per page</option>
-                <option value={20}>20 per page</option>
-                <option value={50}>50 per page</option>
-                <option value={100}>100 per page</option>
-              </select>
+              />
             </div>
 
             {/* Second row of filters */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {/* Custom Date Range Start */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Activity From
-                </label>
-                <div className="relative">
-                  <CalendarDays className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="date"
-                    className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={filters.customDateStart}
-                    onChange={(e) => setFilters({ ...filters, customDateStart: e.target.value })}
-                  />
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Activity From</label>
+                <Input
+                  type="date"
+                  value={filters.customDateStart}
+                  onChange={(e) => setFilters({ ...filters, customDateStart: e.target.value })}
+                  className="pl-10"
+                  icon={<CalendarDays className="h-4 w-4 text-gray-400" />}
+                />
               </div>
 
               {/* Custom Date Range End */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Activity To
-                </label>
-                <div className="relative">
-                  <CalendarDays className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="date"
-                    className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={filters.customDateEnd}
-                    onChange={(e) => setFilters({ ...filters, customDateEnd: e.target.value })}
-                  />
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Activity To</label>
+                <Input
+                  type="date"
+                  value={filters.customDateEnd}
+                  onChange={(e) => setFilters({ ...filters, customDateEnd: e.target.value })}
+                  className="pl-10"
+                  icon={<CalendarDays className="h-4 w-4 text-gray-400" />}
+                />
               </div>
 
               {/* Clear Filters */}
               <div className="flex items-end">
-                <button
+                <Button
+                  variant="outline"
                   onClick={() => {
                     setFilters({
                       search: '',
@@ -408,21 +441,18 @@ const UserActivity: React.FC = () => {
                     });
                     setCurrentPage(1);
                   }}
-                  className="w-full flex items-center justify-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                  className="w-full"
                 >
                   Clear Filters
-                </button>
+                </Button>
               </div>
 
               {/* Export Button */}
               <div className="flex items-end">
-                <button
-                  onClick={handleExport}
-                  className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                >
+                <Button onClick={handleExport} className="w-full">
                   <Download className="h-4 w-4 mr-2" />
                   Export CSV
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -441,12 +471,13 @@ const UserActivity: React.FC = () => {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+              <TooltipProvider>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
                       <th 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        className="px-3 py-2 sm:px-4 sm:py-2.5 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                         onClick={() => handleSort('name')}
                       >
                         User
@@ -455,7 +486,7 @@ const UserActivity: React.FC = () => {
                         )}
                       </th>
                       <th 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        className="px-3 py-2 sm:px-4 sm:py-2.5 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 hidden md:table-cell"
                         onClick={() => handleSort('role')}
                       >
                         Role
@@ -464,7 +495,7 @@ const UserActivity: React.FC = () => {
                         )}
                       </th>
                       <th 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        className="px-3 py-2 sm:px-4 sm:py-2.5 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 hidden sm:table-cell"
                         onClick={() => handleSort('last_login')}
                       >
                         Last Login
@@ -473,7 +504,7 @@ const UserActivity: React.FC = () => {
                         )}
                       </th>
                       <th 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        className="px-3 py-2 sm:px-4 sm:py-2.5 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                         onClick={() => handleSort('last_activity')}
                       >
                         Last Activity
@@ -481,8 +512,11 @@ const UserActivity: React.FC = () => {
                           <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
                         )}
                       </th>
+                      <th className="px-3 py-2 sm:px-4 sm:py-2.5 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">
+                        Top Action
+                      </th>
                       <th 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        className="px-3 py-2 sm:px-4 sm:py-2.5 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 hidden lg:table-cell"
                         onClick={() => handleSort('total_activities_30d')}
                       >
                         30-Day Activities
@@ -490,40 +524,68 @@ const UserActivity: React.FC = () => {
                           <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
                         )}
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-2 sm:px-4 sm:py-2.5 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-2 sm:px-4 sm:py-2.5 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {paginatedUsers.map((user: UserActivitySummary) => {
-                
                       const activityStatus = getActivityStatus(user.last_activity);
                       return (
-                        <tr key={user.user_id} className="hover:bg-gray-50">
+                        <tr key={user.user_id} className={`hover:bg-gray-50 ${activityStatus.status === 'inactive' ? 'bg-red-50' : activityStatus.status === 'active' ? 'bg-green-50/40' : ''}`}>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {user.name || 'Unknown'}
+                            <div className="flex items-start">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className={`mt-1 mr-2 inline-block w-2 h-2 rounded-full ${activityStatus.color}`}></span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="bg-gray-900 text-white text-xs px-2 py-1 rounded">
+                                  <p>{activityStatus.text}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <div>
+                                <div className="text-sm font-medium text-gray-900 max-w-[10rem] sm:max-w-[12rem] md:max-w-[14rem] lg:max-w-[16rem] truncate">
+                                  {user.name || 'Unknown'}
+                                </div>
+                                <div className="text-sm text-gray-500 max-w-[12rem] sm:max-w-[16rem] md:max-w-[20rem] lg:max-w-[24rem] truncate">{user.email}</div>
+                                <div className="sm:hidden text-xs text-gray-500 mt-1">
+                                  <span className="font-medium">{user.role || 'user'}</span>
+                                  <span className="mx-1">•</span>
+                                  <span>Last login: {formatDate(user.last_login)}</span>
+                                </div>
                               </div>
-                              <div className="text-sm text-gray-500">{user.email}</div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-nowrap hidden md:table-cell">
                             <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                               {user.role || 'user'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden sm:table-cell">
                             {formatDate(user.last_login)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {formatDate(user.last_activity)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden xl:table-cell">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-block max-w-[16rem] 2xl:max-w-[20rem] truncate align-top">
+                                  {user.most_common_action || '—'}
+                                </span>
+                              </TooltipTrigger>
+                              {user.most_common_action && (
+                                <TooltipContent side="top" className="bg-gray-900 text-white text-xs px-2 py-1 rounded">
+                                  <p>{user.most_common_action}</p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden lg:table-cell">
                             {user.total_activities_30d || 0}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -532,13 +594,14 @@ const UserActivity: React.FC = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => handleViewUserDetail(user)}
-                              className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             >
                               <Eye className="h-4 w-4 mr-1" />
                               View Details
-                            </button>
+                            </Button>
                           </td>
                         </tr>
                       );
@@ -551,68 +614,66 @@ const UserActivity: React.FC = () => {
               {totalPages > 1 && (
                 <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
                   <div className="flex-1 flex justify-between sm:hidden">
-                    <button
+                    <Button
+                      variant="outline"
                       onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                       disabled={currentPage === 1}
-                      className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Previous
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="outline"
                       onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                       disabled={currentPage === totalPages}
-                      className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="ml-3"
                     >
                       Next
-                    </button>
+                    </Button>
                   </div>
                   <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm text-gray-700">
                         Showing <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span> to{' '}
-                        <span className="font-medium">
-                          {Math.min(currentPage * pageSize, filteredAndSortedUsers.length)}
-                        </span>{' '}
+                        <span className="font-medium">{Math.min(currentPage * pageSize, filteredAndSortedUsers.length)}</span>{' '}
                         of <span className="font-medium">{filteredAndSortedUsers.length}</span> results
                       </p>
                     </div>
                     <div>
                       <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                        <button
+                        <Button
+                          variant="outline"
                           onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                           disabled={currentPage === 1}
-                          className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="rounded-l-md"
                         >
                           Previous
-                        </button>
+                        </Button>
                         {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                           const page = i + 1;
                           return (
-                            <button
+                            <Button
                               key={page}
+                              variant={currentPage === page ? 'default' : 'outline'}
                               onClick={() => setCurrentPage(page)}
-                              className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                                currentPage === page
-                                  ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                                  : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                              }`}
                             >
                               {page}
-                            </button>
+                            </Button>
                           );
                         })}
-                        <button
+                        <Button
+                          variant="outline"
                           onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                           disabled={currentPage === totalPages}
-                          className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="rounded-r-md"
                         >
                           Next
-                        </button>
+                        </Button>
                       </nav>
                     </div>
                   </div>
                 </div>
               )}
+              </TooltipProvider>
             </>
           )}
         </div>

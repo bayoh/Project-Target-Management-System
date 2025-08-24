@@ -127,7 +127,7 @@ const ActivityAnalytics: React.FC<ActivityAnalyticsProps> = ({ dateRange = 30 })
       const inactiveUsers = userStats?.filter(u => {
         if (!u.last_activity) return true;
         const daysSince = Math.floor((Date.now() - new Date(u.last_activity).getTime()) / (1000 * 60 * 60 * 24));
-        return daysSince > 30;
+        return daysSince > 7;
       }).length || 0;
 
       // Process activity trends by day

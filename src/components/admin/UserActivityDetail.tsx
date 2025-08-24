@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { X, Calendar, Clock, User, FileText, Activity, Download } from 'lucide-react';
+import { X, Calendar, Clock, User, FileText, Activity, Download, ArrowRight } from 'lucide-react';
+import { Modal, ModalContent, ModalHeader, ModalTitle, ModalDescription, ModalFooter } from '../ui/Modal';
+import { Button } from '../ui/button';
+import { Select } from '../ui/Select';
 
 interface ActivityLog {
   id: string;
@@ -147,6 +150,63 @@ const UserActivityDetail: React.FC<UserActivityDetailProps> = ({
     };
   };
 
+  // Format any value (primitive or object) for display
+  const formatValue = (val: any) => {
+    if (val === null || val === undefined) return '—';
+    if (typeof val === 'string') return val;
+    try {
+      return JSON.stringify(val, null, 2);
+    } catch {
+      return String(val);
+    }
+  };
+
+  // Extract change entries from diverse metadata shapes
+  const extractChanges = (metadata: any): Array<{ field: string; before: any; after: any }> => {
+    const changes: Array<{ field: string; before: any; after: any }> = [];
+    if (!metadata || typeof metadata !== 'object') return changes;
+
+    // 1) Prefer explicit metadata.changes
+    const metaChanges = metadata.changes;
+    if (metaChanges && typeof metaChanges === 'object') {
+      Object.entries(metaChanges).forEach(([field, changeVal]) => {
+        if (Array.isArray(changeVal) && changeVal.length === 2) {
+          changes.push({ field, before: changeVal[0], after: changeVal[1] });
+        } else if (changeVal && typeof changeVal === 'object') {
+          const beforeKey = ['previous', 'before', 'old', 'old_value', 'from', 'prev', 'previous_value'].find(k => k in (changeVal as any));
+          const afterKey = ['new', 'after', 'current', 'new_value', 'to', 'next'].find(k => k in (changeVal as any));
+          if (beforeKey || afterKey) {
+            changes.push({ field, before: (changeVal as any)[beforeKey as string], after: (changeVal as any)[afterKey as string] });
+          }
+        }
+      });
+    }
+
+    // 2) Fallback: match key pairs like women_previous_value / women_new_value, youth_previous_value / youth_new_value, etc.
+    const prevPattern = /^(.*)_(previous|old|before)(?:_value)?$/;
+    const nextPattern = /^(.*)_(new|after|current)(?:_value)?$/;
+    const seenFields = new Set(changes.map(c => c.field));
+
+    const prevMap: Record<string, any> = {};
+    const nextMap: Record<string, any> = {};
+
+    Object.entries(metadata).forEach(([k, v]) => {
+      const pm = k.match(prevPattern);
+      const nm = k.match(nextPattern);
+      if (pm) prevMap[pm[1]] = v;
+      if (nm) nextMap[nm[1]] = v;
+    });
+
+    Object.keys({ ...prevMap, ...nextMap }).forEach(base => {
+      if (seenFields.has(base)) return;
+      if (prevMap[base] !== undefined || nextMap[base] !== undefined) {
+        changes.push({ field: base, before: prevMap[base], after: nextMap[base] });
+      }
+    });
+
+    return changes;
+  };
+
   const exportUserActivities = () => {
     const csvContent = [
       ['Timestamp', 'Action', 'Entity Type', 'Entity ID', 'IP Address'].join(','),
@@ -170,26 +230,62 @@ const UserActivityDetail: React.FC<UserActivityDetailProps> = ({
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
-  if (!isOpen) return null;
+  // Options for Select components
+  const dateRangeOptions = [
+    { value: '7', label: 'Last 7 days' },
+    { value: '30', label: 'Last 30 days' },
+    { value: '90', label: 'Last 90 days' },
+    { value: '365', label: 'Last year' },
+  ];
+
+  const entityOptions = [
+    { value: '', label: 'All Entities' },
+    { value: 'navigation', label: 'Navigation' },
+    { value: 'cluster', label: 'Cluster' },
+    { value: 'pathway', label: 'Pathway' },
+    { value: 'intervention', label: 'Intervention' },
+    { value: 'action', label: 'Action' },
+    { value: 'task', label: 'Task' },
+    { value: 'indicator', label: 'Indicator' },
+    { value: 'indicator_report', label: 'Indicator Report' },
+    { value: 'user', label: 'User' },
+  ];
+
+  const actionOptions = [
+    { value: '', label: 'All Actions' },
+    { value: 'login', label: 'Login' },
+    { value: 'logout', label: 'Logout' },
+    { value: 'create', label: 'Create' },
+    { value: 'update', label: 'Update' },
+    { value: 'delete', label: 'Delete' },
+    { value: 'view', label: 'View' },
+  ];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+    <Modal
+      open={isOpen}
+      onOpenChange={(open) => { if (!open) onClose(); }}
+      size="xl"
+      overlayClassName="p-4"
+    >
+      <ModalContent className="flex min-h-0 flex-col -m-6">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <ModalHeader className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">User Activity Details</h2>
-            <p className="text-gray-600 mt-1">
+            <ModalTitle className="text-2xl">User Activity Details</ModalTitle>
+            <ModalDescription className="mt-1">
               {userName} ({userEmail})
-            </p>
+            </ModalDescription>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Close"
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
-            <X className="h-6 w-6 text-gray-500" />
-          </button>
-        </div>
+            <X className="h-5 w-5 text-gray-500" />
+          </Button>
+        </ModalHeader>
 
         {/* Filters */}
         <div className="p-6 border-b border-gray-200 bg-gray-50">
@@ -198,76 +294,50 @@ const UserActivityDetail: React.FC<UserActivityDetailProps> = ({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Date Range
               </label>
-              <select
+              <Select
+                options={dateRangeOptions}
                 value={dateRange}
-                onChange={(e) => {
-                  setDateRange(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="7">Last 7 days</option>
-                <option value="30">Last 30 days</option>
-                <option value="90">Last 90 days</option>
-                <option value="365">Last year</option>
-              </select>
+                onChange={(v) => { setDateRange(String(v)); setCurrentPage(1); }}
+                className="w-full"
+                sortable
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Entity Type
               </label>
-              <select
+              <Select
+                options={entityOptions}
                 value={entityFilter}
-                onChange={(e) => {
-                  setEntityFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">All Entities</option>
-                <option value="navigation">Navigation</option>
-                <option value="cluster">Cluster</option>
-                <option value="pathway">Pathway</option>
-                <option value="intervention">Intervention</option>
-                <option value="action">Action</option>
-                <option value="task">Task</option>
-                <option value="indicator">Indicator</option>
-                <option value="indicator_report">Indicator Report</option>
-                <option value="user">User</option>
-              </select>
+                onChange={(v) => { setEntityFilter(String(v)); setCurrentPage(1); }}
+                className="w-full"
+                allowClear
+                searchable
+                sortable
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Action Type
               </label>
-              <select
+              <Select
+                options={actionOptions}
                 value={actionFilter}
-                onChange={(e) => {
-                  setActionFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">All Actions</option>
-                <option value="login">Login</option>
-                <option value="logout">Logout</option>
-                <option value="create">Create</option>
-                <option value="update">Update</option>
-                <option value="delete">Delete</option>
-                <option value="view">View</option>
-              </select>
+                onChange={(v) => { setActionFilter(String(v)); setCurrentPage(1); }}
+                className="w-full"
+                allowClear
+                searchable
+                sortable
+              />
             </div>
 
             <div className="flex items-end">
-              <button
-                onClick={exportUserActivities}
-                className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              >
+              <Button onClick={exportUserActivities} className="w-full">
                 <Download className="h-4 w-4 mr-2" />
                 Export
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -282,12 +352,7 @@ const UserActivityDetail: React.FC<UserActivityDetailProps> = ({
           ) : error ? (
             <div className="text-center py-12">
               <p className="text-red-600 mb-4">{error}</p>
-              <button
-                onClick={fetchUserActivities}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Retry
-              </button>
+              <Button onClick={fetchUserActivities}>Retry</Button>
             </div>
           ) : activities.length === 0 ? (
             <div className="text-center py-12">
@@ -353,11 +418,44 @@ const UserActivityDetail: React.FC<UserActivityDetailProps> = ({
                                 IP: {activity.ip_address}
                               </p>
                             )}
+
+                            {/* Detailed change history for updates */}
+                            {activity.action_type === 'update' && (
+                              (() => {
+                                const changeEntries = extractChanges(activity.metadata);
+                                if (changeEntries.length === 0) return null;
+                                return (
+                                  <div className="mt-3">
+                                    <p className="text-sm font-semibold text-gray-800">Changes</p>
+                                    <div className="mt-2 space-y-2">
+                                      {changeEntries.map((ch, idx) => (
+                                        <div key={idx} className="rounded-md border border-gray-200 p-2 bg-gray-50">
+                                          <div className="text-xs font-medium text-gray-600 mb-1">
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">{ch.field}</span>
+                                          </div>
+                                          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] sm:items-start gap-2">
+                                            <pre className="whitespace-pre-wrap break-words text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2 overflow-auto max-h-32">
+                                              {formatValue(ch.before)}
+                                            </pre>
+                                            <div className="hidden sm:flex items-center justify-center text-gray-500">
+                                              <ArrowRight className="w-4 h-4" />
+                                            </div>
+                                            <pre className="whitespace-pre-wrap break-words text-xs text-green-700 bg-green-50 border border-green-200 rounded p-2 overflow-auto max-h-32">
+                                              {formatValue(ch.after)}
+                                            </pre>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })()
+                            )}
                             
                             {activity.metadata && Object.keys(activity.metadata).length > 0 && (
                               <details className="mt-2">
                                 <summary className="cursor-pointer text-blue-600 hover:text-blue-800">
-                                  View metadata
+                                  View raw metadata
                                 </summary>
                                 <pre className="mt-2 text-xs bg-gray-50 p-2 rounded overflow-x-auto">
                                   {JSON.stringify(activity.metadata, null, 2)}
@@ -377,35 +475,35 @@ const UserActivityDetail: React.FC<UserActivityDetailProps> = ({
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
-            <div className="flex items-center justify-between">
+          <ModalFooter className="border-t border-gray-200 px-6 py-4 bg-gray-50 sticky bottom-0">
+            <div className="flex w-full items-center justify-between">
               <div className="text-sm text-gray-700">
                 Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} activities
               </div>
               <div className="flex items-center space-x-2">
-                <button
+                <Button
+                  variant="outline"
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
-                  className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
-                </button>
+                </Button>
                 <span className="text-sm text-gray-700">
                   Page {currentPage} of {totalPages}
                 </span>
-                <button
+                <Button
+                  variant="outline"
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
-                </button>
+                </Button>
               </div>
             </div>
-          </div>
+          </ModalFooter>
         )}
-      </div>
-    </div>
+      </ModalContent>
+    </Modal>
   );
 };
 
