@@ -72,7 +72,7 @@
       "title": "Progress Tracking",
       "content": [
         "Monitor intervention progress through:",
-        "- Status indicators (Not Started, In Progress, At Risk, Completed)",
+        "- Status indicators (Not Started, On Track, Off Track, Completed)",
         "- Progress percentage tracking",
         "- Timeline visualization",
         "- Budget utilization tracking",
@@ -174,7 +174,7 @@
       "title": "Progress Monitoring",
       "content": [
         "Track action progress through:",
-        "- Status updates (Not Started, In Progress, At Risk, Completed)",
+        "- Status updates (Not Started, On Track, Off Track, Completed)",
         "- Task completion tracking",
         "- Performance indicator measurements",
         "- Timeline adherence monitoring",

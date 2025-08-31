@@ -89,7 +89,7 @@ export function NeedForm({ onSubmit, onCancel, need }: NeedFormProps) {
           <Select
           options={[
             { value: 'open', label: 'Open' },
-            { value: 'in_progress', label: 'In Progress' },
+            { value: 'on_track', label: 'On Track' },
             { value: 'fulfilled', label: 'Fulfilled' },
           ]}
           value={formData.status}

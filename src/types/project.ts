@@ -1,5 +1,7 @@
-export type ProjectStatus = 'not_started' | 'in_progress' | 'at_risk' | 'completed';
-export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'delayed';
+export type ProjectStatus = 'not_started' | 'on_track' | 'off_track' | 'completed';
+export type TaskStatus = 'not_started' | 'on_track' | 'off_track' | 'completed';
+export type LegacyProjectStatus = 'not_started' | 'in_progress' | 'at_risk' | 'completed';
+export type LegacyTaskStatus = 'not_started' | 'in_progress' | 'at_risk' | 'completed';
 export type IndicatorType = 'quantitative' | 'qualitative';
 
 export interface BaseEntity {
@@ -98,7 +100,41 @@ export interface IndicatorReport extends BaseEntity {
 }
 
 export interface User extends BaseEntity {
-  full_name: string;
   email: string;
-  role: string;
+  full_name: string;
+  role: 'super_admin' | 'admin' | 'user';
+}
+
+export type EntityType = 'issue' | 'need' | 'target' | 'achievement';
+
+export interface TargetSummary {
+  total: number;
+  completed: number;
+  off_track: number;
+  on_track: number;
+  at_risk?: number;
+  in_progress?: number;
+  categories: Record<string, number>;
+  averageProgress: number;
+}
+
+export interface ProjectFilters extends Record<string, unknown> {
+  status?: ProjectStatus;
+  cluster_id?: string;
+  search?: string;
+}
+
+export interface ClusterFilters extends Record<string, unknown> {
+  search?: string;
+}
+
+export interface PathwayFilters extends Record<string, unknown> {
+  cluster_id?: string;
+  search?: string;
+}
+
+export interface TargetFilters extends Record<string, unknown> {
+  pathway_id?: string;
+  status?: ProjectStatus;
+  search?: string;
 }

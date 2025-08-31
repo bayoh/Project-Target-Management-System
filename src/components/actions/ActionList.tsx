@@ -133,8 +133,8 @@ export function ActionList({ actions, interventionId, onActionUpdate, users , sh
             >
               <option value="">All Statuses</option>
               <option value="not_started">Not Started</option>
-              <option value="in_progress">In Progress</option>
-              <option value="at_risk">At Risk</option>
+              <option value="on_track">On Track</option>
+                <option value="off_track">Off Track</option>
               <option value="completed">Completed</option>
             </select>
           </div>
@@ -261,8 +261,8 @@ export function ActionList({ actions, interventionId, onActionUpdate, users , sh
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                     action.status === 'completed' ? 'bg-green-100 text-green-800' :
-                    action.status === 'at_risk' ? 'bg-red-100 text-red-800' :
-                    action.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                    action.status === 'off_track' ? 'bg-red-100 text-red-800' :
+                    action.status === 'on_track' ? 'bg-blue-100 text-blue-800' :
                     'bg-gray-100 text-gray-800'
                   }`}>
                     {action.status.replace('_', ' ')}

@@ -35,9 +35,9 @@ const getStatusColor = (status: string) => {
   switch (status) {
     case 'completed':
       return 'bg-green-50 text-green-700 border-green-200';
-    case 'in_progress':
+    case 'on_track':
       return 'bg-blue-50 text-blue-700 border-blue-200';
-    case 'at_risk':
+    case 'off_track':
       return 'bg-red-50 text-red-700 border-red-200';
     case 'not_started':
       return 'bg-gray-50 text-gray-700 border-gray-200';
@@ -50,10 +50,10 @@ const getStatusLabel = (status: string) => {
   switch (status) {
     case 'completed':
       return 'Completed';
-    case 'in_progress':
-      return 'In Progress';
-    case 'at_risk':
-      return 'At Risk';
+    case 'on_track':
+      return 'On Track';
+    case 'off_track':
+      return 'Off Track';
     case 'not_started':
       return 'Not Started';
     default:

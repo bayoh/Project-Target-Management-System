@@ -361,7 +361,7 @@ export function IssueDashboard() {
               options={[
                 { value: 'all', label: 'All Statuses' },
                 { value: 'open', label: 'Open' },
-                { value: 'in_progress', label: 'In Progress' },
+                { value: 'on_track', label: 'On Track' },
                 { value: 'resolved', label: 'Resolved' },
                 { value: 'closed', label: 'Closed' },
               ]}

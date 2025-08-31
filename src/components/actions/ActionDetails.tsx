@@ -700,7 +700,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
               <h3 className="text-lg font-semibold text-gray-900">Risk Assessment</h3>
             </div>
             <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-              Is the action no longer at risk? If yes, the action status will be updated to 'In Progress'.
+              Is the action no longer off track? If yes, the action status will be updated to 'On Track'.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
               <Button
@@ -709,14 +709,14 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                 onClick={() => handleConfirmRiskAssessment(false)}
                 className="w-full sm:w-auto order-2 sm:order-1"
               >
-                No, Still at Risk
+                No, Still Off Track
               </Button>
               <Button
                 type="button"
                 onClick={() => handleConfirmRiskAssessment(true)}
                 className="w-full sm:w-auto order-1 sm:order-2 bg-green-600 hover:bg-green-700 text-white"
               >
-                Yes, No Longer at Risk
+                Yes, No Longer Off Track
               </Button>
             </div>
           </div>
@@ -769,8 +769,8 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                 <h4 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Status</h4>
                 <span className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-full ${
                   action.status === 'completed' ? 'bg-green-100 text-green-800' :
-                  action.status === 'at_risk' ? 'bg-red-100 text-red-800' :
-                  action.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                  action.status === 'off_track' ? 'bg-red-100 text-red-800' :
+                  action.status === 'on_track' ? 'bg-blue-100 text-blue-800' :
                   'bg-gray-100 text-gray-800'
                 }`}>
                   {action.status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}

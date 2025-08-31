@@ -28,7 +28,7 @@ interface ConfirmationState {
   isOpen: boolean;
   type: 'delete' | 'status';
   actionId: string;
-  newStatus?: 'completed' | 'in_progress' | 'at_risk' | 'not_started';
+  newStatus?: 'completed' | 'on_track' | 'off_track' | 'not_started';
 }
 
 export function ActionDashboard() {
@@ -316,8 +316,8 @@ export function ActionDashboard() {
       placeholder: 'All Statuses',
       options: [
         { value: 'not_started', label: 'Not Started' },
-        { value: 'in_progress', label: 'In Progress' },
-        { value: 'at_risk', label: 'At Risk' },
+        { value: 'on_track', label: 'On Track' },
+        { value: 'off_track', label: 'Off Track' },
         { value: 'completed', label: 'Completed' }
       ]
     },
@@ -362,8 +362,8 @@ export function ActionDashboard() {
     const totalActions = safeActions.length;
     const statusCounts = {
       completed: safeActions.filter((a: any) => a.status === 'completed').length,
-      in_progress: safeActions.filter((a: any) => a.status === 'in_progress').length,
-      at_risk: safeActions.filter((a: any) => a.status === 'at_risk').length,
+      on_track: safeActions.filter((a: any) => a.status === 'on_track').length,
+      off_track: safeActions.filter((a: any) => a.status === 'off_track').length,
       not_started: safeActions.filter((a: any) => a.status === 'not_started').length
     };
     return { totalActions, statusCounts };

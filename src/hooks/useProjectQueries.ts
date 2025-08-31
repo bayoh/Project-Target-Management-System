@@ -5,7 +5,8 @@ import { executeQuery } from '../lib/queries';
 import type {
   Cluster,
   Pathway,
-  Project
+  Project,
+  TargetSummary
 } from '../types/project';
 import type {
   ProjectFilters,
@@ -14,15 +15,7 @@ import type {
   TargetFilters
 } from '../types/queries';
 
-// Target data interfaces (using same structure as in the page)
-export interface TargetSummary {
-  total: number;
-  completed: number;
-  at_risk: number;
-  in_progress: number;
-  categories: { [key: string]: number };
-  averageProgress: number;
-}
+// TargetSummary is now imported from types/project.ts
 
 export interface TargetItem {
   id: string;
@@ -199,8 +192,8 @@ export const useTargetSummary = (filters?: TargetFilters) => {
       
       const total = targets.length;
       const completed = targets.filter((t: SummaryTargetRow) => t.target_value > 0 && (t.current_value / t.target_value) >= 1).length;
-      const at_risk = targets.filter((t: SummaryTargetRow) => t.target_value > 0 && (t.current_value / t.target_value) < 0.5 && (t.current_value / t.target_value) < 1).length;
-      const in_progress = targets.filter((t: SummaryTargetRow) => t.target_value > 0 && (t.current_value / t.target_value) >= 0.5 && (t.current_value / t.target_value) < 1).length;
+      const off_track = targets.filter((t: SummaryTargetRow) => t.target_value > 0 && (t.current_value / t.target_value) < 0.5 && (t.current_value / t.target_value) < 1).length;
+      const on_track = targets.filter((t: SummaryTargetRow) => t.target_value > 0 && (t.current_value / t.target_value) >= 0.5 && (t.current_value / t.target_value) < 1).length;
       
       const categories: Record<string, number> = {};
       targets.forEach((t: SummaryTargetRow) => {
@@ -220,8 +213,8 @@ export const useTargetSummary = (filters?: TargetFilters) => {
       return {
         total,
         completed,
-        at_risk,
-        in_progress,
+        off_track,
+        on_track,
         categories,
         averageProgress
       } as TargetSummary;

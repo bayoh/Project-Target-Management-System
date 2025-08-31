@@ -106,7 +106,7 @@ export function IssueForm({ onSubmit, onCancel, issue, onIssueResolved }: IssueF
           <Select
             options={[
               { value: 'open', label: 'Open' },
-              { value: 'in_progress', label: 'In Progress' },
+              { value: 'on_track', label: 'On Track' },
               { value: 'resolved', label: 'Resolved' },
             ]}
             value={formData.status}

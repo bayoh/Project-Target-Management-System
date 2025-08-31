@@ -309,7 +309,7 @@ export function Dashboard() {
                             <span>{pathway.interventionCount} interventions</span>
                             <span>{pathway.completedInterventions} completed</span>
                             {pathway.atRiskInterventions > 0 && (
-                              <span className="text-amber-600">{pathway.atRiskInterventions} at risk</span>
+                              <span className="text-amber-600">{pathway.atRiskInterventions} off track</span>
                             )}
                           </div>
                         </div>

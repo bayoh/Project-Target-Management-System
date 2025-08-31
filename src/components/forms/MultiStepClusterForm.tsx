@@ -505,8 +505,8 @@ export function MultiStepClusterForm() {
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                       >
                         <option value="not_started">Not Started</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="at_risk">At Risk</option>
+                        <option value="on_track">On Track</option>
+                <option value="off_track">Off Track</option>
                         <option value="completed">Completed</option>
                       </select>
                     </div>
@@ -701,8 +701,8 @@ export function MultiStepClusterForm() {
                           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                         >
                           <option value="not_started">Not Started</option>
-                          <option value="in_progress">In Progress</option>
-                          <option value="at_risk">At Risk</option>
+                          <option value="on_track">On Track</option>
+                  <option value="off_track">Off Track</option>
                           <option value="completed">Completed</option>
                         </select>
                       </div>
@@ -852,7 +852,7 @@ export function MultiStepClusterForm() {
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                           >
                             <option value="pending">Pending</option>
-                            <option value="in_progress">In Progress</option>
+                            <option value="on_track">On Track</option>
                             <option value="completed">Completed</option>
                             <option value="delayed">Delayed</option>
                           </select>

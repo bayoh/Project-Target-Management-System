@@ -256,7 +256,7 @@ function TargetTracking() {
                   <AlertCircle className="h-5 w-5 text-yellow-600" />
                 </div>
                 <div className="ml-3">
-                  <p className="text-xs font-medium text-gray-500">At Risk</p>
+                  <p className="text-xs font-medium text-gray-500">Off Track</p>
                   <p className="text-xl font-bold text-gray-900">{metrics.atRisk}</p>
                 </div>
               </div>
@@ -333,9 +333,9 @@ function TargetTracking() {
                   options={[
                     { value: '', label: 'All Statuses' },
                     { value: 'not_started', label: 'Not Started' },
-                    { value: 'in_progress', label: 'In Progress' },
-                    { value: 'completed', label: 'Completed' },
-                    { value: 'at_risk', label: 'At Risk' }
+                    { value: 'on_track', label: 'On Track' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'off_track', label: 'Off Track' }
                   ]}
                   value={filters.searchTerm || ''}
                   onChange={(value) => handleFilterChange('searchTerm', value as string)}
@@ -427,7 +427,7 @@ function TargetTracking() {
                               : 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200'
                           }`}
                         >
-                          {isCompleted ? 'Completed' : isAtRisk ? 'At Risk' : 'In Progress'}
+                          {isCompleted ? 'Completed' : isAtRisk ? 'Off Track' : 'On Track'}
                         </Badge>
                       </TableCell>
                       <TableCell className="py-4 px-6">
@@ -539,7 +539,7 @@ function TargetTracking() {
                           : 'bg-blue-100 text-blue-800 border-blue-200'
                       }`}
                     >
-                      {isCompleted ? 'Completed' : isAtRisk ? 'At Risk' : 'In Progress'}
+                      {isCompleted ? 'Completed' : isAtRisk ? 'Off Track' : 'On Track'}
                     </Badge>
                   </div>
                   

@@ -63,8 +63,8 @@ export const createActionMetrics = (
   totalActions: number,
   statusCounts: {
     completed: number;
-    in_progress: number;
-    at_risk: number;
+    on_track: number;
+    off_track: number;
     not_started: number;
   },
   onFilterChange: (status: string) => void
@@ -86,20 +86,20 @@ export const createActionMetrics = (
     onClick: () => onFilterChange('completed')
   },
   {
-    id: 'in_progress',
+    id: 'on_track',
     label: 'On Track',
-    value: statusCounts.in_progress,
+    value: statusCounts.on_track,
     icon: Clock,
     gradient: 'bg-gradient-to-br from-blue-500 to-blue-600',
-    onClick: () => onFilterChange('in_progress')
+    onClick: () => onFilterChange('on_track')
   },
   {
-    id: 'at_risk',
+    id: 'off_track',
     label: 'Off Track',
-    value: statusCounts.at_risk,
+    value: statusCounts.off_track,
     icon: AlertTriangle,
     gradient: 'bg-gradient-to-br from-amber-500 to-amber-600',
-    onClick: () => onFilterChange('at_risk')
+    onClick: () => onFilterChange('off_track')
   },
   {
     id: 'not_started',

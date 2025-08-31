@@ -47,7 +47,7 @@ interface ConfirmationState {
   isOpen: boolean;
   type: 'delete' | 'status';
   interventionId: string;
-  newStatus?: 'completed' | 'in_progress' | 'at_risk' | 'not_started';
+  newStatus?: 'completed' | 'on_track' | 'off_track' | 'not_started';
 }
 
 export function InterventionDashboard() {
@@ -197,8 +197,8 @@ export function InterventionDashboard() {
     const totalActions = filteredInterventions.length;
     const statusCounts = {
       completed: filteredInterventions.filter((a: any) => a.status === 'completed').length,
-      in_progress: filteredInterventions.filter((a: any) => a.status === 'in_progress').length,
-      at_risk: filteredInterventions.filter((a: any) => a.status === 'at_risk').length,
+      on_track: filteredInterventions.filter((a: any) => a.status === 'on_track').length,
+      off_track: filteredInterventions.filter((a: any) => a.status === 'off_track').length,
       not_started: filteredInterventions.filter((a: any) => a.status === 'not_started').length
     };
     return { totalActions, statusCounts };
@@ -280,15 +280,15 @@ export function InterventionDashboard() {
 
   const statusColors: { [key: string]: string } = {
     completed: 'bg-green-100 text-green-700',
-    in_progress: 'bg-blue-100 text-blue-700',
-    at_risk: 'bg-yellow-100 text-yellow-700',
+    on_track: 'bg-blue-100 text-blue-700',
+    off_track: 'bg-yellow-100 text-yellow-700',
     not_started: 'bg-gray-100 text-gray-700',
   };
 
   const statusIcons: { [key: string]: React.ElementType } = {
     completed: CheckCircle2,
-    in_progress: Clock,
-    at_risk: AlertTriangle,
+    on_track: Clock,
+    off_track: AlertTriangle,
     not_started: List, 
   };
 
@@ -389,20 +389,20 @@ export function InterventionDashboard() {
                 onClick: () => setFilters(prev => ({ ...prev, status: 'completed' }))
               },
               {
-                id: 'in_progress',
+                id: 'on_track',
                 label: 'On Track',
-                value: statusCounts.in_progress,
+                value: statusCounts.on_track,
                 icon: Clock,
                 gradient: 'bg-gradient-to-br from-blue-500 to-blue-600',
-                onClick: () => setFilters(prev => ({ ...prev, status: 'in_progress' }))
+                onClick: () => setFilters(prev => ({ ...prev, status: 'on_track' }))
               },
               {
-                id: 'at_risk',
+                id: 'off_track',
                 label: 'Off Track',
-                value: statusCounts.at_risk,
+                value: statusCounts.off_track,
                 icon: AlertTriangle,
                 gradient: 'bg-gradient-to-br from-amber-500 to-amber-600',
-                onClick: () => setFilters(prev => ({ ...prev, status: 'at_risk' }))
+                onClick: () => setFilters(prev => ({ ...prev, status: 'off_track' }))
               },
               {
                 id: 'not_started',

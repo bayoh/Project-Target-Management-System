@@ -172,8 +172,8 @@ export function EditIntervention() {
 
   const statusOptions = [
     { label: 'Not Started', value: 'not_started' },
-    { label: 'In Progress', value: 'in_progress' },
-    { label: 'At Risk', value: 'at_risk' },
+    { label: 'On Track', value: 'on_track' },
+        { label: 'Off Track', value: 'off_track' },
     { label: 'Completed', value: 'completed' }
   ];
 

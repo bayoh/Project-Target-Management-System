@@ -58,8 +58,8 @@ export default function TargetsIndex() {
   const summaryCards = useMemo(() => [
     { title: 'Total Targets', value: summary.total, icon: Target, color: 'blue' },
     { title: 'Completed', value: summary.completed, icon: CheckCircle2, color: 'green', percentage: summary.total > 0 ? (summary.completed / summary.total) * 100 : 0 },
-    { title: 'In Progress', value: summary.in_progress, icon: Clock, color: 'yellow', percentage: summary.total > 0 ? (summary.in_progress / summary.total) * 100 : 0 },
-    { title: 'At Risk', value: summary.at_risk, icon: AlertCircle, color: 'red', percentage: summary.total > 0 ? (summary.at_risk / summary.total) * 100 : 0 },
+    { title: 'On Track', value: summary.on_track, icon: Clock, color: 'yellow', percentage: summary.total > 0 ? (summary.on_track / summary.total) * 100 : 0 },
+    { title: 'Off Track', value: summary.off_track, icon: AlertCircle, color: 'red', percentage: summary.total > 0 ? (summary.off_track / summary.total) * 100 : 0 },
     { title: 'Avg. Progress', value: `${summary.averageProgress.toFixed(1)}%`, icon: TrendingUp, color: 'indigo' },
   ], [summary]);
 
