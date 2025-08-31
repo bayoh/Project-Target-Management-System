@@ -71,7 +71,7 @@ export function Clusters() {
             className="bg-white overflow-hidden shadow rounded-lg cursor-pointer hover:shadow-md transition-shadow"
           >
             <div className="px-4 py-5 sm:p-6">
-              <div className="flex items-center space-x-3">
+              <div className="flex items-start space-x-3">
                 <div className={`flex-shrink-0 p-2 rounded-lg ${accentBg}`}>
                   {/* Generate a unique icon based on cluster code/id */}
                   {cluster.code == 1 ? (
@@ -84,22 +84,26 @@ export function Clusters() {
                     <LucideComputer className="h-6 w-6 text-white" />
                   )}
                 </div>
-                <div className="flex items-center">
-                  <h4 className="text-lg font-medium text-gray-800">{cluster.code}. </h4>
-                  <h3 className="text-lg font-semibold text-gray-900 truncate">
-                    {cluster.name}
-                  </h3>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start">
+                    <h4 className="text-lg font-medium text-gray-800 flex-shrink-0">{cluster.code}. </h4>
+                    <h3 className="text-lg font-semibold text-gray-900 break-words leading-tight ml-1">
+                      {cluster.name}
+                    </h3>
+                  </div>
                 </div>
               </div>
               {cluster.description && (
-                <p className="mt-1 text-sm text-gray-500 line-clamp-2">
-                  {cluster.description}
-                </p>
+                <div className="mt-3">
+                  <p className="text-sm text-gray-500 leading-relaxed break-words line-clamp-2">
+                    {cluster.description}
+                  </p>
+                </div>
               )}
               <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
                 <div className="space-y-1">
-                  <div>{pathwayCount} Pathways</div>
-                  <div>{interventionCount} Interventions</div>
+                  <div>{pathwayCount} Pathway{pathwayCount === 1 ? '' : 's'}</div>
+                  <div>{interventionCount} Intervention{interventionCount === 1 ? '' : 's'}</div>
                 </div>
                 <div className="flex items-center text-blue-600">
                   <span>View details</span>
@@ -150,10 +154,10 @@ export function Clusters() {
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">{cluster.code}</div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-md font-medium semi-bold text-gray-900">{cluster.name}</div>
+                <td className="px-6 py-4 align-top">
+                  <div className="text-md font-medium semi-bold text-gray-900 break-words">{cluster.name}</div>
                   {cluster.description && (
-                    <div className="text-sm text-gray-500 truncate max-w-md">
+                    <div className="text-sm text-gray-500 break-words max-w-2xl mt-1 leading-relaxed">
                       {cluster.description}
                     </div>
                   )}
@@ -190,7 +194,7 @@ export function Clusters() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pt-8 px-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">Clusters</h1>
           <div className="flex items-center space-x-4">

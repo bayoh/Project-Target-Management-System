@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader } from './card';
 import { Button } from './button';
 import type { Action, Intervention } from '../../types/project';
 import type { User as UserType } from '../../types/auth';
+import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip';
 
 interface ActionCardProps {
   action: Action;
@@ -33,15 +34,15 @@ interface ActionCardProps {
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'completed':
-      return 'bg-green-100 text-green-800 border-green-200';
+      return 'bg-green-50 text-green-700 border-green-200';
     case 'in_progress':
-      return 'bg-blue-100 text-blue-800 border-blue-200';
+      return 'bg-blue-50 text-blue-700 border-blue-200';
     case 'at_risk':
-      return 'bg-red-100 text-red-800 border-red-200';
+      return 'bg-red-50 text-red-700 border-red-200';
     case 'not_started':
-      return 'bg-gray-100 text-gray-800 border-gray-200';
+      return 'bg-gray-50 text-gray-700 border-gray-200';
     default:
-      return 'bg-gray-100 text-gray-800 border-gray-200';
+      return 'bg-gray-50 text-gray-700 border-gray-200';
   }
 };
 
@@ -56,7 +57,7 @@ const getStatusLabel = (status: string) => {
     case 'not_started':
       return 'Not Started';
     default:
-      return 'Unknown';
+      return 'Not Started';
   }
 };
 
@@ -81,14 +82,26 @@ export function ActionCard({
   };
 
   return (
-    <Card className={`bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col h-full ${className}`}>
+
+    <Card className={`bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col h-full overflow-hidden ${className}`}>
       <CardHeader className="p-6 pb-1">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
-              <p className="text-md font-semibold text-gray-900 truncate max-w-[250px] hover:text-clip hover:whitespace-normal hover:overflow-visible">
-                {action.name}
-              </p>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p
+                    className="text-md font-semibold text-gray-900 break-words overflow-hidden line-clamp-2 lg:line-clamp-3"
+                  >
+                    {action.name}
+                  </p>
+                </TooltipTrigger>
+                {action.name && (
+                  <TooltipContent side="top" className="max-w-xs md:max-w-md lg:max-w-lg bg-gray-900 text-white">
+                    <p className="whitespace-pre-wrap">{action.name}</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
             </div>
             {/* <div className="flex items-center gap-2">
               {getStatusIcon(action.status)}
@@ -98,7 +111,6 @@ export function ActionCard({
             </div> */}
           </div>
           <div className="flex items-center gap-1 ml-4">
-            
             <span className={`text-xs font-medium px-2 py-1 rounded border ${getStatusColor(action.status)}`}>
               {getStatusLabel(action.status)}
             </span>
@@ -108,9 +120,20 @@ export function ActionCard({
       
       <CardContent className="px-6 pb-6 flex-1 flex flex-col">
         <div className="space-y-4 flex-1 mb-2">
-          <p className="text-sm text-gray-600 leading-relaxed">
-            {action.description || 'Not Set'}
-          </p>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <p
+                className="text-sm text-gray-600 leading-relaxed break-words overflow-hidden line-clamp-2 md:line-clamp-3 xl:line-clamp-4"
+              >
+                {action.description || 'Not Set'}
+              </p>
+            </TooltipTrigger>
+            {(action.description ?? '').length > 0 && (
+              <TooltipContent side="top" className="max-w-xs md:max-w-md lg:max-w-lg bg-gray-900 text-white">
+                <p className="whitespace-pre-wrap">{action.description}</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
           
           {/* Intervention
           <div className="flex items-center gap-2 text-sm">

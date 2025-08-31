@@ -6,7 +6,7 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalDescription, ModalFooter } from '../../components/ui/Modal';
 import { 
   Target, 
@@ -196,8 +196,7 @@ function TargetTracking() {
   }
 
   return (
-    <TooltipProvider>
-        <div className="space-y-6">
+    <div className="space-y-6">
           {/* Header Section */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center mb-4 sm:mb-0">
@@ -724,9 +723,8 @@ function TargetTracking() {
             </ModalContent>
           </Modal>
         )}
-        </div>
-      </TooltipProvider>
-  );
+      </div>
+    );
 }
 
 export default TargetTracking;

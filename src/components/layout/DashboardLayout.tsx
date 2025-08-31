@@ -202,7 +202,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Navbar */}
       <nav className="fixed top-0 right-0 left-0 bg-white shadow-sm z-50 h-16">
         <div className="h-full px-4 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-4 min-w-0 flex-1">
             {/* Mobile menu button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -217,7 +217,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
             {/* App name */}
             {settings?.app_name && (
-              <h1 className="text-xl font-bold text-gray-800">
+              <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-800 truncate">
                 {settings.app_name}
               </h1>
             )}

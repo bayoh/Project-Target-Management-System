@@ -21,6 +21,8 @@ import { useAuth } from '../../lib/auth';
 import { Button } from '../../components/ui/button';
 import { MetricsGrid, createActionMetrics } from '../../components/ui/MetricsGrid';
 import { FilterPanel, FilterConfig } from '../../components/ui/FilterPanel';
+// Remove local TooltipProvider import; it's now provided globally in App.tsx
+// import { TooltipProvider } from '../../components/ui/tooltip';
 
 interface ConfirmationState {
   isOpen: boolean;
@@ -418,16 +420,13 @@ export function ActionDashboard() {
           end_date: actionData.end_date || null,
           lead_id: actionData.lead_id || null,
           supporting_staff: actionData.supporting_staff || [],
-          // issues: actionData.issues || [],
-          // needs: actionData.needs || [],
-          // comments: actionData.comments || [],
           budget: actionData.budget || null,
           associated_projects: actionData.associated_projects || [],
           implementing_partners: actionData.implementing_partners || [],
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           created_by: sessionUser?.id
-        };
+        } as const;
 
         await projectApi.createAction(newActionData);
       }
@@ -447,7 +446,7 @@ export function ActionDashboard() {
     <div className="space-y-5 lg:space-y-6 p-3 md:p-4 lg:p-6">
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6 lg:mb-8">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-1">Actions Dashboard</h1>
+            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-1">Actions</h1>
             <p className="text-sm lg:text-base text-gray-600">Manage and track all actions across interventions</p>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -497,86 +496,87 @@ export function ActionDashboard() {
           />
         )}
 
-        <div className="space-y-6">
-          {filteredActions.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-100">
-              <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <Search className="h-8 w-8 text-gray-400" />
+        {/* Removed TooltipProvider wrapper; using global provider */}
+          <div className="space-y-6">
+            {filteredActions.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-100">
+                <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                  <Search className="h-8 w-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No actions found</h3>
+                <p className="text-sm text-gray-500 max-w-sm mx-auto">
+                  {filters.search || filters.interventionId || filters.leadId || filters.status ||
+                   filters.supportingStaff.length > 0 || filters.implementingPartners.length > 0 ||
+                   filters.associatedProjects.length > 0
+                    ? 'Try adjusting your filters to see more results'
+                    : 'Get started by creating your first action'}
+                </p>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No actions found</h3>
-              <p className="text-sm text-gray-500 max-w-sm mx-auto">
-                {filters.search || filters.interventionId || filters.leadId || filters.status ||
-                 filters.supportingStaff.length > 0 || filters.implementingPartners.length > 0 ||
-                 filters.associatedProjects.length > 0
-                  ? 'Try adjusting your filters to see more results'
-                  : 'Get started by creating your first action'}
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredActions.map((action: any) => {
-                  // const intervention = (interventions || []).find((i: any) => i.id === action.intervention_id) || action.intervention;
-                  // const lead = (users || []).find((u: any) => u.id === action.lead_id) || action.lead;
-                  
-                  return (
-                    <ActionCard
-                      key={action.id}
-                      action={action}
-                      users={users}
-                      interventions={interventions}
-                      onView={(action) => navigate(`/interventions/${action.intervention_id}/actions/${action.id}`)}
-                      onEdit={handleEditClick}
-                      onDelete={handleDeleteClick}
-                    />
-                  );
-                })}
-              </div>
-              
-              {/* Pagination */}
-              <div className="flex items-center justify-center gap-2 pt-8">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900"
-                >
-                  Previous
-                </Button>
-                <div className="flex items-center gap-1">
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredActions.map((action: any) => {
+                    // const intervention = (interventions || []).find((i: any) => i.id === action.intervention_id) || action.intervention;
+                    // const lead = (users || []).find((u: any) => u.id === action.lead_id) || action.lead;
+                    
+                    return (
+                      <ActionCard
+                        key={action.id}
+                        action={action}
+                        users={users}
+                        interventions={interventions}
+                        onView={(action) => navigate(`/interventions/${action.intervention_id}/actions/${action.id}`)}
+                        onEdit={handleEditClick}
+                        onDelete={handleDeleteClick}
+                      />
+                    );
+                  })}
+                </div>
+                
+                {/* Pagination */}
+                <div className="flex items-center justify-center gap-2 pt-8">
                   <Button
-                    variant="default"
+                    variant="outline"
                     size="sm"
-                    className="w-8 h-8 p-0 bg-blue-600 text-white hover:bg-blue-700"
+                    className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900"
                   >
-                    1
+                    Previous
                   </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="w-8 h-8 p-0 bg-blue-600 text-white hover:bg-blue-700"
+                    >
+                      1
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-8 h-8 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                    >
+                      2
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-8 h-8 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                    >
+                      3
+                    </Button>
+                  </div>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="w-8 h-8 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                    className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900"
                   >
-                    2
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-8 h-8 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                  >
-                    3
+                    Next
                   </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900"
-                >
-                  Next
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-
+              </>
+            )}
+          </div>
+          {/* Removed closing TooltipProvider tag */}
        <ConfirmationDialog
         isOpen={confirmation.isOpen}
         title={confirmation.type === 'delete' ? 'Delete Action' : 'Update Status'}

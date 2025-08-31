@@ -317,9 +317,9 @@ export function ActionList({ actions, interventionId, onActionUpdate, users , sh
 
       {/* Add/Edit Action Modal */}
       {(showAddForm || editingAction) && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl sm:max-w-3xl rounded-none sm:rounded-lg p-4 sm:p-6 shadow-xl max-h-[calc(100vh-1rem)] sm:max-h-[calc(100vh-2rem)] overflow-y-auto">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4">
               {editingAction ? 'Edit Action' : 'Add New Action'}
             </h3>
             <ActionForm

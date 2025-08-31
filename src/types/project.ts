@@ -48,7 +48,7 @@ export interface Intervention extends BaseEntity {
 export interface Action extends BaseEntity {
   intervention_id: string;
   name: string;
-  code: number;
+  code: string;
   description: string | null;
   status: ProjectStatus;
   start_date: string | null;
@@ -98,7 +98,7 @@ export interface IndicatorReport extends BaseEntity {
 }
 
 export interface User extends BaseEntity {
-  name: string;
+  full_name: string;
   email: string;
   role: string;
 }

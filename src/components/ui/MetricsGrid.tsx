@@ -28,24 +28,26 @@ export function MetricsGrid({ metrics, className }: MetricsGridProps) {
         return (
           <Card
             key={metric.id}
-            className="bg-white cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-300"
+            className="bg-white cursor-pointer group overflow-hidden relative transition-shadow duration-300 hover:shadow-lg"
             onClick={metric.onClick}
           >
             <CardContent className="p-3">
-              <div className="flex items-center">
-                <div className={cn(
-                  "p-2 rounded-lg shadow-sm",
-                  metric.gradient
-                )}>
-                  <IconComponent className="h-4 w-4 text-white" />
-                </div>
-                <div className="ml-2.5">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                    {metric.label}
-                  </p>
-                  <h3 className="text-base font-bold text-gray-900">
-                    {metric.value}
-                  </h3>
+              <div className="transition-transform duration-300 ease-out group-hover:scale-[1.02] transform-gpu will-change-transform">
+                <div className="flex items-center">
+                  <div className={cn(
+                    "p-2 rounded-lg shadow-sm",
+                    metric.gradient
+                  )}>
+                    <IconComponent className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="ml-2.5">
+                    <p className="text-xs font-medium text-gray-500 tracking-wide">
+                      {metric.label}
+                    </p>
+                    <h3 className="text-base font-bold text-gray-900">
+                      {metric.value}
+                    </h3>
+                  </div>
                 </div>
               </div>
             </CardContent>

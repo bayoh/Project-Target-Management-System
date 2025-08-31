@@ -773,7 +773,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                   action.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
                   'bg-gray-100 text-gray-800'
                 }`}>
-                  {action.status.replace('_', ' ').toUpperCase()}
+                  {action.status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
                 </span>
               </div>
 

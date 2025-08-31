@@ -5,7 +5,17 @@ import { Input } from './Input'
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { executeQuery } from '../../lib/queries';
-import type { Action, User, Intervention } from '../../types/project';
+import type { Action, User, Intervention, ProjectStatus } from '../../types/project';
+
+// Type guard for ProjectStatus
+function isProjectStatus(value: string): value is ProjectStatus {
+  return (
+    value === 'not_started' ||
+    value === 'in_progress' ||
+    value === 'at_risk' ||
+    value === 'completed'
+  );
+}
 
 interface ActionModalProps {
   isOpen: boolean;
@@ -44,7 +54,7 @@ export function ActionModal({
     queryKey: ['associated_projects'],
     queryFn: async () => {
       try {
-        const result = await executeQuery(
+        const result = await executeQuery(async () =>
           supabase.from('associated_projects').select('*').order('name')
         );
         return result.data || [];
@@ -65,7 +75,7 @@ export function ActionModal({
     queryKey: ['implementing_partners'],
     queryFn: async () => {
       try {
-        const result = await executeQuery(
+        const result = await executeQuery(async () =>
           supabase.from('implementing_partners').select('*').order('name')
         );
         return result.data || [];
@@ -78,21 +88,21 @@ export function ActionModal({
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  const initialFormState = {
-    code: '',
+  const initialFormState: Partial<Action> = {
+    code: '0',
     name: '',
     description: '',
     intervention_id: '',
     lead_id: '',
-    status: 'not_started',
+    status: 'not_started' as ProjectStatus,
     start_date: null,
     end_date: null,
     actual_startDate: null,
     actual_endDate: null,
-    supporting_staff: [],
+    supporting_staff: [] as string[],
     budget: 0,
-    associated_projects: [],
-    implementing_partners: []
+    associated_projects: [] as string[],
+    implementing_partners: [] as string[]
   };
   
 
@@ -103,29 +113,29 @@ export function ActionModal({
   // Enhanced useEffect for form data and local state management
   React.useEffect(() => {
     if (action) {
-      const actionData = {
-        code: action.code || 0,
-        name: action.name || '',
-        description: action.description || '',
-        intervention_id: action.intervention_id || '',
-        lead_id: action.lead_id || '',
-        status: action.status || 'not_started',
-        start_date: action.start_date || null,
-        end_date: action.end_date || null,
-        actual_startDate: action.actual_startDate || null,
-        actual_endDate: action.actual_endDate || null,
-        supporting_staff: action.supporting_staff || [],
-        budget: action.budget || 0,
-        associated_projects: action.associated_projects || [],
-        implementing_partners: action.implementing_partners || []
+      const actionData: Partial<Action> = {
+        code: action.code ?? '0',
+        name: action.name ?? '',
+        description: action.description ?? '',
+        intervention_id: action.intervention_id ?? '',
+        lead_id: action.lead_id ?? '',
+        status: (action.status ?? 'not_started') as ProjectStatus,
+        start_date: action.start_date ?? null,
+        end_date: action.end_date ?? null,
+        actual_startDate: action.actual_startDate ?? null,
+        actual_endDate: action.actual_endDate ?? null,
+        supporting_staff: (action.supporting_staff ?? []) as string[],
+        budget: action.budget ?? 0,
+        associated_projects: (action.associated_projects ?? []) as string[],
+        implementing_partners: (action.implementing_partners ?? []) as string[]
       };
       setFormData(actionData);
       
       // Update local state with selected values
       setLocalState(prev => ({
         ...prev,
-        selectedAssociatedProjects: actionData.associated_projects,
-        selectedImplementingPartners: actionData.implementing_partners,
+        selectedAssociatedProjects: actionData.associated_projects ?? [],
+        selectedImplementingPartners: actionData.implementing_partners ?? [],
         hasUnsavedChanges: false
       }));
     } else if (!isOpen) {
@@ -179,7 +189,16 @@ export function ActionModal({
         implementing_partners: localState.selectedImplementingPartners
       };
       
-      await onSubmit(finalFormData);
+      // Sanitize payload by removing comments, needs, issues, tasks, and indicators
+      const sanitizedFormData = { ...finalFormData };
+      delete sanitizedFormData.comments;
+      delete sanitizedFormData.needs;
+      delete sanitizedFormData.issues;
+      delete sanitizedFormData.tasks;
+      delete sanitizedFormData.indicators;
+      console.log(sanitizedFormData)
+      
+      await onSubmit(sanitizedFormData);
       
       // Reset local state on successful submission
       setLocalState({
@@ -264,15 +283,32 @@ export function ActionModal({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <Input
                         label='Code'
-                        value={formData.code}
-                        onChange={(e) => setFormData({...formData, code: e.target.value })}
+                        value={formData.code !== undefined ? String(formData.code) : ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          
+                          // Allow empty string
+                          if (value === '') {
+                            setFormData({ ...formData, code: undefined });
+                            return;
+                          }
+                          
+                          // Validate format: digits, periods, and common symbols
+                          const numericRegex = /^[\d\.\-_]+$/;
+                          
+                          if (numericRegex.test(value)) {
+                            // Valid float format, store as string
+                            setFormData({ ...formData, code: value });
+                          }
+                          // If invalid format, don't update the state (reject the input)
+                        }}
                         required
                         type='text'
                         className="text-sm"
                       />
                       <Input
                         label='Name'
-                        value={formData.name}
+                        value={formData.name ?? ''}
                         onChange={(e) => setFormData({...formData, name: e.target.value })}
                         required
                         type='text'
@@ -282,7 +318,7 @@ export function ActionModal({
 
                     <Input
                       label='Description'
-                      value={formData.description}
+                      value={formData.description ?? ''}
                       onChange={(e) => setFormData({...formData, description: e.target.value })}
                       required
                       type='textarea'
@@ -308,10 +344,18 @@ export function ActionModal({
                               { value: 'in_progress', label: 'On Going/On Track' },
                               { value: 'completed', label: 'Completed' }
                             ]}
-                          value={formData.status}
-                          onChange={(value) => setFormData({ ...formData, status: value })}
+                          value={formData.status as string}
+                          onChange={(value) => {
+                            const v = Array.isArray(value) ? value[0] : value;
+                            if (v === '') {
+                              // If cleared, unset the status for Partial<Action>
+                              setFormData({ ...formData, status: undefined });
+                            } else if (isProjectStatus(v)) {
+                              setFormData({ ...formData, status: v });
+                            }
+                          }}
                           placeholder="Select Status"
-                          allowClear
+                          allowClear={false}
                           searchable
                           sortable
                         />
@@ -326,8 +370,11 @@ export function ActionModal({
                             value: user.id,
                             label: user.full_name || user.email || ''
                           }))}
-                          value={formData.lead_id}
-                          onChange={(value) => setFormData({ ...formData, lead_id: value })}
+                          value={formData.lead_id ?? ''}
+                          onChange={(value) => {
+                            const v = Array.isArray(value) ? value[0] : value;
+                            setFormData({ ...formData, lead_id: v });
+                          }}
                           placeholder="Select Lead"
                         />
                       </div>
@@ -341,10 +388,13 @@ export function ActionModal({
                         options={interventions.map((intervention) => ({
                           value: intervention.id,
                           label: intervention.name,
-                          prefix: intervention.code
+                          prefix: String(intervention.code)
                         }))}
-                        value={formData.intervention_id}
-                        onChange={(value) => setFormData({ ...formData, intervention_id: value })}
+                        value={formData.intervention_id ?? ''}
+                        onChange={(value) => {
+                          const v = Array.isArray(value) ? value[0] : value;
+                          setFormData({ ...formData, intervention_id: v });
+                        }}
                         placeholder="Select Intervention"
                         allowClear
                         searchable
@@ -369,7 +419,7 @@ export function ActionModal({
                           type="date"
                           id="start_date"
                           className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm transition-colors"
-                          value={formData.start_date}
+                          value={formData.start_date ?? ''}
                           onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
                         />
                       </div>
@@ -382,7 +432,7 @@ export function ActionModal({
                           type="date"
                           id="end_date"
                           className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm transition-colors"
-                          value={formData.end_date}
+                          value={formData.end_date ?? ''}
                           onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
                         />
                       </div>
@@ -398,7 +448,7 @@ export function ActionModal({
                             type="date"
                             id="actual_start_date"
                             className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm transition-colors"
-                            value={formData.actual_startDate}
+                            value={formData.actual_startDate ?? ''}
                             onChange={(e) => setFormData({ ...formData, actual_startDate: e.target.value })}
                           />
                         </div>
@@ -411,7 +461,7 @@ export function ActionModal({
                             type="date"
                             id="actual_end_date"
                             className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm transition-colors"
-                            value={formData.actual_endDate}
+                            value={formData.actual_endDate ?? ''}
                             onChange={(e) => setFormData({ ...formData, actual_endDate: e.target.value })}
                           />
                         </div>
@@ -437,8 +487,12 @@ export function ActionModal({
                           min="0"
                           step="0.01"
                           className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm transition-colors"
-                          value={formData.budget || ''}
-                          onChange={(e) => setFormData({ ...formData, budget: parseFloat(e.target.value) || 0 })}
+                          value={formData.budget ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const parsed = val === '' ? null : parseFloat(val);
+                            setFormData({ ...formData, budget: parsed === null || Number.isNaN(parsed) ? null : parsed });
+                          }}
                           placeholder="0.00"
                         />
                       </div>
@@ -453,8 +507,11 @@ export function ActionModal({
                             value: user.id,
                             label: user.full_name || user.email || ''
                           }))}
-                          value={formData.supporting_staff}
-                          onChange={(value) => setFormData({ ...formData, supporting_staff: value })}
+                          value={formData.supporting_staff ?? []}
+                          onChange={(value) => {
+                            const v = Array.isArray(value) ? value : [value];
+                            setFormData({ ...formData, supporting_staff: v });
+                          }}
                           placeholder="Select Supporting Staff"
                           multiple
                           searchable
@@ -490,12 +547,14 @@ export function ActionModal({
                               label: partner.name
                             }))}
                             value={localState.selectedImplementingPartners}
-                            onChange={handleImplementingPartnersChange}
+                            onChange={(value) => {
+                              const v = Array.isArray(value) ? value : [value];
+                              handleImplementingPartnersChange(v);
+                            }}
                             placeholder={isLoadingPartners ? "Loading partners..." : "Select Implementing Partners"}
                             multiple
                             searchable
                             disabled={isLoadingPartners}
-                            loading={isLoadingPartners}
                           />
                         )}
                       </div>
@@ -527,12 +586,14 @@ export function ActionModal({
                               label: project.name
                             }))}
                             value={localState.selectedAssociatedProjects}
-                            onChange={handleAssociatedProjectsChange}
+                            onChange={(value) => {
+                              const v = Array.isArray(value) ? value : [value];
+                              handleAssociatedProjectsChange(v);
+                            }}
                             placeholder={isLoadingProjects ? "Loading projects..." : "Select Associated Projects"}
                             multiple
                             searchable
                             disabled={isLoadingProjects}
-                            loading={isLoadingProjects}
                           />
                         )}
                       </div>

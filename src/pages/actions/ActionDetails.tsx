@@ -92,7 +92,7 @@ export function ActionDetails() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+    <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6 pt-8">
         {/* Header */}
         <div className="bg-white shadow-sm rounded-lg p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
