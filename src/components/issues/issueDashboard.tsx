@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
-import { ArrowUpDown, Calendar, Users, Target, Eye, Edit, AlertTriangle, Trophy, MessageSquare, ChevronRight, Check, CalendarCheck2,CalendarPlusIcon } from 'lucide-react';
-import type { Action, Intervention } from '../../types/project';
+import { Eye, AlertTriangle, Trophy, MessageSquare, Check, CalendarCheck2,CalendarPlusIcon, AlertCircleIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Select } from '../../components/ui/Select'
 import { Input } from '../../components/ui/Input'
@@ -290,7 +289,7 @@ export function IssueDashboard() {
           <MetricCard
             title="High Severity"
             value={metrics.bySeverity.high}
-            icon={<div className="p-2 bg-red-100 rounded-lg"><AlertTriangle className="w-4 h-4 text-red-600" /></div>}
+            icon={<div className="p-2 bg-red-100 rounded-lg"><AlertCircleIcon className="w-4 h-4 text-red-600" /></div>}
             colorClass="text-red-600"
             bgColor="bg-white"
             onClick={() => setSeverityFilter('high')}
@@ -341,7 +340,7 @@ export function IssueDashboard() {
             <label htmlFor="severity-filter" className="block text-xs font-medium text-gray-700 mb-1.5 uppercase tracking-wide">Severity</label>
             <Select
               value={severityFilter}
-              onValueChange={(value) => setSeverityFilter(value)}
+              onChange={(value) => setSeverityFilter(value)}
               placeholder="All Severities"
               options={[
                 { value: 'all', label: 'All Severities' },
@@ -356,12 +355,12 @@ export function IssueDashboard() {
             <label htmlFor="status-filter" className="block text-xs font-medium text-gray-700 mb-1.5 uppercase tracking-wide">Status</label>
             <Select
               value={statusFilter}
-              onValueChange={(value) => setStatusFilter(value)}
+              onChange={(value) => setStatusFilter(value)}
               placeholder="All Statuses"
               options={[
                 { value: 'all', label: 'All Statuses' },
                 { value: 'open', label: 'Open' },
-                { value: 'on_track', label: 'On Track' },
+                { value: 'in_progress', label: 'In Progress' },
                 { value: 'resolved', label: 'Resolved' },
                 { value: 'closed', label: 'Closed' },
               ]}
