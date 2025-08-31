@@ -17,8 +17,8 @@ interface ActionPramas {
 export interface ActionStats {
   total: number;
   completed: number;
-  in_progress: number;
-  at_risk: number;
+  on_track: number;
+  off_track: number;
   not_started: number;
 }
 
@@ -1031,8 +1031,8 @@ export const jobsApi = {
     const stats: ActionStats = {
       total: actions.length,
       completed: actions.filter(a => a.status === 'completed').length,
-      in_progress: actions.filter(a => a.status === 'in_progress').length,
-      at_risk: actions.filter(a => a.status === 'at_risk').length,
+      on_track: actions.filter(a => a.status === 'on_track').length,
+      off_track: actions.filter(a => a.status === 'off_track').length,
       not_started: actions.filter(a => a.status === 'not_started').length
     };
 
@@ -1058,8 +1058,8 @@ export const jobsApi = {
           name: cluster.name,
           total: 0,
           completed: 0,
-          in_progress: 0,
-          at_risk: 0,
+          on_track: 0,
+          off_track: 0,
           not_started: 0
         };
 
@@ -1072,11 +1072,11 @@ export const jobsApi = {
                 case 'completed':
                   actionStats.completed++;
                   break;
-                case 'in_progress':
-                  actionStats.in_progress++;
+                case 'on_track':
+                  actionStats.on_track++;
                   break;
-                case 'at_risk':
-                  actionStats.at_risk++;
+                case 'off_track':
+                  actionStats.off_track++;
                   break;
                 case 'not_started':
                   actionStats.not_started++;

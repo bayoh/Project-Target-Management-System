@@ -17,8 +17,8 @@ interface ClusterActionStats {
   name: string;
   total: number;
   completed: number;
-  in_progress: number;
-  at_risk: number;
+  on_track: number;
+  off_track: number;
   not_started: number;
 }
 
@@ -139,8 +139,8 @@ export function JobsDashboard() {
     return clusterActionStats.reduce((acc, stat) => {
       acc.total += stat.total;
       acc.completed += stat.completed;
-      acc.on_going_on += stat.in_progress;
-      acc.on_going_off += stat.at_risk;
+      acc.on_going_on += stat.on_track;
+      acc.on_going_off += stat.off_track;
       acc.not_started += stat.not_started;
       return acc;
     }, { total: 0, completed: 0, on_going_on: 0, on_going_off: 0, not_started: 0 });
