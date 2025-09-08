@@ -71,19 +71,29 @@ export function UserManagement() {
     mutationFn: async (userData: Partial<User>) => {
       if (!editingUser) throw new Error('No user being edited');
       
+      // Update profile data
       await userApi.updateProfile(editingUser.id, {
         full_name: userData.full_name,
         role: userData.role,
         status: userData.status
       });
       
-      await supabase.auth.admin.updateUserById(editingUser.id, {
+      // Prepare auth update data
+      const authUpdateData: any = {
         email: userData.email,
         user_metadata: {
           role: userData.role,
           status: userData.status
         }
-      });
+      };
+      
+      // Include password if provided (not empty)
+      if (userData.password && userData.password.trim() !== '') {
+        authUpdateData.password = userData.password;
+      }
+      
+      // Update auth user data
+      await supabase.auth.admin.updateUserById(editingUser.id, authUpdateData);
     },
     onSuccess: async (data, userData) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.users() });
@@ -117,9 +127,11 @@ export function UserManagement() {
 
   // User deletion mutation
   const deleteUserMutation = useMutation({
-    mutationFn: (userId: string) => executeQuery(
-      () => supabase.from('profiles').update({ status: 'inactive' }).eq('id', userId)
-    ),
+    mutationFn: async (userId: string) => {
+      return await executeQuery(
+        () => supabase.from('profiles').update({ status: 'inactive' }).eq('id', userId)
+      );
+    },
     onSuccess: async (data, userId) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.users() });
       

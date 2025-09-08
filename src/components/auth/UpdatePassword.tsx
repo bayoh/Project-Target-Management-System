@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Lock, ArrowLeft } from 'lucide-react';
+import { Lock, ArrowLeft, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useSystemSettings } from '../../hooks/useSystemSettingsQueries';
 
 export function UpdatePassword() {
   const [password, setPassword] = useState('');
@@ -9,10 +10,23 @@ export function UpdatePassword() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const navigate = useNavigate();
+  const { data: settings } = useSystemSettings();
 
   useEffect(() => {
+    // Check if user has a valid session for password recovery
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate('/login');
+        return;
+      }
+    };
+
+    checkSession();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event !== "PASSWORD_RECOVERY") {
+      // Allow password recovery and signed in states
+      if (event === "SIGNED_OUT" || (!session && event !== "PASSWORD_RECOVERY")) {
         navigate('/login');
       }
     });
@@ -53,7 +67,7 @@ export function UpdatePassword() {
 
     setMessage({
       type: 'success',
-      text: 'Password has been updated successfully',
+      text: 'Password has been updated successfully! You will be redirected to login in a few seconds.',
     });
 
     // Clear the form
@@ -63,7 +77,7 @@ export function UpdatePassword() {
     // Redirect to login after successful password update
     setTimeout(() => {
       navigate('/login');
-    }, 20000);
+    }, 3000);
     } catch (err: any) {
       setMessage({
         type: 'error',
@@ -75,90 +89,106 @@ export function UpdatePassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <button
-            onClick={() => navigate('/login')}
-            className="flex items-center text-sm text-gray-600 hover:text-gray-900"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to login
-          </button>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Update your password
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Please enter your new password below
-          </p>
-        </div>
-
-        <form className="mt-8 space-y-6" onSubmit={handlePasswordUpdate}>
-          {message && (
-            <div
-              className={`rounded-md p-4 ${message.type === 'success' ? 'bg-green-50' : 'bg-red-50'}`}
-            >
-              <div
-                className={`text-sm ${message.type === 'success' ? 'text-green-700' : 'text-red-700'}`}
-              >
-                {message.text}
-              </div>
-            </div>
-          )}
-
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="password" className="sr-only">
-                New Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
+          <div className="text-center mb-8">
+            {settings?.logo_url ? (
+              <img
+                src={settings.logo_url}
+                alt={settings.app_name || 'Logo'}
+                className="h-12 w-auto mx-auto mb-6"
+              />
+            ) : (
+              <div className="flex justify-center mb-6">
+                <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-3 rounded-xl">
+                  <Shield className="h-8 w-8 text-white" />
                 </div>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  placeholder="New password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
               </div>
-            </div>
-            <div>
-              <label htmlFor="confirm-password" className="sr-only">
-                Confirm New Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  id="confirm-password"
-                  name="confirm-password"
-                  type="password"
-                  required
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  placeholder="Confirm new password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                />
-              </div>
-            </div>
+            )}
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              Update Password
+            </h1>
+            <p className="text-gray-600">
+              Please enter your new password to complete the reset process.
+            </p>
           </div>
 
-          <div>
+          <form className="space-y-6" onSubmit={handlePasswordUpdate}>
+            {message && (
+              <div
+                className={`rounded-lg p-4 ${message.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}
+              >
+                <div
+                  className={`text-sm ${message.type === 'success' ? 'text-green-700' : 'text-red-700'}`}
+                >
+                  {message.text}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                  New Password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    required
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder="Enter new password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm New Password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="confirm-password"
+                    name="confirm-password"
+                    type="password"
+                    required
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder="Confirm new password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-              {loading ? 'Updating password...' : 'Update password'}
+              {loading ? 'Updating password...' : 'Update Password'}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => navigate('/login')}
+              className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to login
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
