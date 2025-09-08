@@ -87,7 +87,7 @@ export default function App() {
 
           <Route 
             path="/update-password" 
-            element={user ? <Navigate to="/" replace /> : <UpdatePassword /> }/>
+            element={<UpdatePassword />}/>
           
           {/* Protected routes with persistent DashboardLayout */}
           <Route 

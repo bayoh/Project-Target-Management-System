@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Lock, Mail, ArrowRight, Shield } from 'lucide-react';
 import { useSystemSettings } from '../../hooks/useSystemSettingsQueries';
+import { Link } from 'react-router-dom';
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
@@ -140,7 +141,7 @@ export function LoginForm() {
             )}
           </div>
 
-          <div className="flex items-center justify-center">
+          <div className="flex items-center justify-between">
             <button
               type="button"
               onClick={() => setIsMagicLink(!isMagicLink)}
@@ -149,6 +150,15 @@ export function LoginForm() {
               {isMagicLink ? 'Use password instead' : 'Use magic link to login'}
               <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" />
             </button>
+            
+            {!isMagicLink && (
+              <Link
+                to="/reset-password"
+                className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors duration-200"
+              >
+                Forgot password?
+              </Link>
+            )}
           </div>
 
           <div>
