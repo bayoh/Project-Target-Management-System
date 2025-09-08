@@ -46,8 +46,8 @@ interface ActionFormState {
 function isProjectStatus(value: string): value is ProjectStatus {
   return (
     value === 'not_started' ||
-    value === 'in_progress' ||
-    value === 'at_risk' ||
+    value === 'on_track' ||
+    value === 'off_track' ||
     value === 'completed'
   );
 }
@@ -381,8 +381,8 @@ export function ActionForm({ interventionId, action, onSuccess, onCancel }: Acti
           placeholder='Status'
           options={[
             { label: 'Not Started', value: 'not_started' },
-            { label: 'On Going/On Track', value: 'in_progress' },
-            { label: 'On Going/Off Track', value: 'at_risk' },
+            { label: 'On Going/On Track', value: 'on_track' },
+            { label: 'On Going/Off Track', value: 'off_track' },
             { label: 'Completed', value: 'completed' },     
           ]}
           allowClear={false}

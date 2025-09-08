@@ -69,7 +69,7 @@ interface Achievement {
 interface Issue {
   id: string;
   description: string;
-  status: 'open' | 'in_progress' | 'resolved';
+  status: 'open' | 'on_track' | 'resolved';
   severity: 'low' | 'medium' | 'high' | 'critical';
   date_identified: string;
   date_resolved?: string;
@@ -190,7 +190,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
       try {
         const { error: updateError } = await supabase
           .from('actions')
-          .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+          .update({ status: 'on_track', updated_at: new Date().toISOString() })
           .eq('id', action.id);
 
         if (updateError) throw updateError;
@@ -997,7 +997,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                         <div className="flex flex-wrap items-center gap-1.5 mb-2">
                           <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
                             issue.status === 'resolved' ? 'bg-green-100 text-green-800' :
-                            issue.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                            issue.status === 'off_track' ? 'bg-blue-100 text-blue-800' :
                             'bg-red-100 text-red-800'
                           }`}>
                             {issue.status.replace('_', ' ').toUpperCase()}
