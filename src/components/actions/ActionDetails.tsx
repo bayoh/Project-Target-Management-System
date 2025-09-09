@@ -612,6 +612,15 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
             Baseline: {target.baseline_value} {target.metric}
           </div>
 
+          {/* Category display */}
+          {target.category && (
+            <div className="mt-2 mb-4">
+              <span className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 rounded-md font-medium text-xs">
+                {target.category.charAt(0).toUpperCase() + target.category.slice(1).replace(/_/g, ' ')}
+              </span>
+            </div>
+          )}
+
           {/* Job-specific progress tracking */}
           {target.category === 'jobs' && (
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1216,9 +1225,12 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
                           {target.description}
                         </h4>
                         <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                          {target.category === 'jobs' && (
+                          {target.category && (
                             <span className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded-md font-medium text-xs">
-                              {target.job_subcategory ? target.job_subcategory.charAt(0).toUpperCase() + target.job_subcategory.slice(1) : 'N/A'} Jobs
+                              {target.category.charAt(0).toUpperCase() + target.category.slice(1).replace(/_/g, ' ')}
+                              {target.category === 'jobs' && target.job_subcategory && (
+                                <span className="ml-1">- {target.job_subcategory.charAt(0).toUpperCase() + target.job_subcategory.slice(1)}</span>
+                              )}
                             </span>
                           )}
                           <span className="text-gray-500 font-medium">

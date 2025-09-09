@@ -423,12 +423,12 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <DashboardLayout>
-                  <TargetsIndex />
+                  <TargetTracking />
                 </DashboardLayout>
               </ProtectedRoute>
             }
           />
-          <Route
+          {/* <Route
             path="/targets/tracking"
             element={
               <ProtectedRoute>
@@ -437,8 +437,8 @@ export default function App() {
                 </DashboardLayout>
               </ProtectedRoute>
             }
-          />
-          <Route
+          /> */}
+          {/* <Route
             path="/targets/new"
             element={
               <ProtectedRoute>
@@ -447,8 +447,8 @@ export default function App() {
                 </DashboardLayout>
               </ProtectedRoute>
             }
-          />
-          <Route
+          /> */}
+          {/* <Route
             path="/targets/:id"
             element={
               <ProtectedRoute>
@@ -467,7 +467,7 @@ export default function App() {
                 </DashboardLayout>
               </ProtectedRoute>
             }
-          />
+          /> */}
           <Route
             path="/iframe"
             element={

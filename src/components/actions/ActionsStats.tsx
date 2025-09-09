@@ -335,7 +335,7 @@ export function ActionStats({ actionId }: ActionStatsProps) {
                 </div>
                 {target.category && (
                   <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                    {target.category}
+                    {target.category.charAt(0).toUpperCase() + target.category.slice(1).replace(/_/g, ' ')}
                   </span>
                 )}
               </div>

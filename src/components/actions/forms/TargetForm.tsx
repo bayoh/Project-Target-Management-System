@@ -301,6 +301,10 @@ export function TargetForm({ onSubmit, onCancel, target }: TargetFormProps) {
         <Select
           options={[
             { value: 'jobs', label: 'Jobs' },
+            { value: 'infrastructure', label: 'Infrastructure' },
+            { value: 'health_wellness', label: 'Health and Wellness' },
+            { value: 'education_skills', label: 'Education and Skills' },
+            { value: 'resource_mobilization', label: 'Resource mobilization' },
             { value: 'other', label: 'Other' }
           ]}
           value={formData.category}

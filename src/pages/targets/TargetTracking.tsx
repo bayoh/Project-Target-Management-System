@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { usePaginatedTargets, useDeleteTarget, useUpdateTarget, TargetItem, TargetFilters } from '../../hooks/useTargetQueries';
+import { useNavigate } from 'react-router-dom';
+import { useTargets, useDeleteTarget, useUpdateTarget, TargetItem } from '../../hooks/useTargetQueries';
 
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/Input';
-import { Select } from '../../components/ui/Select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
@@ -12,8 +12,6 @@ import {
   Target, 
   Edit3, 
   Trash2, 
-  Search, 
-  Filter, 
   ChevronLeft, 
   ChevronRight, 
   AlertCircle,
@@ -22,57 +20,92 @@ import {
   LayoutGrid,
   List,
   X,
-  Save
+  Save,
+  Eye,
+  Briefcase,
+  Building2,
+  Heart,
+  GraduationCap,
+  DollarSign,
+  HelpCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useActivityTracking } from '../../hooks/useActivityTracking';
 
 const ITEMS_PER_PAGE = 10;
 
+// Function to get category-specific icon and colors
+const getCategoryConfig = (category: string) => {
+  const configs = {
+    'jobs': { icon: Briefcase, bg: 'bg-blue-100', text: 'text-blue-600' },
+    'infrastructure': { icon: Building2, bg: 'bg-gray-100', text: 'text-gray-600' },
+    'health and wellness': { icon: Heart, bg: 'bg-red-100', text: 'text-red-600' },
+    'education and skills': { icon: GraduationCap, bg: 'bg-purple-100', text: 'text-purple-600' },
+    'resource mobilization': { icon: DollarSign, bg: 'bg-green-100', text: 'text-green-600' },
+    'other': { icon: HelpCircle, bg: 'bg-orange-100', text: 'text-orange-600' }
+  };
+  return configs[category as keyof typeof configs] || configs['other'];
+};
+
 function TargetTracking() {
+  const navigate = useNavigate();
   const { trackPageView } = useActivityTracking();
-  const [filters, setFilters] = useState<TargetFilters>({});
+
   const [currentPage, setCurrentPage] = useState(0);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [quickUpdateModal, setQuickUpdateModal] = useState<{ isOpen: boolean; target: TargetItem | null }>({ isOpen: false, target: null });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [searchTerm, setSearchTerm] = useState('');
 
   React.useEffect(() => {
     trackPageView('Target Tracking');
   }, [trackPageView]);
 
-  const { data: paginatedData, isLoading, isError, error } = usePaginatedTargets(
-    filters,
-    {
-      page: currentPage + 1,
-      limit: ITEMS_PER_PAGE,
-    }
-  );
+  // Fetch all targets for client-side pagination
+  const { data: allTargets, isLoading, isError, error } = useTargets();
 
-  const { targets, totalCount } = useMemo(() => ({
-    targets: paginatedData?.data ?? [],
-    totalCount: paginatedData?.count ?? 0,
-  }), [paginatedData]);
-
-  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+  // Client-side pagination and filtering logic
+  const { targets, totalCount, totalPages, filteredTargets } = useMemo(() => {
+    const allTargetsData = allTargets ?? [];
+    
+    // Filter by selected category
+    const filtered = selectedCategory 
+      ? allTargetsData.filter(target => target.category === selectedCategory)
+      : allTargetsData;
+    
+    const startIndex = currentPage * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const paginatedTargets = filtered.slice(startIndex, endIndex);
+    
+    return {
+      targets: paginatedTargets,
+      totalCount: filtered.length,
+      totalPages: Math.ceil(filtered.length / ITEMS_PER_PAGE),
+      filteredTargets: filtered
+    };
+  }, [allTargets, currentPage, selectedCategory]);
 
   const deleteTargetMutation = useDeleteTarget();
   const updateTargetMutation = useUpdateTarget();
 
-  const handleFilterChange = (filterName: keyof TargetFilters, value: string) => {
-    setFilters(prev => ({ ...prev, [filterName]: value }));
-    setCurrentPage(0);
-  };
 
-  const handleSearchChange = (value: string) => {
-    setSearchTerm(value);
-    setFilters(prev => ({ ...prev, searchTerm: value }));
-    setCurrentPage(0);
-  };
+
+
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+  };
+
+  const handleCategoryFilter = (category: string) => {
+    if (selectedCategory === category) {
+      // If clicking the same category, clear the filter
+      setSelectedCategory(null);
+    } else {
+      // Set new category filter
+      setSelectedCategory(category);
+    }
+    // Reset to first page when filtering
+    setCurrentPage(0);
   };
 
   const handleDeleteTarget = async (targetId: string) => {
@@ -157,23 +190,31 @@ function TargetTracking() {
 
   const uniqueCategories = useMemo(() => {
     // This should be fetched from the server in a real app
-    return ['Category A', 'Category B', 'Category C'];
+    return ['jobs', 'infrastructure', 'health and wellness', 'education and skills', 'resource mobilization', 'other'];
   }, []);
 
   const isJobTarget = (target: TargetItem) => target.category?.toLowerCase().includes('job');
 
-  // Calculate metrics for dashboard cards
+  // Calculate metrics for dashboard cards by category
   const metrics = useMemo(() => {
-    const total = targets.length;
-    const completed = targets.filter(t => (t.current_value / t.target_value) >= 1).length;
-    const atRisk = targets.filter(t => {
-      const progress = t.current_value / t.target_value;
-      return progress < 0.5 && progress > 0;
-    }).length;
-    const notStarted = targets.filter(t => t.current_value === 0).length;
+    const categoryStats: Record<string, number> = {};
     
-    return { total, completed, atRisk, notStarted };
-  }, [targets]);
+    // Initialize all categories with 0
+    uniqueCategories.forEach(category => {
+      categoryStats[category] = 0;
+    });
+    
+    // Count targets by category using all targets data
+    const allTargetsData = allTargets ?? [];
+    allTargetsData.forEach((target: TargetItem) => {
+      const category = target.category || 'Jobs';
+      if (categoryStats.hasOwnProperty(category)) {
+        categoryStats[category]++;
+      }
+    });
+    
+    return categoryStats;
+  }, [allTargets, uniqueCategories]);
 
   if (isLoading) {
     return (
@@ -196,7 +237,7 @@ function TargetTracking() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
           {/* Header Section */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center mb-4 sm:mb-0">
@@ -206,156 +247,70 @@ function TargetTracking() {
                 <p className="text-sm text-gray-500">Monitor and manage your targets</p>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('grid')}
-              >
-                <LayoutGrid className="h-4 w-4 mr-2" />
-                Grid
-              </Button>
-              <Button
-                variant={viewMode === 'table' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('table')}
-              >
-                <List className="h-4 w-4 mr-2" />
-                Table
-              </Button>
-            </div>
           </div>
 
-          {/* Metrics Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-            <div className="bg-white rounded-lg shadow-sm p-4 flex items-center justify-between transition-all duration-300 hover:shadow-md">
-              <div className="flex items-center">
-                <div className="p-1.5 bg-blue-100 rounded-md">
-                  <Target className="h-5 w-5 text-blue-600" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-xs font-medium text-gray-500">Total Targets</p>
-                  <p className="text-xl font-bold text-gray-900">{metrics.total}</p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm p-4 flex items-center justify-between transition-all duration-300 hover:shadow-md">
-              <div className="flex items-center">
-                <div className="p-1.5 bg-green-100 rounded-md">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-xs font-medium text-gray-500">Completed</p>
-                  <p className="text-xl font-bold text-gray-900">{metrics.completed}</p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm p-4 flex items-center justify-between transition-all duration-300 hover:shadow-md">
-              <div className="flex items-center">
-                <div className="p-1.5 bg-yellow-100 rounded-md">
-                  <AlertCircle className="h-5 w-5 text-yellow-600" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-xs font-medium text-gray-500">Off Track</p>
-                  <p className="text-xl font-bold text-gray-900">{metrics.atRisk}</p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm p-4 flex items-center justify-between transition-all duration-300 hover:shadow-md">
-              <div className="flex items-center">
-                <div className="p-1.5 bg-gray-100 rounded-md">
-                  <Clock className="h-5 w-5 text-gray-600" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-xs font-medium text-gray-500">Not Started</p>
-                  <p className="text-xl font-bold text-gray-900">{metrics.notStarted}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Search and Filters */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4 space-y-3 lg:space-y-0">
-              <h2 className="text-lg font-semibold text-gray-900">Search & Filters</h2>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search targets..."
-                    value={searchTerm}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    className="pl-9 pr-3 py-2 w-full sm:w-64 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                    aria-label="Search targets"
-                  />
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="px-4 py-2 text-blue-600 border-blue-300 hover:bg-blue-50 hover:border-blue-400 text-sm"
-                  aria-label="Open advanced filters"
+          {/* Category Metrics Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-6">
+            {uniqueCategories.map((category) => {
+              const count = metrics[category] || 0;
+              const categoryConfig = getCategoryConfig(category);
+              const IconComponent = categoryConfig.icon;
+              const isSelected = selectedCategory === category;
+              
+              return (
+                <div 
+                  key={category} 
+                  onClick={() => handleCategoryFilter(category)}
+                  className={`bg-white rounded-lg shadow-sm p-4 flex items-center justify-between transition-all duration-300 hover:shadow-md cursor-pointer transform hover:scale-105 ${
+                    isSelected ? 'ring-2 ring-blue-500 shadow-lg bg-blue-50' : ''
+                  }`}
                 >
-                  <Filter className="h-4 w-4 mr-1" />
-                  Filters
+                  <div className="flex items-center">
+                    <div className={`p-1.5 ${isSelected ? 'bg-blue-100' : categoryConfig.bg} rounded-md`}>
+                      <IconComponent className={`h-5 w-5 ${isSelected ? 'text-blue-600' : categoryConfig.text}`} />
+                    </div>
+                    <div className="ml-3">
+                      <p className={`text-xs font-medium ${isSelected ? 'text-blue-600' : 'text-gray-500'}`}>{category.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</p>
+                      <p className={`text-xl font-bold ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>{count}</p>
+                    </div>
+                  </div>
+                  {isSelected && (
+                    <div className="text-blue-600">
+                      <X className="h-4 w-4" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Filter Status */}
+          {selectedCategory && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="text-blue-600 mr-2">
+                    <Target className="h-5 w-5" />
+                  </div>
+                  <span className="text-blue-800 font-medium">
+                    Showing {totalCount} targets in "{selectedCategory}" category
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedCategory(null);
+                    setCurrentPage(0);
+                  }}
+                  className="text-blue-600 border-blue-300 hover:bg-blue-100"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Clear Filter
                 </Button>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label 
-                  htmlFor="category-filter" 
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Category
-                </label>
-                <Select
-                  id="category-filter"
-                  options={[
-                    { value: '', label: 'All Categories' },
-                    ...uniqueCategories.map(category => ({ value: category, label: category }))
-                  ]}
-                  value={filters.category || ''}
-                  onChange={(value) => handleFilterChange('category', value as string)}
-                  placeholder="Select Category"
-                  className="w-full text-sm"
-                  aria-label="Filter by category"
-                />
-              </div>
-              <div>
-                <label 
-                  htmlFor="status-filter" 
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Status
-                </label>
-                <Select
-                  id="status-filter"
-                  options={[
-                    { value: '', label: 'All Statuses' },
-                    { value: 'not_started', label: 'Not Started' },
-                    { value: 'on_track', label: 'On Track' },
-    { value: 'completed', label: 'Completed' },
-    { value: 'off_track', label: 'Off Track' }
-                  ]}
-                  value={filters.searchTerm || ''}
-                  onChange={(value) => handleFilterChange('searchTerm', value as string)}
-                  placeholder="Select Status"
-                  className="w-full text-sm"
-                  aria-label="Filter by progress status"
-                />
-              </div>
-              <div className="flex items-end">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="w-full px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 text-sm border border-dashed border-gray-300 hover:border-gray-400"
-                  aria-label="Clear all filters"
-                >
-                  Clear Filters
-                </Button>
-              </div>
-            </div>
-          </div>
+          )}
 
         {/* Desktop Table View */}
         <div className="hidden md:block">
@@ -365,7 +320,7 @@ function TargetTracking() {
                 <TableRow className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
                   <TableHead className="font-semibold text-gray-900 py-4 px-6">Target Name</TableHead>
                   <TableHead className="font-semibold text-gray-900 py-4 px-6">Progress</TableHead>
-                  <TableHead className="font-semibold text-gray-900 py-4 px-6">Status</TableHead>
+                  {/* <TableHead className="font-semibold text-gray-900 py-4 px-6">Status</TableHead> */}
                   <TableHead className="font-semibold text-gray-900 py-4 px-6 text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -386,7 +341,7 @@ function TargetTracking() {
                             {target.description}
                           </span>
                           <span className="text-sm text-gray-500 mt-1">
-                            Target: {target.target_value.toLocaleString()}
+                            Target: {target.target_value.toLocaleString()} • {target.category?.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') || 'Other'}
                           </span>
                         </div>
                       </TableCell>
@@ -417,7 +372,7 @@ function TargetTracking() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="py-4 px-6">
+                      {/* <TableCell className="py-4 px-6">
                         <Badge 
                           className={`px-3 py-1 text-xs font-semibold rounded-full border transition-all duration-200 ${
                             isCompleted 
@@ -429,15 +384,35 @@ function TargetTracking() {
                         >
                           {isCompleted ? 'Completed' : isAtRisk ? 'Off Track' : 'On Track'}
                         </Badge>
-                      </TableCell>
+                      </TableCell> */}
                       <TableCell className="py-4 px-6">
                         <div className="flex items-center justify-center space-x-2">
+                          {target.action && target.action.intervention && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  size="icon" 
+                                  onClick={() => navigate(`/interventions/${target.action!.intervention!.id}/actions/${target.action?.id}#targets`)}
+                                  className="h-9 w-9 rounded-lg border-gray-300 hover:border-green-400 hover:bg-green-50 hover:text-green-600 transition-all duration-200 hover:shadow-md hover:scale-105"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="bg-gray-900 text-white text-xs px-2 py-1 rounded">
+                                View Action
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button 
                                 variant="outline" 
                                 size="icon" 
-                                onClick={() => setQuickUpdateModal({ isOpen: true, target })}
+                                onClick={() => {
+                                setQuickUpdateModal({ isOpen: true, target });
+                                setFormErrors({});
+                              }}
                                 className="h-9 w-9 rounded-lg border-gray-300 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200 hover:shadow-md hover:scale-105"
                               >
                                 <Edit3 className="h-4 w-4" />
@@ -544,11 +519,25 @@ function TargetTracking() {
                   </div>
                   
                   {/* Action Buttons */}
-                  <div className="flex items-center space-x-3 pt-2">
+                  <div className="flex items-center space-x-2 pt-2">
+                    {target.action && target.action.intervention && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => navigate(`/interventions/${target.action!.intervention!.id}/actions/${target.action?.id}#targets`)}
+                        className="flex-1 h-9 rounded-lg border-gray-300 hover:border-green-400 hover:bg-green-50 hover:text-green-600 transition-all duration-200 hover:shadow-md"
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </Button>
+                    )}
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      onClick={() => setQuickUpdateModal({ isOpen: true, target })}
+                      onClick={() => {
+                                setQuickUpdateModal({ isOpen: true, target });
+                                setFormErrors({});
+                              }}
                       className="flex-1 h-9 rounded-lg border-gray-300 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200 hover:shadow-md"
                     >
                       <Edit3 className="h-4 w-4 mr-2" />
@@ -660,6 +649,7 @@ function TargetTracking() {
                     <Input 
                       name="current_value" 
                       label={`Current Value (Target: ${quickUpdateModal.target.target_value})`}
+                      key={`current_value_${quickUpdateModal.target.id}`}
                       defaultValue={quickUpdateModal.target.current_value} 
                       type="number" 
                       min="0"
@@ -676,6 +666,7 @@ function TargetTracking() {
                         <Input 
                           name="women_current" 
                           label="Women Current Value"
+                          key={`women_current_${quickUpdateModal.target.id}`}
                           defaultValue={quickUpdateModal.target.women_current} 
                           type="number" 
                           min="0"
@@ -688,6 +679,7 @@ function TargetTracking() {
                         <Input 
                           name="youth_current" 
                           label="Youth Current Value"
+                          key={`youth_current_${quickUpdateModal.target.id}`}
                           defaultValue={quickUpdateModal.target.youth_current} 
                           type="number" 
                           min="0"
