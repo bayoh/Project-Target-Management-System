@@ -5,7 +5,7 @@ import { Button } from './button';
 import type { Action, Intervention } from '../../types/project';
 import type { User as UserType } from '../../types/auth';
 import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip';
-import { StatusBadge } from './statusBadge';
+import { StatusBadge } from './StatusBadge';
 
 interface ActionCardProps {
   action: Action;
