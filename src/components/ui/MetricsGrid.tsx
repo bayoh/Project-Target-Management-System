@@ -74,7 +74,7 @@ export const createActionMetrics = (
     label: 'Total Actions',
     value: totalActions,
     icon: Target,
-    gradient: 'bg-gradient-to-br from-blue-500 to-blue-600',
+    gradient: 'bg-gradient-to-br from-slate-300 to-slate-600',
     onClick: () => onFilterChange('')
   },
   {

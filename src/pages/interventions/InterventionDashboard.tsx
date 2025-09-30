@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-
 import { 
   Plus,
   ChevronRight,
@@ -19,11 +18,20 @@ import {
   LayoutGrid, // Added for grid view icon
   ListChecks // Added for list view icon
 } from 'lucide-react';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 import { MetricsGrid } from '../../components/ui/MetricsGrid';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { projectApi, userApi } from '../../lib/api';
-import type { Intervention, User, Cluster, Pathway } from '../../types/project';
+import type { Intervention, User, Cluster, Pathway, ProjectStatus } from '../../types/project';
+
+// Extended interface for intervention with joined data
+interface InterventionWithRelations extends Intervention {
+  pathway?: Pathway & {
+    cluster?: Cluster;
+  };
+  lead?: User;
+}
 import { ConfirmationDialog } from '../../components/ui/ConfirmationDialog';
 import toast from 'react-hot-toast';
 import {
@@ -47,7 +55,7 @@ interface ConfirmationState {
   isOpen: boolean;
   type: 'delete' | 'status';
   interventionId: string;
-  newStatus?: 'completed' | 'on_track' | 'off_track' | 'not_started';
+  newStatus?: ProjectStatus;
 }
 
 export function InterventionDashboard() {
@@ -73,7 +81,7 @@ export function InterventionDashboard() {
   const navigate = useNavigate();
 
   // Fetch interventions using TanStack Query
-  const { data: interventions = [], isLoading: loading, error } = useQuery({
+  const { data: interventions = [], isLoading: loading, error } = useQuery<InterventionWithRelations[]>({
     queryKey: queryKeys.projects.interventions(),
     queryFn: async () => {
       const { data, error } = await supabase
@@ -231,7 +239,7 @@ export function InterventionDashboard() {
     }
   };
 
-  const handleStatusChangeClick = (id: string, newStatus: 'completed' | 'in_progress' | 'at_risk' | 'not_started') => {
+  const handleStatusChangeClick = (id: string, newStatus: ProjectStatus) => {
     setConfirmation({
       isOpen: true,
       type: 'status',
@@ -278,22 +286,9 @@ export function InterventionDashboard() {
 
   const { totalActions, statusCounts } = getMetrics();
 
-  const statusColors: { [key: string]: string } = {
-    completed: 'bg-green-100 text-green-700',
-    on_track: 'bg-blue-100 text-blue-700',
-    off_track: 'bg-yellow-100 text-yellow-700',
-    not_started: 'bg-gray-100 text-gray-700',
-  };
+  // Status configuration moved to StatusBadge component
 
-  const statusIcons: { [key: string]: React.ElementType } = {
-    completed: CheckCircle2,
-    on_track: Clock,
-    off_track: AlertTriangle,
-    not_started: List, 
-  };
-
-  const renderInterventionCard = (intervention: Intervention) => {
-    const StatusIcon = statusIcons[intervention.status] || List;
+  const renderInterventionCard = (intervention: InterventionWithRelations) => {
     return (
       <div key={intervention.id} className="bg-white rounded-lg shadow-sm border border-gray-100 p-3 flex flex-col justify-between hover:shadow-md hover:border-gray-200 transition-all duration-200">
         <div className="space-y-2">
@@ -318,10 +313,7 @@ export function InterventionDashboard() {
             </p>
           </div>
           
-          <div className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${statusColors[intervention.status] || statusColors.not_started}`}>
-            <StatusIcon size={12} className="mr-1" />
-            {intervention.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-          </div>
+          <StatusBadge status={intervention.status} />
         </div>
         
         <div className="mt-3 pt-3 border-t border-gray-50">
@@ -377,7 +369,7 @@ export function InterventionDashboard() {
                 label: 'Total Interventions',
                 value: totalActions,
                 icon: Network,
-                gradient: 'bg-gradient-to-br from-blue-500 to-blue-600',
+                gradient: 'bg-gradient-to-br from-slate-300 to-slate-600',
                 onClick: () => setFilters(prev => ({ ...prev, status: '' }))
               },
               {

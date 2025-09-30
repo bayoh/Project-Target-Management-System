@@ -13,6 +13,7 @@ import { DocumentList} from '../../components/documents';
 import { projectApi } from '../../lib/api';
 import { useActivityTracking } from '../../hooks/useActivityTracking';
 import { CommentsSection } from '../../components/comments/CommentsSection';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 
 interface Comment {
   id: string;
@@ -407,14 +408,7 @@ export function InterventionDetails() {
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500">Status</h3>
-              <p className={`mt-1 text-sm font-medium ${
-                intervention.status === 'completed' ? 'text-green-600' :
-                intervention.status === 'at_risk' ? 'text-red-600' :
-                intervention.status === 'in_progress' ? 'text-blue-600' :
-                'text-gray-600'
-              }`}>
-                {intervention.status.replace('_', ' ')}
-              </p>
+              <StatusBadge status={intervention.status} />
             </div>
 
             <div>

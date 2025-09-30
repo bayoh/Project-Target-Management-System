@@ -29,6 +29,7 @@ import { Button } from '../../components/ui/button'; // Corrected import path
 import { projectApi } from '../../lib/api';
 import { CommentsSection } from '../comments/CommentsSection';
 import { useActivityTracking } from '../../hooks/useActivityTracking';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 
 interface Partner {
   id: string;
@@ -776,14 +777,7 @@ export function ActionDetails({ action, users, onUpdate }: ActionDetailsProps) {
               </div>
               <div className="space-y-1.5">
                 <h4 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Status</h4>
-                <span className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-full ${
-                  action.status === 'completed' ? 'bg-green-100 text-green-800' :
-                  action.status === 'off_track' ? 'bg-red-100 text-red-800' :
-                  action.status === 'on_track' ? 'bg-blue-100 text-blue-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {action.status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                </span>
+                <StatusBadge status={action.status} />
               </div>
 
               <div className="space-y-1.5">

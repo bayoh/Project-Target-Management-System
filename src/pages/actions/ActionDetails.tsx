@@ -1,66 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-
-import { supabase } from '../../lib/supabase';
-import type { Action, User } from '../../types/project';
+import { useQueryClient } from '@tanstack/react-query';
+import { useActivityTracking } from '../../hooks/useActivityTracking';
+import { useActionDetail, useUsers } from '../../hooks/useActionQueries';
+import { queryKeys } from '../../lib/queryKeys';
 import { ActionDetails as ActionDetailsComponent } from '../../components/actions/ActionDetails';
 import { ChevronLeft } from 'lucide-react';
-import { useActivityTracking } from '../../hooks/useActivityTracking';
 
 export function ActionDetails() {
-  const { trackPageView } = useActivityTracking();
   const { id } = useParams();
   const navigate = useNavigate();
-  const [action, setAction] = useState<Action | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const { trackPageView } = useActivityTracking();
+  
+  // Use TanStack Query hooks for data fetching
+  const { data: action, isLoading: actionLoading, error: actionError } = useActionDetail(id);
+  const { data: users = [], isLoading: usersLoading } = useUsers();
+  
+  const loading = actionLoading || usersLoading;
+  const error = actionError ? 'Failed to load action details' : null;
 
-  useEffect(() => {
-    trackPageView('Action Details');
-    loadAction();
-    loadUsers();
-  }, [id]);
-
-  const loadAction = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('actions')
-        .select(`
-          *,
-          tasks (
-            id,
-            title,
-            description,
-            status,
-            assigned_to,
-            due_date
-          )
-        `)
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-      setAction(data);
-    } catch (err) {
-      console.error('Error loading action:', err);
-      setError('Failed to load action details');
-    } finally {
-      setLoading(false);
+  // Track page view when action data is loaded
+  React.useEffect(() => {
+    if (action && id) {
+      trackPageView('Action Details');
     }
-  };
-
-  const loadUsers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('users_view')
-        .select('*')
-        .order('email');
-
-      if (error) throw error;
-      setUsers(data);
-    } catch (err) {
-      console.error('Error loading users:', err);
+  }, [action, id, trackPageView]);
+  
+  // Handle data refresh
+  const handleUpdate = () => {
+    if (id) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.actions.detail(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.list() });
     }
   };
 
@@ -114,7 +85,7 @@ export function ActionDetails() {
         <ActionDetailsComponent
           action={action}
           users={users}
-          onUpdate={loadAction}
+          onUpdate={handleUpdate}
         />
     </div>
   );

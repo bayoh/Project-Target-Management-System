@@ -39,9 +39,9 @@ const getCategoryConfig = (category: string) => {
   const configs = {
     'jobs': { icon: Briefcase, bg: 'bg-blue-100', text: 'text-blue-600' },
     'infrastructure': { icon: Building2, bg: 'bg-gray-100', text: 'text-gray-600' },
-    'health and wellness': { icon: Heart, bg: 'bg-red-100', text: 'text-red-600' },
-    'education and skills': { icon: GraduationCap, bg: 'bg-purple-100', text: 'text-purple-600' },
-    'resource mobilization': { icon: DollarSign, bg: 'bg-green-100', text: 'text-green-600' },
+    'health_wellness': { icon: Heart, bg: 'bg-red-100', text: 'text-red-600' },
+    'education_skills': { icon: GraduationCap, bg: 'bg-purple-100', text: 'text-purple-600' },
+    'resource_mobilization': { icon: DollarSign, bg: 'bg-green-100', text: 'text-green-600' },
     'other': { icon: HelpCircle, bg: 'bg-orange-100', text: 'text-orange-600' }
   };
   return configs[category as keyof typeof configs] || configs['other'];
@@ -190,7 +190,7 @@ function TargetTracking() {
 
   const uniqueCategories = useMemo(() => {
     // This should be fetched from the server in a real app
-    return ['jobs', 'infrastructure', 'health and wellness', 'education and skills', 'resource mobilization', 'other'];
+    return ['jobs', 'infrastructure', 'health_wellness', 'education_skills', 'resource_mobilization', 'other'];
   }, []);
 
   const isJobTarget = (target: TargetItem) => target.category?.toLowerCase().includes('job');
@@ -270,7 +270,7 @@ function TargetTracking() {
                       <IconComponent className={`h-5 w-5 ${isSelected ? 'text-blue-600' : categoryConfig.text}`} />
                     </div>
                     <div className="ml-3">
-                      <p className={`text-xs font-medium ${isSelected ? 'text-blue-600' : 'text-gray-500'}`}>{category.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</p>
+                      <p className={`text-xs font-medium ${isSelected ? 'text-blue-600' : 'text-gray-500'}`}>{category.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</p>
                       <p className={`text-xl font-bold ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>{count}</p>
                     </div>
                   </div>
@@ -341,7 +341,7 @@ function TargetTracking() {
                             {target.description}
                           </span>
                           <span className="text-sm text-gray-500 mt-1">
-                            Target: {target.target_value.toLocaleString()} • {target.category?.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') || 'Other'}
+                            Target: {target.target_value.toLocaleString()} • {target.category?.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') || 'Other'}
                           </span>
                         </div>
                       </TableCell>

@@ -143,7 +143,7 @@ export function IssueDashboard() {
       switch (status) {
         case 'open': return 'bg-orange-100 text-orange-700 border-orange-300';
         case 'in_progress': return 'bg-blue-100 text-blue-700 border-blue-300';
-        case 'resolved': return 'bg-teal-100 text-teal-700 border-teal-300';
+        case 'resolved': return 'bg-green-300 text-teal-700 border-green-700';
         case 'closed': return 'bg-gray-200 text-gray-600 border-gray-400';
         default: return 'bg-gray-100 text-gray-700 border-gray-300';
       }

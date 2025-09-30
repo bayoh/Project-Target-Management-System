@@ -5,6 +5,7 @@ import { Button } from './button';
 import type { Action, Intervention } from '../../types/project';
 import type { User as UserType } from '../../types/auth';
 import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip';
+import { StatusBadge } from './statusBadge';
 
 interface ActionCardProps {
   action: Action;
@@ -15,51 +16,6 @@ interface ActionCardProps {
   onDelete: (actionId: string) => void;
   className?: string;
 }
-
-// const getStatusIcon = (status: string) => {
-//   switch (status) {
-//     case 'completed':
-//       return <CheckCircle className="h-4 w-4 text-green-600" />;
-//     case 'in_progress':
-//       return <Clock className="h-4 w-4 text-blue-600" />;
-//     case 'at_risk':
-//       return <AlertTriangle className="h-4 w-4 text-red-600" />;
-//     case 'not_started':
-//       return <XCircle className="h-4 w-4 text-gray-600" />;
-//     default:
-//       return <Clock className="h-4 w-4 text-gray-600" />;
-//   }
-// };
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'completed':
-      return 'bg-green-50 text-green-700 border-green-200';
-    case 'on_track':
-      return 'bg-blue-50 text-blue-700 border-blue-200';
-    case 'off_track':
-      return 'bg-red-50 text-red-700 border-red-200';
-    case 'not_started':
-      return 'bg-gray-50 text-gray-700 border-gray-200';
-    default:
-      return 'bg-gray-50 text-gray-700 border-gray-200';
-  }
-};
-
-const getStatusLabel = (status: string) => {
-  switch (status) {
-    case 'completed':
-      return 'Completed';
-    case 'on_track':
-      return 'On Track';
-    case 'off_track':
-      return 'Off Track';
-    case 'not_started':
-      return 'Not Started';
-    default:
-      return 'Not Started';
-  }
-};
 
 export function ActionCard({
   action,
@@ -103,17 +59,9 @@ export function ActionCard({
                 )}
               </Tooltip>
             </div>
-            {/* <div className="flex items-center gap-2">
-              {getStatusIcon(action.status)}
-              <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${getStatusColor(action.status)}`}>
-                {getStatusLabel(action.status)}
-              </span>
-            </div> */}
           </div>
           <div className="flex items-center gap-1 ml-4">
-            <span className={`text-xs font-medium px-2 py-1 rounded border ${getStatusColor(action.status)}`}>
-              {getStatusLabel(action.status)}
-            </span>
+            <StatusBadge status={action.status}/>
           </div>
         </div>
       </CardHeader>
@@ -135,37 +83,13 @@ export function ActionCard({
             )}
           </Tooltip>
           
-          {/* Intervention
-          <div className="flex items-center gap-2 text-sm">
-            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-            <span className="font-medium text-gray-700">Intervention:</span>
-            <span className="text-gray-600 truncate">{intervention?.name || 'Promote and facilitate access to solar energy solutions for domestic and business users'}</span>
-          </div> */}
-
           {/* Lead */}
           <div className="flex items-center gap-2 text-sm mb-2">
             <User className="h-4 w-4 text-gray-400" />
             <span className="font-medium text-gray-700">Lead:</span>
             <span className="text-gray-600">{lead?.full_name || 'Not set'}</span>
           </div>
-
-          {/* Dates */}
-          {/* <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-2 text-sm">
-              <Calendar className="h-4 w-4 text-gray-400" />
-              <div>
-                <div className="font-medium text-gray-700">Start Date</div>
-                <div className="text-gray-600">{formatDate(action.start_date)}</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <Calendar className="h-4 w-4 text-gray-400" />
-              <div>
-                <div className="font-medium text-gray-700">End Date</div>
-                <div className="text-gray-600">{formatDate(action.end_date)}</div>
-              </div>
-            </div>
-          </div> */}
+        
         </div>
 
         {/* Bottom section with date and issues - now sticks to bottom */}

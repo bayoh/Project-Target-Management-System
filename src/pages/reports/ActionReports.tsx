@@ -41,6 +41,7 @@ import { Calendar } from '../../components/ui/Calendar.tsx';
 import { List, ListItem } from '../../components/ui/List.tsx';
 import { Select } from '../../components/ui/Select.tsx';
 import { format, formatDate, formatDistance, formatRelative, subDays } from 'date-fns'
+import { StatusBadge } from '../../components/ui/StatusBadge';
 
 interface Milestone {
   date: string;
@@ -59,7 +60,7 @@ interface ActionReport {
   id: string;
   name: string;
   description: string;
-  status: 'completed' | 'ongoing/ontrack' | 'ongoing/offtrack'| 'pending';
+  status: 'completed' | 'on_track' | 'off_track'| 'not_started';
   milestones: Milestone[];
   keyMilestones: string[];
   needs: [];
@@ -142,9 +143,9 @@ const getStatusColor = (status: string) => {
   switch (status) {
     case 'completed':
       return '#22C55E';
-    case 'in_progress':
+    case 'on_track':
       return '#3B82F6';
-    case 'at_risk':
+    case 'off_track':
       return '#F59E0B';
     case 'not_started':
       return '#6B7280';
@@ -419,11 +420,6 @@ export function ActionReports() {
     }
   }, [selectedLeadId]);
 
-  // useEffect(() => {
-  //   if (selectedActionId) {
-  //     loadReport(selectedActionId);
-  //   }
-  // }, [selectedActionId]);
 
   const loadLeads = async () => {
     try {
@@ -759,7 +755,7 @@ export function ActionReports() {
                       <div className='space-y-2 sm:space-y-3 w-full sm:w-auto'>
                         <div className="flex items-center gap-2 text-xs sm:text-sm font-medium">
                           <span className="flex items-center gap-1 sm:gap-2">
-                            Status: <span className="capitalize">{report.status}</span> {getStatusIcon(report.status)}
+                            Status: <StatusBadge status={report.status} />
                           </span>
                         </div>
                         <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-600">

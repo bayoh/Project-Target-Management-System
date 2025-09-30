@@ -11,6 +11,7 @@ import {
 import type { ReportTemplate } from '../../types/reports';
 import { format as formatDate } from 'date-fns';
 import { useCreateGeneratedReport } from '../../hooks/useGeneratedReportQueries';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 
 const styles = StyleSheet.create({
   page: {

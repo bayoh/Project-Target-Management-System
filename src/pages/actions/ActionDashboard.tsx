@@ -21,8 +21,7 @@ import { useAuth } from '../../lib/auth';
 import { Button } from '../../components/ui/button';
 import { MetricsGrid, createActionMetrics } from '../../components/ui/MetricsGrid';
 import { FilterPanel, FilterConfig } from '../../components/ui/FilterPanel';
-// Remove local TooltipProvider import; it's now provided globally in App.tsx
-// import { TooltipProvider } from '../../components/ui/tooltip';
+import { statusBadge } from '../../components/ui/statusBadge';
 
 interface ConfirmationState {
   isOpen: boolean;

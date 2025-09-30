@@ -6,6 +6,7 @@ import { ActionForm } from './ActionForm';
 import { supabase } from '../../lib/supabase';
 import { canCreateAction, canEditAction, canDeleteAction } from '../../lib/permissions';
 import { useActivityTracking } from '../../hooks/useActivityTracking';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 
 interface ActionListProps {
   actions: Action[];
@@ -259,14 +260,7 @@ export function ActionList({ actions, interventionId, onActionUpdate, users , sh
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                    action.status === 'completed' ? 'bg-green-100 text-green-800' :
-                    action.status === 'off_track' ? 'bg-red-100 text-red-800' :
-                    action.status === 'on_track' ? 'bg-blue-100 text-blue-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {action.status.replace('_', ' ')}
-                  </span>
+                  <StatusBadge status={action.status} />
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {action.lead_id ? users.find(u => u.id === action.lead_id)?.full_name : 'Unassigned'}

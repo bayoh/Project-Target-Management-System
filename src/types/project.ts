@@ -66,7 +66,7 @@ export interface Action extends BaseEntity {
   budget: number | null;
   associated_projects: string[];
   implementing_partners: string[];
-  indicators?: Indicator[];
+  targets?: target[];
 }
 
 export interface Task extends BaseEntity {
@@ -78,7 +78,7 @@ export interface Task extends BaseEntity {
   due_date: string | null;
 }
 
-export interface Indicator extends BaseEntity {
+export interface target extends BaseEntity {
   action_id: string;
   name: string;
   description: string | null;
