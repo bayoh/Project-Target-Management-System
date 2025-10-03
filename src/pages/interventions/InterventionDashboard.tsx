@@ -292,6 +292,11 @@ export function InterventionDashboard() {
     return (
       <div key={intervention.id} className="bg-white rounded-lg shadow-sm border border-gray-100 p-3 flex flex-col justify-between hover:shadow-md hover:border-gray-200 transition-all duration-200">
         <div className="space-y-2">
+           {(intervention.code ?? '') && (
+                <span className="text-[10px] sm:text-xs font-mono bg-gray-100 text-gray-700 px-2 py-0.5 rounded border border-gray-200">
+                  {String(intervention.code)}
+                </span>
+              )}
           <div className="flex justify-between items-start">
             <h3 className="text-base font-semibold text-gray-900 truncate pr-2" title={intervention.name || 'Untitled'}>
               {intervention.name || 'Untitled'}

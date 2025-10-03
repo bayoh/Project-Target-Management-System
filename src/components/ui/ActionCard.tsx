@@ -43,7 +43,13 @@ export function ActionCard({
       <CardHeader className="p-6 pb-1">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
+             {(action.code ?? '').length > 0 && (
+                <span className="text-[10px] sm:text-xs font-mono bg-gray-100 text-gray-700 px-2 py-0.5 rounded border border-gray-200">
+                  {String(action.code)}
+                </span>
+              )}
             <div className="flex items-center gap-2 mb-2">
+             
               <Tooltip>
                 <TooltipTrigger asChild>
                   <p
@@ -58,6 +64,7 @@ export function ActionCard({
                   </TooltipContent>
                 )}
               </Tooltip>
+              
             </div>
           </div>
           <div className="flex items-center gap-1 ml-4">
