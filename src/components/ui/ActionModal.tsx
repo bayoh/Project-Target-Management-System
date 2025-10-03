@@ -110,6 +110,8 @@ export function ActionModal({
     action || initialFormState
   );
 
+  // Auto-generate code toggle: when true, the Code field is generated from intervention
+  const [autoGenerateCode, setAutoGenerateCode] = React.useState(true);
   // Enhanced useEffect for form data and local state management
   React.useEffect(() => {
     if (action) {
@@ -159,6 +161,55 @@ export function ActionModal({
     }
   }, [formData, action, isOpen, localState.hasUnsavedChanges]);
 
+  // Auto-generate action code when intervention changes (and auto-generation is enabled)
+  React.useEffect(() => {
+    const generateCode = async () => {
+      try {
+        if (!autoGenerateCode) return;
+        const interventionId = formData.intervention_id;
+        if (!interventionId) {
+          // Clear code if no intervention selected
+          setFormData(prev => ({ ...prev, code: undefined }));
+          return;
+        }
+
+        const selectedIntervention = interventions.find(i => i.id === interventionId);
+        if (!selectedIntervention) return;
+
+        const interventionCodeStr = String(selectedIntervention.code);
+        const { data: latest, error: latestError } = await supabase
+          .from('actions')
+          .select('id, code, created_at')
+          .eq('intervention_id', interventionId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        let nextSeq = 1;
+        if (!latestError && latest && latest.length > 0) {
+          const lastCodeStr = String(latest[0]?.code ?? '');
+          if (lastCodeStr.startsWith(`${interventionCodeStr}.`)) {
+            const parts = lastCodeStr.split('.');
+            const seqStr = parts[parts.length - 1];
+            const seq = parseInt(seqStr, 10);
+            if (!Number.isNaN(seq)) {
+              nextSeq = seq + 1;
+            }
+          }
+        }
+
+        const generated = `${interventionCodeStr}.${nextSeq}`;
+        setFormData(prev => ({ ...prev, code: generated }));
+      } catch (err) {
+        const selectedIntervention = interventions.find(i => i.id === formData.intervention_id);
+        if (autoGenerateCode && selectedIntervention) {
+          setFormData(prev => ({ ...prev, code: `${String(selectedIntervention.code)}.1` }));
+        }
+      }
+    };
+
+    generateCode();
+  }, [formData.intervention_id, autoGenerateCode, interventions]);
+
   // Enhanced handlers with local state management
   const handleClose = () => {
     if (localState.hasUnsavedChanges) {
@@ -195,7 +246,7 @@ export function ActionModal({
       delete sanitizedFormData.needs;
       delete sanitizedFormData.issues;
       delete sanitizedFormData.tasks;
-      delete sanitizedFormData.indicators;
+      // Removed: delete sanitizedFormData.indicators; // property does not exist on Action
       console.log(sanitizedFormData)
       
       await onSubmit(sanitizedFormData);
@@ -279,6 +330,19 @@ export function ActionModal({
                       <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
                       Basic Information
                     </h4>
+
+                    <div className="sm:col-span-6 flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="auto-generate-action-code"
+                        checked={autoGenerateCode}
+                        onChange={(e) => setAutoGenerateCode(e.target.checked)}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                      />
+                      <label htmlFor="auto-generate-action-code" className="text-xs sm:text-sm font-medium text-gray-700">
+                        Auto-generate code from selected intervention
+                      </label>
+                    </div>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <Input
@@ -305,6 +369,8 @@ export function ActionModal({
                         required
                         type='text'
                         className="text-sm"
+                        disabled={autoGenerateCode}
+                        placeholder="e.g., 2.12.1"
                       />
                       <Input
                         label='Name'
