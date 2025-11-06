@@ -180,6 +180,7 @@ export function Select({
           {filteredAndSortedOptions.map((option) => (
             <button
               key={option.value}
+              type='button'
               onClick={() => {
                 const newValue = multiple
                   ? selectedValues.includes(option.value)

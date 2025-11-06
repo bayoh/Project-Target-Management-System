@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { LoginForm } from './components/auth/LoginForm';
@@ -6,44 +6,53 @@ import { PasswordReset } from './components/auth/PasswordReset';
 import { UpdatePassword } from './components/auth/UpdatePassword';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { DashboardLayout } from './components/layout/DashboardLayout';
-
-import { Clusters } from './pages/Clusters';
-import { NewCluster } from './pages/NewCluster';
-import { ViewCluster } from './pages/ViewCluster';
-import { EditCluster } from './pages/EditCluster';
-import { InterventionDashboard } from './pages/interventions/InterventionDashboard';
-import { NewIntervention } from './pages/interventions/NewIntervention';
-import { InterventionDetails } from './pages/interventions/InterventionDetails';
-import { EditIntervention } from './pages/interventions/EditIntervention';
-import { ActionDetails } from './pages/actions/ActionDetails';
-import { ActionReports } from "./pages/reports/ActionReports";
-import { ReportTemplates } from './pages/reports/ReportTemplates';
-import { Settings } from './pages/settings/Settings';
-import { Profile } from './pages/settings/Profile';
-import { Assignments } from './pages/settings/Assignments';
-import { EditTemplate } from './pages/reports/EditTemplate';
-import { GenerateReport } from './pages/reports/GenerateReport';
-import { Import } from './pages/settings/Import';
-import { Roles } from './pages/settings/Role';
-import { System } from './pages/settings/System';
-import { Security } from './pages/settings/Security';
-import { Users } from './pages/settings/Users'
-import { useAuth } from './lib/auth.tsx';
-import { MyDashboard } from './pages/UserDashboard';
-import { PojectsPartners } from './pages/settings/PojectsPartners';
-import { Issue } from './pages/issues';
-import Help from './pages/Help';
-import TargetTracking from './pages/targets/TargetTracking';
-import NewTarget from './pages/targets/NewTarget';
-import TargetDetail from './pages/targets/TargetDetail';
-import TargetsIndex from './pages/targets/index';
-import { ActionDashboard } from './pages/actions/ActionDashboard';
-import { Jobs } from './pages/jobs';
-import UserActivity from './pages/admin/UserActivity';
-import Reports from './pages/admin/Reports';
-import { IframePage } from './pages/IframePage';
-import { CircuitBreakerTest } from './pages/CircuitBreakerTest';
 import { TooltipProvider } from './components/ui/tooltip';
+import { useAuth } from './lib/auth.tsx';
+
+// Lazy load route components for code splitting
+// Helper to handle both default and named exports
+const lazyNamed = (importFn: () => Promise<{ [key: string]: React.ComponentType<unknown> }>, exportName: string) =>
+  lazy(() => importFn().then(module => ({ default: module[exportName] || module.default })));
+
+const Clusters = lazyNamed(() => import('./pages/Clusters'), 'Clusters');
+const NewCluster = lazyNamed(() => import('./pages/NewCluster'), 'NewCluster');
+const ViewCluster = lazyNamed(() => import('./pages/ViewCluster'), 'ViewCluster');
+const EditCluster = lazyNamed(() => import('./pages/EditCluster'), 'EditCluster');
+const InterventionDashboard = lazyNamed(() => import('./pages/interventions/InterventionDashboard'), 'InterventionDashboard');
+const NewIntervention = lazyNamed(() => import('./pages/interventions/NewIntervention'), 'NewIntervention');
+const InterventionDetails = lazyNamed(() => import('./pages/interventions/InterventionDetails'), 'InterventionDetails');
+const EditIntervention = lazyNamed(() => import('./pages/interventions/EditIntervention'), 'EditIntervention');
+const ActionDetails = lazyNamed(() => import('./pages/actions/ActionDetails'), 'ActionDetails');
+const ActionReports = lazyNamed(() => import('./pages/reports/ActionReports'), 'ActionReports');
+const ReportTemplates = lazyNamed(() => import('./pages/reports/ReportTemplates'), 'ReportTemplates');
+const Settings = lazyNamed(() => import('./pages/settings/Settings'), 'Settings');
+const Profile = lazyNamed(() => import('./pages/settings/Profile'), 'Profile');
+const Assignments = lazyNamed(() => import('./pages/settings/Assignments'), 'Assignments');
+const EditTemplate = lazyNamed(() => import('./pages/reports/EditTemplate'), 'EditTemplate');
+const GenerateReport = lazyNamed(() => import('./pages/reports/GenerateReport'), 'GenerateReport');
+const Import = lazyNamed(() => import('./pages/settings/Import'), 'Import');
+const Roles = lazyNamed(() => import('./pages/settings/Role'), 'Roles');
+const System = lazyNamed(() => import('./pages/settings/System'), 'System');
+const Security = lazyNamed(() => import('./pages/settings/Security'), 'Security');
+const Users = lazyNamed(() => import('./pages/settings/Users'), 'Users');
+const MyDashboard = lazyNamed(() => import('./pages/UserDashboard'), 'MyDashboard');
+const ProjectsPartners = lazyNamed(() => import('./pages/settings/ProjectsPartners'), 'ProjectsPartners');
+const Issue = lazyNamed(() => import('./pages/issues'), 'Issue');
+const Help = lazy(() => import('./pages/Help'));
+const TargetTracking = lazy(() => import('./pages/targets/TargetTracking'));
+const ActionDashboard = lazyNamed(() => import('./pages/actions/ActionDashboard'), 'ActionDashboard');
+const Jobs = lazyNamed(() => import('./pages/jobs'), 'Jobs');
+const UserActivity = lazy(() => import('./pages/admin/UserActivity'));
+const Reports = lazy(() => import('./pages/admin/Reports'));
+const IframePage = lazyNamed(() => import('./pages/IframePage'), 'IframePage');
+const CircuitBreakerTest = lazyNamed(() => import('./pages/CircuitBreakerTest'), 'CircuitBreakerTest');
+
+// Loading component
+const LoadingFallback = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+  </div>
+);
 
 export default function App() {
   const { user } = useAuth();
@@ -75,7 +84,8 @@ export default function App() {
             },
           }}
         />
-        <Routes>
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
           {/* Auth routes - no layout needed */}
           <Route 
             path="/login" 
@@ -356,7 +366,7 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <DashboardLayout>
-                  <PojectsPartners />
+                  <ProjectsPartners />
                 </DashboardLayout>
               </ProtectedRoute>
             }
@@ -494,6 +504,7 @@ export default function App() {
             element={<Navigate to="/" replace />} 
           />
         </Routes>
+        </Suspense>
       </Router>
     </TooltipProvider>
   );

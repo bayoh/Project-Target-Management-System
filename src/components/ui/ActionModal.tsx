@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Calendar, Building, FolderOpen, Users, Target, DollarSign, FileText, Clock, Loader2, AlertCircle } from 'lucide-react';
+import { X, Building, FolderOpen, Users, DollarSign, Loader2, AlertCircle } from 'lucide-react';
 import { Select } from './Select';
 import { Input } from './Input'
 import { useQuery } from '@tanstack/react-query';
@@ -11,8 +11,8 @@ import type { Action, User, Intervention, ProjectStatus } from '../../types/proj
 function isProjectStatus(value: string): value is ProjectStatus {
   return (
     value === 'not_started' ||
-    value === 'in_progress' ||
-    value === 'at_risk' ||
+    value === 'on_track' ||
+    value === 'off_track' ||
     value === 'completed'
   );
 }
@@ -88,7 +88,7 @@ export function ActionModal({
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  const initialFormState: Partial<Action> = {
+  const initialFormState: Partial<Action> = React.useMemo(() => ({
     code: '0',
     name: '',
     description: '',
@@ -103,10 +103,15 @@ export function ActionModal({
     budget: 0,
     associated_projects: [] as string[],
     implementing_partners: [] as string[]
-  };
+  }), []);
   
 
   const [formData, setFormData] = React.useState<Partial<Action>>(
+    action || initialFormState
+  );
+
+  // Store the initial form state when modal opens or action changes
+  const [initialFormStateRef, setInitialFormStateRef] = React.useState<Partial<Action>>(
     action || initialFormState
   );
 
@@ -115,23 +120,28 @@ export function ActionModal({
   // Enhanced useEffect for form data and local state management
   React.useEffect(() => {
     if (action) {
+      // Preserve original values exactly as they are (including null/undefined)
+      // This ensures accurate comparison for unsaved changes detection
       const actionData: Partial<Action> = {
-        code: action.code ?? '0',
+        code: action.code ?? undefined,
         name: action.name ?? '',
-        description: action.description ?? '',
+        description: action.description ?? null,
         intervention_id: action.intervention_id ?? '',
-        lead_id: action.lead_id ?? '',
+        lead_id: action.lead_id ?? null,
         status: (action.status ?? 'not_started') as ProjectStatus,
         start_date: action.start_date ?? null,
         end_date: action.end_date ?? null,
         actual_startDate: action.actual_startDate ?? null,
         actual_endDate: action.actual_endDate ?? null,
         supporting_staff: (action.supporting_staff ?? []) as string[],
-        budget: action.budget ?? 0,
+        budget: action.budget ?? null,
         associated_projects: (action.associated_projects ?? []) as string[],
         implementing_partners: (action.implementing_partners ?? []) as string[]
       };
       setFormData(actionData);
+      
+      // Store the initial state for comparison - use a deep copy to prevent reference issues
+      setInitialFormStateRef(JSON.parse(JSON.stringify(actionData)));
       
       // Update local state with selected values
       setLocalState(prev => ({
@@ -142,41 +152,155 @@ export function ActionModal({
       }));
     } else if (!isOpen) {
       setFormData(initialFormState);
+      setInitialFormStateRef(initialFormState);
       setLocalState({
         selectedAssociatedProjects: [],
         selectedImplementingPartners: [],
         isSubmitting: false,
         hasUnsavedChanges: false
       });
+    } else if (isOpen && !action) {
+      // When opening for new action, set initial state
+      // Reset form data to initial state
+      setFormData(initialFormState);
+      setInitialFormStateRef(initialFormState);
+      setLocalState(prev => ({
+        ...prev,
+        hasUnsavedChanges: false
+      }));
     }
-  }, [action, isOpen]);
+  }, [action, isOpen, initialFormState]);
 
   // Track form changes for unsaved changes indicator
+  // Only check for changes after the form has been initialized and modal is open
   React.useEffect(() => {
-    if (isOpen && !localState.hasUnsavedChanges) {
-      const hasChanges = JSON.stringify(formData) !== JSON.stringify(action || initialFormState);
-      if (hasChanges) {
-        setLocalState(prev => ({ ...prev, hasUnsavedChanges: true }));
-      }
+    if (!isOpen) {
+      return;
     }
-  }, [formData, action, isOpen, localState.hasUnsavedChanges]);
+
+    // Skip comparison if initialFormStateRef hasn't been initialized yet
+    // This prevents false positives when the form is first loading
+    if (!initialFormStateRef || Object.keys(initialFormStateRef).length === 0) {
+      return;
+    }
+
+    // Helper function to normalize values for comparison
+    const normalizeValue = (value: unknown): unknown => {
+      if (value === null || value === undefined || value === '') {
+        return null;
+      }
+      if (Array.isArray(value)) {
+        return value.length === 0 ? null : [...value].sort();
+      }
+      // Normalize dates - ensure consistent string format
+      if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+        return value.split('T')[0]; // Remove time portion if present
+      }
+      return value;
+    };
+
+    // Helper function to compare form data objects
+    const compareFormData = (a: Partial<Action>, b: Partial<Action>): boolean => {
+      const fieldsToCompare: (keyof Action)[] = [
+        'name',
+        'description',
+        'intervention_id',
+        'lead_id',
+        'status',
+        'start_date',
+        'end_date',
+        'actual_startDate',
+        'actual_endDate',
+        'supporting_staff',
+        'budget',
+        'associated_projects',
+        'implementing_partners'
+      ];
+
+      for (const field of fieldsToCompare) {
+        const aValue = normalizeValue(a[field]);
+        const bValue = normalizeValue(b[field]);
+        
+        if (JSON.stringify(aValue) !== JSON.stringify(bValue)) {
+          return false;
+        }
+      }
+
+      // For code, only compare if auto-generate is disabled OR if it's an edit (action exists)
+      // If auto-generate is enabled and it's a new action, ignore code changes
+      if (!autoGenerateCode || action) {
+        const aCode = normalizeValue(a.code);
+        const bCode = normalizeValue(b.code);
+        if (JSON.stringify(aCode) !== JSON.stringify(bCode)) {
+          return false;
+        }
+      }
+
+      return true;
+    };
+
+    const hasChanges = !compareFormData(formData, initialFormStateRef);
+    
+    if (hasChanges !== localState.hasUnsavedChanges) {
+      setLocalState(prev => ({ ...prev, hasUnsavedChanges: hasChanges }));
+    }
+  }, [formData, initialFormStateRef, isOpen, autoGenerateCode, action, localState.hasUnsavedChanges]);
 
   // Auto-generate action code when intervention changes (and auto-generation is enabled)
   React.useEffect(() => {
+    let isCancelled = false;
+    let abortController: AbortController | null = null;
+
     const generateCode = async () => {
-      try {
-        if (!autoGenerateCode) return;
-        const interventionId = formData.intervention_id;
-        if (!interventionId) {
-          // Clear code if no intervention selected
+      // Early return if auto-generate is disabled
+      if (!autoGenerateCode) {
+        return;
+      }
+
+      // Skip code generation when editing an existing action
+      // Only auto-generate for new actions
+      if (action) {
+        return;
+      }
+
+      const interventionId = formData.intervention_id;
+      
+      // Clear code if no intervention selected
+      if (!interventionId) {
+        if (!isCancelled) {
           setFormData(prev => ({ ...prev, code: undefined }));
-          return;
         }
+        return;
+      }
 
-        const selectedIntervention = interventions.find(i => i.id === interventionId);
-        if (!selectedIntervention) return;
+      // Find selected intervention
+      const selectedIntervention = interventions.find(i => i.id === interventionId);
+      
+      // Validate intervention exists and has a valid code
+      if (!selectedIntervention) {
+        return;
+      }
 
-        const interventionCodeStr = String(selectedIntervention.code);
+      // Validate intervention code is valid (not null, undefined, or empty)
+      const interventionCode = selectedIntervention.code;
+      if (interventionCode === null || interventionCode === undefined) {
+        console.warn('Intervention code is null or undefined, cannot generate action code');
+        return;
+      }
+
+      const interventionCodeStr = String(interventionCode).trim();
+      
+      // Validate intervention code is not empty after conversion
+      if (interventionCodeStr === '' || interventionCodeStr === 'null' || interventionCodeStr === 'undefined') {
+        console.warn('Invalid intervention code format, cannot generate action code');
+        return;
+      }
+
+      // Create abort controller for this request
+      abortController = new AbortController();
+
+      try {
+        // Query database for latest action code
         const { data: latest, error: latestError } = await supabase
           .from('actions')
           .select('id, code, created_at')
@@ -184,31 +308,218 @@ export function ActionModal({
           .order('created_at', { ascending: false })
           .limit(1);
 
-        let nextSeq = 1;
-        if (!latestError && latest && latest.length > 0) {
-          const lastCodeStr = String(latest[0]?.code ?? '');
-          if (lastCodeStr.startsWith(`${interventionCodeStr}.`)) {
-            const parts = lastCodeStr.split('.');
-            const seqStr = parts[parts.length - 1];
-            const seq = parseInt(seqStr, 10);
-            if (!Number.isNaN(seq)) {
-              nextSeq = seq + 1;
+        // Check if request was cancelled
+        if (isCancelled) {
+          return;
+        }
+
+        // Handle database errors
+        if (latestError) {
+          console.error('Error fetching latest action code:', latestError);
+          // Fallback to sequence 1 on error
+          if (!isCancelled) {
+            const fallbackCode = `${interventionCodeStr}.1`;
+            setFormData(prev => ({ ...prev, code: fallbackCode }));
+            // Update initialFormStateRef for new actions to prevent false unsaved changes
+            if (!action) {
+              setInitialFormStateRef(prev => ({ ...prev, code: fallbackCode }));
+            }
+          }
+          return;
+        }
+
+        // Validate query result
+        if (!latest || !Array.isArray(latest) || latest.length === 0) {
+          // No existing actions, start with sequence 1
+          if (!isCancelled) {
+            const generated = `${interventionCodeStr}.1`;
+            setFormData(prev => ({ ...prev, code: generated }));
+            // Update initialFormStateRef for new actions to prevent false unsaved changes
+            if (!action) {
+              setInitialFormStateRef(prev => ({ ...prev, code: generated }));
+            }
+          }
+          return;
+        }
+
+        const latestAction = latest[0];
+        if (!latestAction) {
+          // No action found, start with sequence 1
+          if (!isCancelled) {
+            const generated = `${interventionCodeStr}.1`;
+            setFormData(prev => ({ ...prev, code: generated }));
+            // Update initialFormStateRef for new actions to prevent false unsaved changes
+            if (!action) {
+              setInitialFormStateRef(prev => ({ ...prev, code: generated }));
+            }
+          }
+          return;
+        }
+
+        // Get and validate latest code
+        const latestCode = latestAction.code;
+        
+        // Handle null, undefined, or empty codes
+        if (!latestCode || latestCode === null || latestCode === undefined) {
+          if (!isCancelled) {
+            const generated = `${interventionCodeStr}.1`;
+            setFormData(prev => ({ ...prev, code: generated }));
+            // Update initialFormStateRef for new actions to prevent false unsaved changes
+            if (!action) {
+              setInitialFormStateRef(prev => ({ ...prev, code: generated }));
+            }
+          }
+          return;
+        }
+
+        const lastCodeStr = String(latestCode).trim();
+        
+        // Skip if code is empty or invalid
+        if (lastCodeStr === '' || lastCodeStr === 'null' || lastCodeStr === 'undefined') {
+          if (!isCancelled) {
+            const generated = `${interventionCodeStr}.1`;
+            setFormData(prev => ({ ...prev, code: generated }));
+            // Update initialFormStateRef for new actions to prevent false unsaved changes
+            if (!action) {
+              setInitialFormStateRef(prev => ({ ...prev, code: generated }));
+            }
+          }
+          return;
+        }
+
+        // Check if code follows expected pattern: {interventionCode}.{sequence}
+        const expectedPrefix = `${interventionCodeStr}.`;
+        if (!lastCodeStr.startsWith(expectedPrefix)) {
+          // Code doesn't match pattern, start fresh with sequence 1
+          if (!isCancelled) {
+            const generated = `${interventionCodeStr}.1`;
+            setFormData(prev => ({ ...prev, code: generated }));
+            // Update initialFormStateRef for new actions to prevent false unsaved changes
+            if (!action) {
+              setInitialFormStateRef(prev => ({ ...prev, code: generated }));
+            }
+          }
+          return;
+        }
+
+        // Parse sequence number from code
+        const parts = lastCodeStr.split('.');
+        if (parts.length < 2) {
+          // Invalid format, start fresh
+          if (!isCancelled) {
+            const generated = `${interventionCodeStr}.1`;
+            setFormData(prev => ({ ...prev, code: generated }));
+            // Update initialFormStateRef for new actions to prevent false unsaved changes
+            if (!action) {
+              setInitialFormStateRef(prev => ({ ...prev, code: generated }));
+            }
+          }
+          return;
+        }
+
+        const seqStr = parts[parts.length - 1];
+        
+        // Validate sequence string is not empty
+        if (!seqStr || seqStr.trim() === '') {
+          if (!isCancelled) {
+            const generated = `${interventionCodeStr}.1`;
+            setFormData(prev => ({ ...prev, code: generated }));
+            // Update initialFormStateRef for new actions to prevent false unsaved changes
+            if (!action) {
+              setInitialFormStateRef(prev => ({ ...prev, code: generated }));
+            }
+          }
+          return;
+        }
+
+        // Parse sequence as integer
+        const seq = parseInt(seqStr.trim(), 10);
+        
+        // Validate sequence is a valid positive integer
+        if (Number.isNaN(seq) || seq < 1 || !Number.isInteger(seq)) {
+          // Invalid sequence, start fresh
+          if (!isCancelled) {
+            const generated = `${interventionCodeStr}.1`;
+            setFormData(prev => ({ ...prev, code: generated }));
+            // Update initialFormStateRef for new actions to prevent false unsaved changes
+            if (!action) {
+              setInitialFormStateRef(prev => ({ ...prev, code: generated }));
+            }
+          }
+          return;
+        }
+
+        // Calculate next sequence (increment by 1)
+        const nextSeq = seq + 1;
+        
+        // Validate next sequence is still a valid positive integer
+        if (nextSeq < 1 || !Number.isInteger(nextSeq)) {
+          // Overflow or invalid, fallback to 1
+          console.warn('Sequence overflow detected, resetting to 1');
+          if (!isCancelled) {
+            const generated = `${interventionCodeStr}.1`;
+            setFormData(prev => ({ ...prev, code: generated }));
+            // Update initialFormStateRef for new actions to prevent false unsaved changes
+            if (!action) {
+              setInitialFormStateRef(prev => ({ ...prev, code: generated }));
+            }
+          }
+          return;
+        }
+
+        // Generate new code
+        const generated = `${interventionCodeStr}.${nextSeq}`;
+        
+        // Final validation: ensure generated code is not empty
+        if (!generated || generated.trim() === '') {
+          console.error('Generated code is empty, this should not happen');
+          return;
+        }
+
+        // Update form data only if not cancelled
+        if (!isCancelled) {
+          setFormData(prev => ({ ...prev, code: generated }));
+          // Update initialFormStateRef for new actions to prevent false unsaved changes
+          if (!action) {
+            setInitialFormStateRef(prev => ({ ...prev, code: generated }));
+          }
+        }
+      } catch (err) {
+        // Log error for debugging
+        console.error('Error generating action code:', err);
+        
+        // Fallback to sequence 1 on any error
+        if (!isCancelled && selectedIntervention) {
+          const interventionCode = selectedIntervention.code;
+          if (interventionCode !== null && interventionCode !== undefined) {
+            const interventionCodeStr = String(interventionCode).trim();
+            if (interventionCodeStr && interventionCodeStr !== 'null' && interventionCodeStr !== 'undefined') {
+              const fallbackCode = `${interventionCodeStr}.1`;
+              setFormData(prev => ({ ...prev, code: fallbackCode }));
+              // Update initialFormStateRef for new actions to prevent false unsaved changes
+              if (!action) {
+                setInitialFormStateRef(prev => ({ ...prev, code: fallbackCode }));
+              }
             }
           }
         }
-
-        const generated = `${interventionCodeStr}.${nextSeq}`;
-        setFormData(prev => ({ ...prev, code: generated }));
-      } catch (err) {
-        const selectedIntervention = interventions.find(i => i.id === formData.intervention_id);
-        if (autoGenerateCode && selectedIntervention) {
-          setFormData(prev => ({ ...prev, code: `${String(selectedIntervention.code)}.1` }));
-        }
+      } finally {
+        // Cleanup abort controller
+        abortController = null;
       }
     };
 
+    // Execute code generation
     generateCode();
-  }, [formData.intervention_id, autoGenerateCode, interventions]);
+
+    // Cleanup function to cancel in-flight requests
+    return () => {
+      isCancelled = true;
+      if (abortController) {
+        abortController.abort();
+      }
+    };
+  }, [formData.intervention_id, autoGenerateCode, interventions, action]);
 
   // Enhanced handlers with local state management
   const handleClose = () => {
@@ -358,7 +669,7 @@ export function ActionModal({
                           }
                           
                           // Validate format: digits, periods, and common symbols
-                          const numericRegex = /^[\d\.\-_]+$/;
+                          const numericRegex = /^[\d.\-_]+$/;
                           
                           if (numericRegex.test(value)) {
                             // Valid float format, store as string
@@ -406,8 +717,8 @@ export function ActionModal({
                         <Select
                           options={[
                               { value: 'not_started', label: 'Not Started' },
-                              { value: 'at_risk', label: 'On Going/Off Track' },
-                              { value: 'in_progress', label: 'On Going/On Track' },
+                              { value: 'off_track', label: 'On Going/Off Track' },
+                              { value: 'on_track', label: 'On Going/On Track' },
                               { value: 'completed', label: 'Completed' }
                             ]}
                           value={formData.status as string}

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { queryKeys } from '../lib/queryKeys';
 import { toast } from 'react-hot-toast';
 import { useActivityTracking } from './useActivityTracking';
+import { handleMutationError, logError } from '../lib/errorHandler';
 
 export interface SystemSettings {
   id: string;
@@ -113,7 +114,8 @@ export function useUpdateSystemSettings() {
       if (context?.previousSettings) {
         queryClient.setQueryData(queryKeys.systemSettings.settings(), context.previousSettings);
       }
-      toast.error(`Failed to update settings: ${error.message}`);
+      handleMutationError(error);
+      logError(error, 'useUpdateSystemSettings');
     },
     onSuccess: (data) => {
       // Invalidate and refetch
@@ -163,7 +165,8 @@ export function useUploadLogo() {
       toast.success('Logo uploaded successfully!');
     },
     onError: (error) => {
-      toast.error(`Failed to upload logo: ${error.message}`);
+      handleMutationError(error);
+      logError(error, 'useUploadLogo');
     },
   });
 }
@@ -207,7 +210,8 @@ export function useDeleteLogo() {
       toast.success('Logo deleted successfully!');
     },
     onError: (error) => {
-      toast.error(`Failed to delete logo: ${error.message}`);
+      handleMutationError(error);
+      logError(error, 'useDeleteLogo');
     },
   });
 }
