@@ -125,11 +125,13 @@ export default defineConfig({
   // CSS configuration
   css: {
     devSourcemap: true,
-    preprocessorOptions: {
-      scss: {
-        additionalData: `@import "@/styles/variables.scss";`,
-      },
-    },
+    // Removed SCSS preprocessor options since project uses TailwindCSS
+    // If SCSS is needed in the future, uncomment and configure:
+    // preprocessorOptions: {
+    //   scss: {
+    //     additionalData: `@import "@/styles/variables.scss";`,
+    //   },
+    // },
   },
   
   // Define global constants

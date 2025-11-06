@@ -1,4 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
+import { handleMutationError } from './errorHandler';
 
 // Create a client with optimized settings for our application
 export const queryClient = new QueryClient({
@@ -22,8 +23,7 @@ export const queryClient = new QueryClient({
       retry: 1,
       // Show error notifications by default
       onError: (error) => {
-        console.error('Mutation error:', error);
-        // TODO: Add toast notification here
+        handleMutationError(error);
       },
     },
   },

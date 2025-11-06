@@ -328,7 +328,7 @@ export const useLogActivity = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.reports.all });
     },
     onError: (error) => {
-      console.error('Failed to log activity:', error);
+      logError(error, 'useLogActivity');
     }
   });
 };
@@ -344,7 +344,7 @@ export const useStartSession = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.activities.currentSession() });
     },
     onError: (error) => {
-      console.error('Failed to start session:', error);
+      logError(error, 'useStartSession');
     }
   });
 };
@@ -361,7 +361,7 @@ export const useEndSession = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.activities.metrics() });
     },
     onError: (error) => {
-      console.error('Failed to end session:', error);
+      logError(error, 'useEndSession');
     }
   });
 };
@@ -377,7 +377,7 @@ export const useFlushActivities = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.reports.all });
     },
     onError: (error) => {
-      console.error('Failed to flush activities:', error);
+      logError(error, 'useFlushActivities');
     }
   });
 };
