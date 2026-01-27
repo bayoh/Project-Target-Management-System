@@ -77,34 +77,30 @@ export const userApi = {
 
   // Create new user
   async createUser(email: string, password: string, userData: UserUpdateData) {
-    // First create the auth user
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true, // Automatically confirm the email
-      user_metadata: {
-        full_name: userData.full_name,
-        role: userData.role,
-        status: userData.status
+    const { data, error } = await supabase.functions.invoke('manage-users', {
+      body: {
+        action: 'create',
+        email,
+        password,
+        userData: {
+          full_name: userData.full_name,
+          role: userData.role,
+          status: userData.status
+        }
       }
     });
 
-    if (authError) throw authError;
-    if (!authData.user) throw new Error('Failed to create user');
+    // Check for errors in the response data first
+    if (data?.error) {
+      throw new Error(data.error);
+    }
 
-    // Then create the user profile
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert([{
-        id: authData.user.id,
-        ...userData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }]);
+    // Handle FunctionInvokeError (network errors, etc.)
+    if (error) {
+      throw new Error(error.message || 'Failed to create user');
+    }
 
-    if (profileError) throw profileError;
-
-    return authData.user;
+    return data.user;
   },
 
   // Update user role
@@ -188,6 +184,50 @@ export const userApi = {
       .order('email');
 
     if (error) throw error;
+    return data;
+  },
+
+  // Delete user
+  async deleteUser(userId: string) {
+    const { data, error } = await supabase.functions.invoke('manage-users', {
+      body: {
+        action: 'delete',
+        userId
+      }
+    });
+
+    // Check for errors in the response data first
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+
+    // Handle FunctionInvokeError (network errors, etc.)
+    if (error) {
+      throw new Error(error.message || 'Failed to delete user');
+    }
+
+    return data;
+  },
+
+  // Reset user password
+  async resetPassword(userId: string) {
+    const { data, error } = await supabase.functions.invoke('manage-users', {
+      body: {
+        action: 'reset_password',
+        userId
+      }
+    });
+
+    // Check for errors in the response data first
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+
+    // Handle FunctionInvokeError (network errors, etc.)
+    if (error) {
+      throw new Error(error.message || 'Failed to reset password');
+    }
+
     return data;
   }
 };

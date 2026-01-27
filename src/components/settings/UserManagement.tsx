@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Plus, Search, Filter, Edit2, Trash2, AlertTriangle, DatabaseBackup } from 'lucide-react';
+import { Plus, Search, Filter, Edit2, Trash2, AlertTriangle, DatabaseBackup, Key } from 'lucide-react';
 import { UserForm } from './UserForm';
 import { ConfirmationDialog } from '../ui/ConfirmationDialog';
 import { userApi } from '../../lib/api';
@@ -27,6 +27,8 @@ export function UserManagement() {
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [showResetPasswordConfirm, setShowResetPasswordConfirm] = useState<string | null>(null);
+  const [resetPasswordLink, setResetPasswordLink] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -49,14 +51,14 @@ export function UserManagement() {
     ),
     onSuccess: async (data, userData) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.users() });
-      
+
       // Track user creation
       await trackCreate('user', data.id, {
         email: userData.email,
         full_name: userData.full_name,
         role: userData.role
       });
-      
+
       setShowUserForm(false);
       setEditingUser(null);
     },
@@ -70,14 +72,14 @@ export function UserManagement() {
   const updateUserMutation = useMutation({
     mutationFn: async (userData: Partial<User>) => {
       if (!editingUser) throw new Error('No user being edited');
-      
+
       // Update profile data
       await userApi.updateProfile(editingUser.id, {
         full_name: userData.full_name,
         role: userData.role,
         status: userData.status
       });
-      
+
       // Prepare auth update data
       const authUpdateData: any = {
         email: userData.email,
@@ -86,18 +88,26 @@ export function UserManagement() {
           status: userData.status
         }
       };
-      
+
       // Include password if provided (not empty)
       if (userData.password && userData.password.trim() !== '') {
         authUpdateData.password = userData.password;
       }
-      
-      // Update auth user data
-      await supabase.auth.admin.updateUserById(editingUser.id, authUpdateData);
+
+      // Update auth user data via Edge Function
+      const { error: edgeError } = await supabase.functions.invoke('manage-users', {
+        body: {
+          action: 'update_auth',
+          userId: editingUser.id,
+          authUpdateData
+        }
+      });
+
+      if (edgeError) throw edgeError;
     },
     onSuccess: async (data, userData) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.users() });
-      
+
       // Track user update
       if (editingUser) {
         await trackUpdate('user', editingUser.id, {
@@ -107,7 +117,7 @@ export function UserManagement() {
           status: userData.status
         });
       }
-      
+
       setShowUserForm(false);
       setEditingUser(null);
     },
@@ -128,18 +138,16 @@ export function UserManagement() {
   // User deletion mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      return await executeQuery(
-        () => supabase.from('profiles').update({ status: 'inactive' }).eq('id', userId)
-      );
+      return await userApi.deleteUser(userId);
     },
     onSuccess: async (data, userId) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.users() });
-      
-      // Track user deletion (status change to inactive)
+
+      // Track user deletion
       await trackDelete('user', userId, {
-        action: 'deactivated'
+        action: 'deleted'
       });
-      
+
       setShowDeleteConfirm(null);
     },
     onError: (err: any) => {
@@ -151,16 +159,40 @@ export function UserManagement() {
     await deleteUserMutation.mutateAsync(userId);
   };
 
+  // Password reset mutation
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return await userApi.resetPassword(userId);
+    },
+    onSuccess: async (data, userId) => {
+      // Show the reset link to the admin
+      setResetPasswordLink(data.resetLink);
+      setShowResetPasswordConfirm(null);
+
+      // Track password reset
+      await trackUpdate('user', userId, {
+        action: 'password_reset'
+      });
+    },
+    onError: (err: any) => {
+      console.error('Error resetting password:', err);
+    },
+  });
+
+  const handleResetPassword = async (userId: string) => {
+    await resetPasswordMutation.mutateAsync(userId);
+  };
+
   const formatRole = (role: string | null) => {
     if (!role) return 'Unknown';
-    return role.split('_').map(word => 
+    return role.split('_').map(word =>
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
   };
 
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
-      const matchesSearch = 
+      const matchesSearch =
         user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesRole = roleFilter === 'all' || user.role === roleFilter;
@@ -268,11 +300,10 @@ export function UserManagement() {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    user.status === 'active'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
+                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.status === 'active'
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800'
+                    }`}>
                     {user.status}
                   </span>
                 </td>
@@ -287,12 +318,21 @@ export function UserManagement() {
                         setShowUserForm(true);
                       }}
                       className="text-blue-600 hover:text-blue-900"
+                      title="Edit user"
                     >
                       <Edit2 className="h-4 w-4" />
                     </button>
                     <button
+                      onClick={() => setShowResetPasswordConfirm(user.id)}
+                      className="text-green-600 hover:text-green-900"
+                      title="Reset password"
+                    >
+                      <Key className="h-4 w-4" />
+                    </button>
+                    <button
                       onClick={() => setShowDeleteConfirm(user.id)}
                       className="text-red-600 hover:text-red-900"
+                      title="Delete user"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -330,11 +370,53 @@ export function UserManagement() {
         isOpen={Boolean(showDeleteConfirm)}
         onClose={() => setShowDeleteConfirm(null)}
         onConfirm={() => showDeleteConfirm && handleDeleteUser(showDeleteConfirm)}
-        title="Deactivate User"
-        message="Are you sure you want to deactivate this user? They will no longer be able to access the system."
-        confirmLabel="Deactivate"
+        title="Delete User"
+        message="Are you sure you want to permanently delete this user? This action cannot be undone and will remove all their data."
+        confirmLabel="Delete"
         type="danger"
       />
+
+      {/* Reset Password Confirmation */}
+      <ConfirmationDialog
+        isOpen={Boolean(showResetPasswordConfirm)}
+        onClose={() => setShowResetPasswordConfirm(null)}
+        onConfirm={() => showResetPasswordConfirm && handleResetPassword(showResetPasswordConfirm)}
+        title="Reset Password"
+        message="Are you sure you want to generate a password reset link for this user?"
+        confirmLabel="Generate Reset Link"
+        type="warning"
+      />
+
+      {/* Reset Link Display */}
+      {resetPasswordLink && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Password Reset Link Generated</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Share this link with the user. They can use it to set a new password:
+            </p>
+            <div className="bg-gray-50 p-3 rounded border border-gray-200 mb-4">
+              <code className="text-sm break-all">{resetPasswordLink}</code>
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(resetPasswordLink);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Copy Link
+              </button>
+              <button
+                onClick={() => setResetPasswordLink(null)}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
