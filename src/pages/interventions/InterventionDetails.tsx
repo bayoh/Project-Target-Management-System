@@ -6,14 +6,16 @@ import { supabase } from '../../lib/supabase';
 import { queryKeys } from '../../lib/queryKeys';
 import { executeQuery } from '../../lib/queries';
 import type { Intervention, User } from '../../types/project';
-import { ChevronLeft, Upload, X, Pencil } from 'lucide-react';
+import { ChevronLeft, Upload, X, Pencil, Trash2 } from 'lucide-react';
 import { ActionList } from '../../components/actions/ActionList';
 import { DocumentList} from '../../components/documents';
-// removed unused: import { format } from 'date-fns';
 import { projectApi } from '../../lib/api';
 import { useActivityTracking } from '../../hooks/useActivityTracking';
 import { CommentsSection } from '../../components/comments/CommentsSection';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import { ConfirmationDialog } from '../../components/ui/ConfirmationDialog';
+import { useAuth } from '../../lib/auth';
+import toast from 'react-hot-toast';
 
 interface Comment {
   id: string;
@@ -39,12 +41,15 @@ export function InterventionDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user: sessionUser } = useAuth();
+  const isSuperAdmin = sessionUser?.user_metadata?.role === 'super_admin';
   const [newComment, setNewComment] = useState('');
   const [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Get current user
   const { data: user } = useQuery({
@@ -147,6 +152,26 @@ export function InterventionDetails() {
   useEffect(() => {
     trackPageView('Intervention Details');
   }, [id, trackPageView]);
+
+  // Delete intervention mutation
+  const deleteInterventionMutation = useMutation({
+    mutationFn: () => projectApi.deleteIntervention(id!),
+    onSuccess: () => {
+      trackDelete('intervention', id!, { name: intervention?.name });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.interventions() });
+      toast.success('Intervention deleted successfully');
+      navigate('/interventions');
+    },
+    onError: (err: any) => {
+      console.error('Error deleting intervention:', err);
+      toast.error('Failed to delete intervention');
+    },
+  });
+
+  const handleDelete = async () => {
+    await deleteInterventionMutation.mutateAsync();
+  };
+
 
   // Calculate completion percentage
   const calculateProgress = () => {
@@ -376,13 +401,22 @@ export function InterventionDetails() {
               )}
             </div>
           </div>
-         { (user?.user_metadata?.role === 'super_admin' || user?.id === intervention.lead_id) && <button
+          { (user?.user_metadata?.role === 'super_admin' || user?.id === intervention.lead_id) && <button
             onClick={() => navigate(`/interventions/${id}/edit`)}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
           >
             <Pencil className="h-4 w-4 mr-2" />
             Edit
           </button>}
+          {isSuperAdmin && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </button>
+          )}
         </div>
 
         {/* Overview */}
@@ -608,6 +642,15 @@ export function InterventionDetails() {
             </div>
           </div>
         )}
+      <ConfirmationDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDelete}
+        title="Delete Intervention"
+        message="Are you sure you want to delete this intervention? This will permanently remove all associated actions, documents, and data. This action cannot be undone."
+        confirmLabel="Delete"
+        type="danger"
+      />
     </div>
   );
 }
