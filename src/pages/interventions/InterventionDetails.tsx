@@ -8,7 +8,7 @@ import { executeQuery } from '../../lib/queries';
 import type { Intervention, User } from '../../types/project';
 import { ChevronLeft, Upload, X, Pencil, Trash2 } from 'lucide-react';
 import { ActionList } from '../../components/actions/ActionList';
-import { DocumentList} from '../../components/documents';
+import { DocumentList } from '../../components/documents';
 import { projectApi } from '../../lib/api';
 import { useActivityTracking } from '../../hooks/useActivityTracking';
 import { CommentsSection } from '../../components/comments/CommentsSection';
@@ -239,7 +239,7 @@ export function InterventionDetails() {
         // Sanitize filename by replacing spaces and special characters
         const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
         const fileName = `${id}/${crypto.randomUUID()}-${sanitizedName}`;
-        
+
         // Upload to storage
         const { error: uploadError } = await supabase.storage
           .from('intervention-documents')
@@ -275,7 +275,7 @@ export function InterventionDetails() {
 
   const handleFileUpload = async () => {
     if (!uploadingFiles.length || !intervention) return;
-    
+
     setUploading(true);
     try {
       await uploadFilesMutation.mutateAsync(uploadingFiles);
@@ -381,27 +381,28 @@ export function InterventionDetails() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
-            <button
-              onClick={() => navigate(-1)}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-            >
-              <ChevronLeft className="h-4 w-4 mr-2" />
-              Back
-            </button>
-            <div>
-              
-                <h1 className="col-start-2 col-start-9 text-xl whitespace-pre-wrap line-clamp-2 hover:line-clamp-none transition-all duration-200 font-semi-bold text-gray-900 truncate max-w-2xl">{intervention.name}</h1>
-           
-              {intervention.pathway && (
-                <p className="mt-1 text-sm text-gray-500">{intervention.pathway.name}</p>
-              )}
-            </div>
+    <div className="max-w-7xl mx-auto space-y-6 px-4 pt-10 pb-4 sm:px-6 lg:px-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
+          <button
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+          >
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Back
+          </button>
+          <div>
+
+            <h1 className="col-start-2 col-start-9 text-xl whitespace-pre-wrap line-clamp-2 hover:line-clamp-none transition-all duration-200 font-semi-bold text-gray-900 truncate max-w-2xl">{intervention.name}</h1>
+
+            {intervention.pathway && (
+              <p className="mt-1 text-sm text-gray-500">{intervention.pathway.name}</p>
+            )}
           </div>
-          { (user?.user_metadata?.role === 'super_admin' || user?.id === intervention.lead_id) && <button
+        </div>
+        <div className="flex items-center gap-2">
+          {(user?.user_metadata?.role === 'super_admin' || user?.id === intervention.lead_id) && <button
             onClick={() => navigate(`/interventions/${id}/edit`)}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
           >
@@ -418,230 +419,231 @@ export function InterventionDetails() {
             </button>
           )}
         </div>
+      </div>
 
-        {/* Overview */}
-        <div className="bg-white shadow-sm rounded-lg p-4 sm:p-6">
-          {/* Progress Bar */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-gray-500">Overall Progress</h3>
-              <span className="text-sm font-medium text-gray-900">{calculateProgress()}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2.5">
-              <div
-                className={`h-2.5 rounded-full ${calculateProgress() === 100 ? 'bg-green-600' : 'bg-blue-600'}`}
-                style={{ width: `${calculateProgress()}%` }}
-              ></div>
-            </div>
+      {/* Overview */}
+      <div className="bg-white shadow-sm rounded-lg p-4 sm:p-6">
+        {/* Progress Bar */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-500">Overall Progress</h3>
+            <span className="text-sm font-medium text-gray-900">{calculateProgress()}%</span>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Intervention #</h3>
-              <p className="mt-1 text-sm text-gray-900">{intervention.code}</p>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Status</h3>
-              <StatusBadge status={intervention.status} />
-            </div>
-
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Timeline</h3>
-              <p className="mt-1 text-sm text-gray-900">
-                {intervention.start_date && (
-                  <span>{new Date(intervention.start_date).toLocaleDateString()}</span>
-                )}
-                {intervention.end_date && (
-                  <>
-                    <span className="mx-2">-</span>
-                    <span>{new Date(intervention.end_date).toLocaleDateString()}</span>
-                  </>
-                )}
-              </p>
-            </div>
-
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Budget</h3>
-              <p className="mt-1 text-sm text-gray-900">
-                {intervention.actions?.reduce((total: number, action: any) => total + (action.budget || 0), 0)
-                  ? new Intl.NumberFormat('en-US', {
-                      style: 'currency',
-                      currency: 'USD'
-                    }).format(intervention.actions.reduce((total: number, action: any) => total + (action.budget || 0), 0))
-                  : 'Not set'}
-              </p>
-            </div>
-
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Lead</h3>
-              <p className="mt-1 text-sm text-gray-900">
-                {intervention.lead?.full_name || 'Unassigned'}
-              </p>
-            </div>
-          </div>
-
-          {intervention.description && (
-            <div className="mt-6">
-              <h3 className="text-sm font-medium text-gray-500">Description</h3>
-              <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap line-clamp-4 hover:line-clamp-none transition-all duration-200">{intervention.description}</p>
-            </div>
-          )}
-        </div>
-
-         {/* Actions */}
-        <ActionList
-          actions={intervention.actions || []}
-          interventionId={intervention.id}
-          onActionUpdate={() => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.interventions.detail(id!) });
-            queryClient.invalidateQueries({ queryKey: ['intervention-documents', id] });
-            queryClient.invalidateQueries({ queryKey: ['intervention-comments', id] });
-          }}
-          users={users}
-          showEdit={(user?.user_metadata?.role === 'super_admin' || user?.id === intervention.lead_id)}
-        />
-
-        {/* Documents */}
-        <div className="bg-white shadow-sm rounded-lg p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 space-y-3 sm:space-y-0">
-            <h2 className="text-lg font-medium text-gray-900">Documents</h2>
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Files
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            <DocumentList
-              documents={documents}
-              onDelete={(documentId) => {
-                const docToDelete = documents.find(doc => doc.id === documentId);
-                if (docToDelete) {
-                  handleDeleteDocument(documentId, docToDelete.url, docToDelete.name);
-                }
-              }}
-            />
+          <div className="w-full bg-gray-200 rounded-full h-2.5">
+            <div
+              className={`h-2.5 rounded-full ${calculateProgress() === 100 ? 'bg-green-600' : 'bg-blue-600'}`}
+              style={{ width: `${calculateProgress()}%` }}
+            ></div>
           </div>
         </div>
 
-        {/* Comments */}
-        <CommentsSection
-          title="Comments"
-          comments={comments}
-          value={newComment}
-          onChange={setNewComment}
-          onSubmit={handleCommentSubmit}
-          submitting={submitting}
-          currentUserId={user?.id}
-          contentCreatorId={intervention?.created_by}
-          onDelete={async (commentId) => {
-            // Only allow delete if user is authorized; server-side RLS should also enforce
-            await supabase
-              .from('intervention_comments')
-              .delete()
-              .eq('id', commentId);
-            
-            // Track the deletion
-            await trackDelete('comment', commentId, {
-              intervention_id: id,
-              entity_type: 'intervention'
-            });
-            
-            queryClient.invalidateQueries({ queryKey: ['intervention-comments', id] });
-          }}
-        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div>
+            <h3 className="text-sm font-medium text-gray-500">Intervention #</h3>
+            <p className="mt-1 text-sm text-gray-900">{intervention.code}</p>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-500">Status</h3>
+            <StatusBadge status={intervention.status} />
+          </div>
 
-       
+          <div>
+            <h3 className="text-sm font-medium text-gray-500">Timeline</h3>
+            <p className="mt-1 text-sm text-gray-900">
+              {intervention.start_date && (
+                <span>{new Date(intervention.start_date).toLocaleDateString()}</span>
+              )}
+              {intervention.end_date && (
+                <>
+                  <span className="mx-2">-</span>
+                  <span>{new Date(intervention.end_date).toLocaleDateString()}</span>
+                </>
+              )}
+            </p>
+          </div>
 
-        {/* Upload Modal */}
-        {showUploadModal && (
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-2 sm:p-4 z-50">
-            <div className="bg-white rounded-lg p-4 sm:p-6 max-w-lg w-full mx-2 sm:mx-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 space-y-3 sm:space-y-0">
-                <h3 className="text-lg font-medium text-gray-900">Upload Documents</h3>
+          <div>
+            <h3 className="text-sm font-medium text-gray-500">Budget</h3>
+            <p className="mt-1 text-sm text-gray-900">
+              {intervention.actions?.reduce((total: number, action: any) => total + (action.budget || 0), 0)
+                ? new Intl.NumberFormat('en-US', {
+                  style: 'currency',
+                  currency: 'USD'
+                }).format(intervention.actions.reduce((total: number, action: any) => total + (action.budget || 0), 0))
+                : 'Not set'}
+            </p>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-medium text-gray-500">Lead</h3>
+            <p className="mt-1 text-sm text-gray-900">
+              {intervention.lead?.full_name || 'Unassigned'}
+            </p>
+          </div>
+        </div>
+
+        {intervention.description && (
+          <div className="mt-6">
+            <h3 className="text-sm font-medium text-gray-500">Description</h3>
+            <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap line-clamp-4 hover:line-clamp-none transition-all duration-200">{intervention.description}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Actions */}
+      <ActionList
+        actions={intervention.actions || []}
+        interventionId={intervention.id}
+        onActionUpdate={() => {
+          queryClient.invalidateQueries({ queryKey: queryKeys.interventions.detail(id!) });
+          queryClient.invalidateQueries({ queryKey: ['intervention-documents', id] });
+          queryClient.invalidateQueries({ queryKey: ['intervention-comments', id] });
+        }}
+        users={users}
+        showEdit={(user?.user_metadata?.role === 'super_admin' || user?.id === intervention.lead_id)}
+      />
+
+      {/* Documents */}
+      <div className="bg-white shadow-sm rounded-lg p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 space-y-3 sm:space-y-0">
+          <h2 className="text-lg font-medium text-gray-900">Documents</h2>
+          <button
+            onClick={() => setShowUploadModal(true)}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Files
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <DocumentList
+            documents={documents}
+            onDelete={(documentId) => {
+              const docToDelete = documents.find(doc => doc.id === documentId);
+              if (docToDelete) {
+                handleDeleteDocument(documentId, docToDelete.url, docToDelete.name);
+              }
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Comments */}
+      <CommentsSection
+        title="Comments"
+        comments={comments}
+        value={newComment}
+        onChange={setNewComment}
+        onSubmit={handleCommentSubmit}
+        submitting={submitting}
+        currentUserId={user?.id}
+        contentCreatorId={intervention?.created_by}
+        onDelete={async (commentId) => {
+          // Only allow delete if user is authorized; server-side RLS should also enforce
+          await supabase
+            .from('intervention_comments')
+            .delete()
+            .eq('id', commentId);
+
+          // Track the deletion
+          await trackDelete('comment', commentId, {
+            intervention_id: id,
+            entity_type: 'intervention'
+          });
+
+          queryClient.invalidateQueries({ queryKey: ['intervention-comments', id] });
+        }}
+      />
+
+
+
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-lg w-full mx-2 sm:mx-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 space-y-3 sm:space-y-0">
+              <h3 className="text-lg font-medium text-gray-900">Upload Documents</h3>
+              <button
+                onClick={() => {
+                  setShowUploadModal(false);
+                  setUploadingFiles([]);
+                }}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                <div className="space-y-1 text-center">
+                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                  <div className="flex text-sm text-gray-600">
+                    <label
+                      htmlFor="file-upload"
+                      className="relative cursor-pointer rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
+                    >
+                      <span>Upload files</span>
+                      <input
+                        id="file-upload"
+                        type="file"
+                        multiple
+                        className="sr-only"
+                        onChange={handleFileChange}
+                      />
+                    </label>
+                    <p className="pl-1">or drag and drop</p>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    PDF, DOC, DOCX, XLS, XLSX up to 10MB each
+                  </p>
+                </div>
+              </div>
+
+              {uploadingFiles.length > 0 && (
+                <div className="space-y-2">
+                  {uploadingFiles.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-2 bg-gray-50 rounded-md"
+                    >
+                      <span className="text-sm text-gray-600">{file.name}</span>
+                      <button
+                        onClick={() => removeUploadingFile(index)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-3">
                 <button
+                  type="button"
                   onClick={() => {
                     setShowUploadModal(false);
                     setUploadingFiles([]);
                   }}
-                  className="text-gray-400 hover:text-gray-500"
+                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                 >
-                  <X className="h-5 w-5" />
+                  Cancel
                 </button>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                  <div className="space-y-1 text-center">
-                    <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                    <div className="flex text-sm text-gray-600">
-                      <label
-                        htmlFor="file-upload"
-                        className="relative cursor-pointer rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
-                      >
-                        <span>Upload files</span>
-                        <input
-                          id="file-upload"
-                          type="file"
-                          multiple
-                          className="sr-only"
-                          onChange={handleFileChange}
-                        />
-                      </label>
-                      <p className="pl-1">or drag and drop</p>
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      PDF, DOC, DOCX, XLS, XLSX up to 10MB each
-                    </p>
-                  </div>
-                </div>
-
-                {uploadingFiles.length > 0 && (
-                  <div className="space-y-2">
-                    {uploadingFiles.map((file, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-2 bg-gray-50 rounded-md"
-                      >
-                        <span className="text-sm text-gray-600">{file.name}</span>
-                        <button
-                          onClick={() => removeUploadingFile(index)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <X className="h-5 w-5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowUploadModal(false);
-                      setUploadingFiles([]);
-                    }}
-                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleFileUpload}
-                    disabled={uploading || uploadingFiles.length === 0}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                  >
-                    {uploading ? 'Uploading...' : 'Upload'}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleFileUpload}
+                  disabled={uploading || uploadingFiles.length === 0}
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  {uploading ? 'Uploading...' : 'Upload'}
+                </button>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
       <ConfirmationDialog
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
